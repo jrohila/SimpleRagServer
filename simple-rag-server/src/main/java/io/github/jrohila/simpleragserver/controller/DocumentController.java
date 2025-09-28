@@ -2,7 +2,9 @@ package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.model.DocumentDto;
 import io.github.jrohila.simpleragserver.model.ChunkDto;
-import io.github.jrohila.simpleragserver.service.TextExtractionService;
+import io.github.jrohila.simpleragserver.service.PdfToXhtmlConversionService;
+import io.github.jrohila.simpleragserver.service.XhtmlStreamLineService;
+import io.github.jrohila.simpleragserver.service.XhtmlToChunkService;
 import io.github.jrohila.simpleragserver.repository.DocumentDAO;
 import io.github.jrohila.simpleragserver.repository.ChunkDAO;
 import io.github.jrohila.simpleragserver.dto.Chunk;
@@ -25,7 +27,11 @@ public class DocumentController {
     @Autowired
     private DocumentDAO documentDAO;
     @Autowired
-    private TextExtractionService textExtractionService;
+    private PdfToXhtmlConversionService pdfToXhtmlConversionService;
+    @Autowired
+    private XhtmlStreamLineService xhtmlStreamLineService;
+    @Autowired
+    private XhtmlToChunkService xhtmlToChunkService;
     @Autowired
     private ChunkDAO chunkDAO;
 
@@ -65,29 +71,19 @@ public class DocumentController {
         LOGGER.info(String.format("uploadDocument: saved document metadata id=%s name=%s size=%d",
             doc.getId(), doc.getOriginalFilename(), doc.getFileSize()));
 
-            // Extract chunks from the file
-            Chunk[] chunks = textExtractionService.extractParagraphs(
-                    file.getBytes(), TextExtractionService.ParagraphExtractionMode.PARAGRAPHS_FROM_XHTML);
-        LOGGER.info(String.format("uploadDocument: extracted chunks=%d",
-            chunks != null ? chunks.length : 0));
-
+            // Extract chunks using PDF to XHTML pipeline
+            String xhtml = pdfToXhtmlConversionService.parseToXhtml(file.getBytes());
+            String streamlined = xhtmlStreamLineService.streamlineParagraphs(xhtml);
+            List<ChunkDto> chunks = xhtmlToChunkService.parseChunks(streamlined);
+            LOGGER.info(String.format("uploadDocument: extracted chunks=%d", chunks.size()));
             int saved = 0;
-            int total = (chunks != null ? chunks.length : 0);
-            if (chunks != null) {
-                for (Chunk chunk : chunks) {
-                    ChunkDto chunkDto = new ChunkDto();
-                    chunkDto.setText(chunk.text);
-                    chunkDto.setType(chunk.type);
-                    chunkDto.setSectionTitle(chunk.sectionTitle);
-                    chunkDto.setPageNumber(chunk.pageNumber);
-                    chunkDto.setLanguage(chunk.language);
-                    chunkDto.setDocumentId(doc.getId());
-                    // Save chunkDto using ChunkDAO
-                    chunkDAO.create(chunkDto);
-                    saved++;
-                    if (saved == 1 || saved == total || saved % 10 == 0) { // log first, every 10th, and last for large docs
-                        LOGGER.info(String.format("uploadDocument: chunk progress %d/%d (docId=%s)", saved, total, doc.getId()));
-                    }
+            int total = chunks.size();
+            for (ChunkDto chunkDto : chunks) {
+                chunkDto.setDocumentId(doc.getId());
+                chunkDAO.create(chunkDto);
+                saved++;
+                if (saved == 1 || saved == total || saved % 10 == 0) {
+                    LOGGER.info(String.format("uploadDocument: chunk progress %d/%d (docId=%s)", saved, total, doc.getId()));
                 }
             }
             LOGGER.info(String.format("uploadDocument: saved chunks=%d/%d for document id=%s", saved, total, doc.getId()));
@@ -146,23 +142,16 @@ public class DocumentController {
         chunkDAO.deleteAllByDocumentId(id);
 
         // Extract and save new chunks
-        Chunk[] chunks = null;
         try {
-            chunks = textExtractionService.extractParagraphs(file.getBytes(), TextExtractionService.ParagraphExtractionMode.PARAGRAPHS_FROM_XHTML);
-        } catch (IOException ex) {
-            Logger.getLogger(DocumentController.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        if (chunks != null) {
-            for (Chunk chunk : chunks) {
-                ChunkDto chunkDto = new ChunkDto();
-                chunkDto.setText(chunk.text);
-                chunkDto.setType(chunk.type);
-                chunkDto.setSectionTitle(chunk.sectionTitle);
-                chunkDto.setPageNumber(chunk.pageNumber);
-                chunkDto.setLanguage(chunk.language);
+            String xhtml = pdfToXhtmlConversionService.parseToXhtml(file.getBytes());
+            String streamlined = xhtmlStreamLineService.streamlineParagraphs(xhtml);
+            List<ChunkDto> chunks = xhtmlToChunkService.parseChunks(streamlined);
+            for (ChunkDto chunkDto : chunks) {
                 chunkDto.setDocumentId(saved.getId());
                 chunkDAO.create(chunkDto);
             }
+        } catch (IOException ex) {
+            Logger.getLogger(DocumentController.class.getName()).log(Level.SEVERE, null, ex);
         }
         return ResponseEntity.ok(saved);
     }

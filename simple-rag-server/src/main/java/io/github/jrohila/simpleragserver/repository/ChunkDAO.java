@@ -63,8 +63,10 @@ public class ChunkDAO {
         SearchRequest request = SearchRequest.builder()
             .query(q)
             .topK(maxResults)
+            .filterExpression("usage == 'RAG'")
             // ensure we only retrieve chunks that have an associated documentId
             .build();
+                
         List<Document> docs = vectorStore.similaritySearch(request);
         List<ChunkDto> results = new ArrayList<>();
         for (Document doc : docs) {

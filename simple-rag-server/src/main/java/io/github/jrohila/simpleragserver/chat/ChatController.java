@@ -18,10 +18,12 @@ public class ChatController {
 
     // OpenAI-compatible chat completions endpoint
     @PostMapping(path = {"/v1/chat/completions", "/api/chat"}, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createCompletion(@RequestBody OpenAiChatRequest request) {
+    public ResponseEntity<?> createCompletion(@RequestBody OpenAiChatRequest request,
+                                             @RequestParam(value = "useRag", required = false) Boolean useRag) {
         if (request.getModel() == null || request.getModel().isBlank()) {
-            request.setModel("qwen2.5:1.5b-instruct");
+            request.setModel("tinyllama:1.1b");
         }
+        boolean rag = (useRag == null) ? true : useRag;
         if (request.isStream()) {
             // SSE style: each element serialized as JSON line; client terminates on finishReason=stop
             Flux<OpenAiChatStreamChunk> flux = chatService.chatStream(request);
@@ -29,7 +31,7 @@ public class ChatController {
                 .contentType(MediaType.TEXT_EVENT_STREAM)
                 .body(flux.map(chunk -> "data: " + toJson(chunk) + "\n\n"));
         }
-        return ResponseEntity.ok(chatService.chat(request));
+        return ResponseEntity.ok(chatService.chat(request, rag));
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

@@ -1,4 +1,6 @@
 package io.github.jrohila.simpleragserver.chat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -19,27 +21,68 @@ import java.util.UUID;
 
 @Service
 public class ChatService {
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final ChatModel chatModel;
+    private final io.github.jrohila.simpleragserver.repository.ChunkDAO chunkDAO;
 
-    public ChatService(ChatModel chatModel) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ChatService(ChatModel chatModel, io.github.jrohila.simpleragserver.repository.ChunkDAO chunkDAO) {
         this.chatModel = chatModel;
+        this.chunkDAO = chunkDAO;
     }
 
     public OpenAiChatResponse chat(OpenAiChatRequest request) {
+        return chat(request, true);
+    }
+
+    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag) {
         List<Message> springMessages = new ArrayList<>();
+        String userPrompt = null;
         if (request.getMessages() != null) {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
                 if (m.getRole() == null) continue;
                 switch (m.getRole()) {
                     case "system" -> springMessages.add(new SystemMessage(m.getContent()));
-                    case "user" -> springMessages.add(new UserMessage(m.getContent()));
+                    case "user" -> {
+                        springMessages.add(new UserMessage(m.getContent()));
+                        userPrompt = m.getContent();
+                    }
                     case "assistant" -> springMessages.add(new AssistantMessage(m.getContent()));
                     default -> springMessages.add(new UserMessage(m.getContent()));
                 }
             }
         }
+
+        // Search for relevant chunks using the prompt if useRag is true
+        String context = "";
+        if (useRag && userPrompt != null && !userPrompt.isBlank()) {
+            List<io.github.jrohila.simpleragserver.model.ChunkDto> chunks = chunkDAO.vectorSearch(userPrompt, 10);
+            if (chunks != null && !chunks.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (io.github.jrohila.simpleragserver.model.ChunkDto chunk : chunks) {
+                    if (chunk.getText() != null && !chunk.getText().isBlank()) {
+                        sb.append(chunk.getText()).append("\n");
+                    }
+                }
+                context = sb.toString();
+            }
+        }
+
+        // Add context as a system message if found
+        if (useRag && !context.isBlank()) {
+            springMessages.add(0, new SystemMessage("Use only the following context to answer:\n" + context));
+        } else if (useRag && context.isBlank()) {
+            log.info("[ChatService] No context found for prompt: '{}'. RAG enabled but no relevant chunks found.", userPrompt);
+        }
+
         Prompt prompt = new Prompt(springMessages);
+        if (useRag) {
+            log.info("[ChatService] Prompt sent to LLM:");
+            for (Message msg : springMessages) {
+                log.info("  [{}] {}", msg.getClass().getSimpleName(), msg.toString());
+            }
+        }
         ChatResponse resp = chatModel.call(prompt);
         String assistantContent = "";
         if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
@@ -63,6 +106,10 @@ public class ChatService {
                 }
             }
         }
+        if (useRag) {
+            log.info("[ChatService] LLM response:");
+            log.info(assistantContent);
+        }
 
         OpenAiChatResponse out = new OpenAiChatResponse();
         out.setId("chatcmpl-" + UUID.randomUUID());
@@ -71,15 +118,15 @@ public class ChatService {
         OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
         choice.setIndex(0);
         choice.setFinishReason("stop");
-    choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
+        choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
         out.setChoices(List.of(choice));
 
         // Basic usage estimation (placeholders; real token counting would require model-specific logic)
         OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
         int promptTokens = estimateTokens(request.getMessages());
-    List<OpenAiChatRequest.Message> single = new ArrayList<>();
-    single.add(new OpenAiChatRequest.Message("assistant", assistantContent));
-    int completionTokens = estimateTokens(single);
+        List<OpenAiChatRequest.Message> single = new ArrayList<>();
+        single.add(new OpenAiChatRequest.Message("assistant", assistantContent));
+        int completionTokens = estimateTokens(single);
         usage.setPromptTokens(promptTokens);
         usage.setCompletionTokens(completionTokens);
         usage.setTotalTokens(promptTokens + completionTokens);

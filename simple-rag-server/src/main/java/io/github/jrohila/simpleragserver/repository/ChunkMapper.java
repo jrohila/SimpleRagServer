@@ -9,20 +9,26 @@ public class ChunkMapper {
         var metadata = new java.util.HashMap<String, Object>();
         if (c.getType() != null) metadata.put("type", c.getType());
         if (c.getSectionTitle() != null) metadata.put("sectionTitle", c.getSectionTitle());
-    if (c.getPageNumber() != 0) metadata.put("pageNumber", c.getPageNumber());
+        if (c.getPageNumber() != 0) metadata.put("pageNumber", c.getPageNumber());
         if (c.getLanguage() != null) metadata.put("language", c.getLanguage());
         if (c.getCreated() != null) metadata.put("created", c.getCreated().toString());
         if (c.getModified() != null) metadata.put("modified", c.getModified().toString());
         if (c.getDocumentId() != null) metadata.put("documentId", c.getDocumentId());
+        metadata.put("usage", "RAG");
         // Note: vector goes separately via VectorStore API
         var id = c.getId() != null ? c.getId() : java.util.UUID.randomUUID().toString();
         // Ensure non-empty text for embedding
         String text;
-        if (c.getText() != null && !c.getText().isBlank()) {
-            text = c.getText();
+        String sectionTitle = c.getSectionTitle();
+        String chunkText = c.getText();
+        if (sectionTitle != null && !sectionTitle.isBlank() && chunkText != null && !chunkText.isBlank()) {
+            text = sectionTitle + " " + chunkText;
+        } else if (chunkText != null && !chunkText.isBlank()) {
+            text = chunkText;
+        } else if (sectionTitle != null && !sectionTitle.isBlank()) {
+            text = sectionTitle;
         } else {
             var parts = new java.util.ArrayList<String>();
-            if (c.getSectionTitle() != null && !c.getSectionTitle().isBlank()) parts.add(c.getSectionTitle());
             if (c.getType() != null && !c.getType().isBlank()) parts.add(c.getType());
             if (c.getLanguage() != null && !c.getLanguage().isBlank()) parts.add(c.getLanguage());
             if (c.getPageNumber() > 0) parts.add("page:" + c.getPageNumber());

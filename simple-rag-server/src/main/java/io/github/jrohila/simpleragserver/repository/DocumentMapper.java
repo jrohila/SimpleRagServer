@@ -6,19 +6,20 @@ import org.springframework.ai.document.Document;
 public class DocumentMapper {
     public static Document toDocument(DocumentDto d) {
         var metadata = new java.util.HashMap<String, Object>();
-        if (d.getFileId() != null) metadata.put("fileId", d.getFileId());
-        if (d.getCreatedTime() != null) metadata.put("createdTime", d.getCreatedTime());
-        if (d.getUpdatedTime() != null) metadata.put("updatedTime", d.getUpdatedTime());
-        if (d.getOriginalFilename() != null) metadata.put("originalFilename", d.getOriginalFilename());
-        if (d.getFileType() != null) metadata.put("fileType", d.getFileType());
-        if (d.getLanguage() != null) metadata.put("language", d.getLanguage());
-        // fileSize is primitive long; only include if > 0 to avoid noise
-        if (d.getFileSize() > 0) metadata.put("fileSize", d.getFileSize());
-        if (d.getUploader() != null) metadata.put("uploader", d.getUploader());
-        if (d.getDescription() != null) metadata.put("description", d.getDescription());
-        if (d.getTags() != null) metadata.put("tags", d.getTags());
-        if (d.getChecksum() != null) metadata.put("checksum", d.getChecksum());
-        if (d.getStatus() != null) metadata.put("status", d.getStatus());
+    if (d.getFileId() != null) metadata.put("fileId", d.getFileId());
+    if (d.getCreatedTime() != null) metadata.put("createdTime", d.getCreatedTime());
+    if (d.getUpdatedTime() != null) metadata.put("updatedTime", d.getUpdatedTime());
+    if (d.getOriginalFilename() != null) metadata.put("originalFilename", d.getOriginalFilename());
+    if (d.getFileType() != null) metadata.put("fileType", d.getFileType());
+    if (d.getLanguage() != null) metadata.put("language", d.getLanguage());
+    // fileSize is primitive long; only include if > 0 to avoid noise
+    if (d.getFileSize() > 0) metadata.put("fileSize", d.getFileSize());
+    if (d.getUploader() != null) metadata.put("uploader", d.getUploader());
+    if (d.getDescription() != null) metadata.put("description", d.getDescription());
+    if (d.getTags() != null) metadata.put("tags", d.getTags());
+    if (d.getChecksum() != null) metadata.put("checksum", d.getChecksum());
+    if (d.getStatus() != null) metadata.put("status", d.getStatus());
+    metadata.put("usage", "STORAGE");
         // Build non-empty content for embedding: prefer description, then tags, then filename and attributes, then a fallback
         String content = null;
         if (d.getDescription() != null && !d.getDescription().isBlank()) {
