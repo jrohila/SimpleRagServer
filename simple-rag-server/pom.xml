@@ -43,9 +43,9 @@
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
         <dependency>
-    		<groupId>org.springframework.ai</groupId>
-    		<artifactId>spring-ai-starter-vector-store-opensearch</artifactId>
-		</dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-opensearch</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-autoconfigure-model-ollama</artifactId>
@@ -73,6 +73,13 @@
             <groupId>org.springframework.restdocs</groupId>
             <artifactId>spring-restdocs-mockmvc</artifactId>
             <scope>test</scope>
+        </dependency>
+        
+        <!-- Open Search / START -->
+        <dependency>
+            <groupId>org.opensearch.client</groupId>
+            <artifactId>opensearch-java</artifactId>
+            <version>3.2.0</version>
         </dependency>
         
         <!-- Apache Tika for text extraction -->
@@ -106,6 +113,10 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
     <dependencyManagement>

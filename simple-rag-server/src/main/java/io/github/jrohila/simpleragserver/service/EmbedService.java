@@ -1,6 +1,7 @@
 package io.github.jrohila.simpleragserver.service;
 
 import java.util.Collections;
+import java.util.List;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.stereotype.Service;
@@ -35,5 +36,20 @@ public class EmbedService {
         // Call the embedding model
         EmbeddingResponse response = embeddingModel.call(request);
         return response.getResult().getOutput();
+    }
+
+    /**
+     * Gets the embedding vector for the given text as a List<Float>.
+     *
+     * @param text the input text
+     * @return embedding vector as List<Float>
+     */
+    public List<Float> getEmbeddingAsList(String text) {
+        float[] embeddingArray = getEmbedding(text);
+        List<Float> embeddingList = new java.util.ArrayList<>(embeddingArray.length);
+        for (float v : embeddingArray) {
+            embeddingList.add(v);
+        }
+        return embeddingList;
     }
 }
