@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.pipeline;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -19,12 +19,13 @@ import java.util.regex.Matcher;
 import org.apache.pdfbox.text.PDFTextStripper;
 
 @Service
-public class PdfToXhtmlConversionService {
+public class PdfToXhtmlConversion {
 
-    private static final Logger LOGGER = Logger.getLogger(PdfToXhtmlConversionService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PdfToXhtmlConversion.class.getName());
 
     /**
-     * Parse the input bytes as a document and return XHTML string produced by Apache Tika.
+     * Parse the input bytes as a document and return XHTML string produced by
+     * Apache Tika.
      */
     public String parseToXhtml(byte[] bytes) {
         try (PDDocument document = PDDocument.load(new ByteArrayInputStream(bytes))) {
@@ -41,7 +42,8 @@ public class PdfToXhtmlConversionService {
     }
 
     /**
-     * First iteration: log every heading (h1..h6) found in the XHTML to evaluate Tika's structure quality.
+     * First iteration: log every heading (h1..h6) found in the XHTML to
+     * evaluate Tika's structure quality.
      */
     public void logHeadings(byte[] bytes) {
         String xhtml = parseToXhtml(bytes);
@@ -55,7 +57,7 @@ public class PdfToXhtmlConversionService {
             LOGGER.info("PdfToXhtmlConversionService.logHeadings: no headings (h1..h6) found");
             return;
         }
-    LOGGER.info("PdfToXhtmlConversionService.logHeadings: headings found = " + headers.size());
+        LOGGER.info("PdfToXhtmlConversionService.logHeadings: headings found = " + headers.size());
         for (Element h : headers) {
             String type = h.tagName();
             String text = h.text();
@@ -64,21 +66,34 @@ public class PdfToXhtmlConversionService {
     }
 
     /**
-     * PDFTextStripper subclass that heuristically detects headings by font size and boldness.
+     * PDFTextStripper subclass that heuristically detects headings by font size
+     * and boldness.
      */
     private static class HeadingDetectingStripper extends PDFTextStripper {
-        private enum ListType { NONE, UNORDERED, ORDERED }
+
+        private enum ListType {
+            NONE, UNORDERED, ORDERED
+        }
+
         private static class Bullet {
+
             final ListType type;
             final String content;
-            Bullet(ListType type, String content) { this.type = type; this.content = content; }
+
+            Bullet(ListType type, String content) {
+                this.type = type;
+                this.content = content;
+            }
         }
+
         private static class TextChunk {
+
             String text;
             float fontSize;
             boolean bold;
             float y; // representative baseline Y of the line
             int page; // page number (1-based)
+
             TextChunk(String text, float fontSize, boolean bold, float y, int page) {
                 this.text = text;
                 this.fontSize = fontSize;
@@ -94,12 +109,14 @@ public class PdfToXhtmlConversionService {
         private boolean currentBold = false;
         private float currentY = Float.NaN; // track current line Y
         private int currentPageNo = 0; // track page number
-    // Patterns to detect bullet/ordered list markers
-    private static final Pattern UNORDERED_RE = Pattern.compile("^\\s*(?:[•◦·▪□■●○‣∙*]|[-–—])\\s+(.*\\S)\\s*$");
-    private static final Pattern ORDERED_RE = Pattern.compile(
-        "^\\s*(?:\\(?\\d+\\)|\\d+\\.|\\d+\\)|\\(?[a-zA-Z]\\)|[a-zA-Z]\\.|\\(?[ivxlcdmIVXLCDM]+\\)|[ivxlcdmIVXLCDM]+\\.)\\s+(.*\\S)\\s*$");
+        // Patterns to detect bullet/ordered list markers
+        private static final Pattern UNORDERED_RE = Pattern.compile("^\\s*(?:[•◦·▪□■●○‣∙*]|[-–—])\\s+(.*\\S)\\s*$");
+        private static final Pattern ORDERED_RE = Pattern.compile(
+                "^\\s*(?:\\(?\\d+\\)|\\d+\\.|\\d+\\)|\\(?[a-zA-Z]\\)|[a-zA-Z]\\.|\\(?[ivxlcdmIVXLCDM]+\\)|[ivxlcdmIVXLCDM]+\\.)\\s+(.*\\S)\\s*$");
 
-        HeadingDetectingStripper() throws IOException { super(); }
+        HeadingDetectingStripper() throws IOException {
+            super();
+        }
 
         @Override
         protected void startPage(org.apache.pdfbox.pdmodel.PDPage page) throws IOException {
@@ -109,7 +126,9 @@ public class PdfToXhtmlConversionService {
 
         @Override
         protected void writeString(String string, List<TextPosition> textPositions) throws IOException {
-            if (textPositions.isEmpty()) return;
+            if (textPositions.isEmpty()) {
+                return;
+            }
             float fontSize = textPositions.get(0).getFontSizeInPt();
             boolean bold = textPositions.get(0).getFont().getName().toLowerCase().contains("bold");
             // compute representative Y for this fragment (average adjusted Y)
@@ -145,7 +164,9 @@ public class PdfToXhtmlConversionService {
             // 1. Find modal (most common) font size for paragraphs
             java.util.Map<Float, Integer> fontFreq = new java.util.HashMap<>();
             for (TextChunk c : chunks) {
-                if (c.text.isEmpty()) continue;
+                if (c.text.isEmpty()) {
+                    continue;
+                }
                 fontFreq.put(c.fontSize, fontFreq.getOrDefault(c.fontSize, 0) + 1);
             }
             float paraFont = -1;
@@ -159,7 +180,9 @@ public class PdfToXhtmlConversionService {
             // 2. Collect all unique font sizes above paragraph size, descending
             java.util.Set<Float> headingSizes = new java.util.TreeSet<>((a, b) -> Float.compare(b, a));
             for (Float f : fontFreq.keySet()) {
-                if (f > paraFont) headingSizes.add(f);
+                if (f > paraFont) {
+                    headingSizes.add(f);
+                }
             }
             java.util.List<Float> headingList = new java.util.ArrayList<>(headingSizes);
             // 3. Map font size to heading tag (h1, h2, ...), paraFont to p
@@ -178,7 +201,9 @@ public class PdfToXhtmlConversionService {
                 String tagB = fontToTag.getOrDefault(b.fontSize, "p");
                 if ("p".equals(tagA) && "p".equals(tagB) && a.page == b.page) {
                     float gap = Math.abs(b.y - a.y);
-                    if (gap > 0.01f) paragraphGaps.add(gap);
+                    if (gap > 0.01f) {
+                        paragraphGaps.add(gap);
+                    }
                 }
             }
             float typicalGap;
@@ -200,11 +225,12 @@ public class PdfToXhtmlConversionService {
             boolean inList = false;
             ListType currentListType = ListType.NONE;
 
-            String lastListItem = null;
             int lastListItemIndex = -1;
             for (int i = 0; i < chunks.size(); i++) {
                 TextChunk c = chunks.get(i);
-                if (c.text.isEmpty()) continue;
+                if (c.text.isEmpty()) {
+                    continue;
+                }
                 String tag = fontToTag.getOrDefault(c.fontSize, "p");
                 // Bold, single-line text as heading: assign one level below the nearest real heading
                 if (tag.equals("p") && c.bold && !c.text.contains("\n") && c.text.split(" ").length < 12) {
@@ -215,7 +241,9 @@ public class PdfToXhtmlConversionService {
                             break;
                         }
                     }
-                    if (assignedLevel > 6) assignedLevel = 6;
+                    if (assignedLevel > 6) {
+                        assignedLevel = 6;
+                    }
                     tag = "h" + assignedLevel;
                 }
 
@@ -223,7 +251,7 @@ public class PdfToXhtmlConversionService {
                 if (bullet.type != ListType.NONE) {
                     if (prevTag != null && merged.length() > 0) {
                         xhtml.append("<").append(prevTag).append(" page=\"").append(prevGroupPage).append("\">")
-                             .append(merged).append("</").append(prevTag).append(">\n");
+                                .append(merged).append("</").append(prevTag).append(">\n");
                         merged.setLength(0);
                         prevTag = null;
                     }
@@ -235,10 +263,8 @@ public class PdfToXhtmlConversionService {
                         inList = true;
                         currentListType = bullet.type;
                     }
-                    xhtml.append("<li page=\"").append(c.page).append("\">").append(escapeXml(bullet.content));
-                    lastListItem = null;
+                    xhtml.append("<li page=\"").append(c.page).append("\">").append(escapeXml(bullet.content)).append("</li>\n");
                     lastListItemIndex = xhtml.length();
-                    xhtml.append("</li>\n");
                     prevGroupY = c.y;
                     prevGroupPage = c.page;
                     continue;
@@ -270,7 +296,7 @@ public class PdfToXhtmlConversionService {
                     merged.append(" ").append(escapeXml(c.text));
                 } else {
                     xhtml.append("<").append(prevTag).append(" page=\"").append(prevGroupPage).append("\">")
-                         .append(merged).append("</").append(prevTag).append(">\n");
+                            .append(merged).append("</").append(prevTag).append(">\n");
                     // If both previous and current are paragraphs on the same page and there's a large vertical gap, insert a <br/>
                     if ("p".equals(prevTag) && "p".equals(tag) && prevGroupPage == c.page) {
                         float gap = Math.abs(c.y - prevGroupY);
@@ -288,7 +314,7 @@ public class PdfToXhtmlConversionService {
             // Write the last merged chunk
             if (merged.length() > 0 && prevTag != null) {
                 xhtml.append("<").append(prevTag).append(" page=\"").append(prevGroupPage).append("\">")
-                     .append(merged).append("</").append(prevTag).append(">\n");
+                        .append(merged).append("</").append(prevTag).append(">\n");
             }
             // Close any remaining open list
             if (inList) {
@@ -307,12 +333,16 @@ public class PdfToXhtmlConversionService {
             Matcher mu = UNORDERED_RE.matcher(t);
             if (mu.matches()) {
                 String content = mu.group(1).trim();
-                if (!content.isEmpty()) return new Bullet(ListType.UNORDERED, content);
+                if (!content.isEmpty()) {
+                    return new Bullet(ListType.UNORDERED, content);
+                }
             }
             Matcher mo = ORDERED_RE.matcher(t);
             if (mo.matches()) {
                 String content = mo.group(1).trim();
-                if (!content.isEmpty()) return new Bullet(ListType.ORDERED, content);
+                if (!content.isEmpty()) {
+                    return new Bullet(ListType.ORDERED, content);
+                }
             }
             return new Bullet(ListType.NONE, null);
         }

@@ -1,22 +1,20 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.pipeline;
 
-import io.github.jrohila.simpleragserver.model.ChunkDto;
+import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
-public class XhtmlToChunkService {
-    public List<ChunkDto> parseChunks(String xhtml) {
-        List<ChunkDto> chunks = new ArrayList<>();
+public class XhtmlToChunk {
+    public List<ChunkEntity> parseChunks(String xhtml) {
+        List<ChunkEntity> chunks = new ArrayList<>();
         Document doc = Jsoup.parse(xhtml, "", org.jsoup.parser.Parser.xmlParser());
         Element body = doc.body();
         if (body == null) return chunks;
@@ -27,7 +25,7 @@ public class XhtmlToChunkService {
         return chunks;
     }
 
-    private void traverse(Element el, Map<Integer, String> headlineMap, List<ChunkDto> chunks) {
+    private void traverse(Element el, Map<Integer, String> headlineMap, List<ChunkEntity> chunks) {
         for (Element child : el.children()) {
             String tag = child.tagName().toLowerCase();
             if (tag.matches("h[1-6]")) {
@@ -38,24 +36,20 @@ public class XhtmlToChunkService {
                 for (int l = level + 1; l <= 6; l++) headlineMap.remove(l);
                 // Do NOT create a chunk for the heading itself
             } else if (tag.equals("p")) {
-                ChunkDto chunk = new ChunkDto();
+                ChunkEntity chunk = new ChunkEntity();
                 chunk.setText(child.text());
                 chunk.setSectionTitle(buildSectionTitle(headlineMap));
                 chunk.setType("paragraph");
                 chunk.setPageNumber(parsePage(child));
-                chunk.setCreated(Instant.now());
-                chunk.setModified(Instant.now());
                 chunks.add(chunk);
             } else if (tag.equals("ul") || tag.equals("ol")) {
                 for (Element li : child.children()) {
                     if (li.tagName().equalsIgnoreCase("li")) {
-                        ChunkDto chunk = new ChunkDto();
+                        ChunkEntity chunk = new ChunkEntity();
                         chunk.setText(li.text());
                         chunk.setSectionTitle(buildSectionTitle(headlineMap));
                         chunk.setType("li");
                         chunk.setPageNumber(parsePage(li));
-                        chunk.setCreated(Instant.now());
-                        chunk.setModified(Instant.now());
                         chunks.add(chunk);
                     }
                 }

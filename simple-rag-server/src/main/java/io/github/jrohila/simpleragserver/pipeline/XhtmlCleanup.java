@@ -1,12 +1,12 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.pipeline;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
-public class XhtmlStreamLineService {
+@Component
+public class XhtmlCleanup {
     /**
      * Merges adjacent <p> elements in the XHTML string if there is no headline or line separator between them
      * and the first paragraph does not end with a terminal punctuation.

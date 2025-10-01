@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.client;
 
 import java.util.Collections;
 import java.util.List;
@@ -9,12 +9,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.embedding.EmbeddingModel;
 
 @Service
-public class EmbedService {
+public class EmbedClient {
 
     private final EmbeddingModel embeddingModel;
 
     @Autowired
-    public EmbedService(EmbeddingModel embeddingModel) {
+    public EmbedClient(EmbeddingModel embeddingModel) {
         this.embeddingModel = embeddingModel;
     }
 

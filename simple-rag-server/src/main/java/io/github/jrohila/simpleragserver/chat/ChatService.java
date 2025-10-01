@@ -15,6 +15,8 @@ import reactor.core.publisher.Mono;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,12 +26,10 @@ public class ChatService {
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final ChatModel chatModel;
-    private final io.github.jrohila.simpleragserver.repository.ChunkDAO chunkDAO;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public ChatService(ChatModel chatModel, io.github.jrohila.simpleragserver.repository.ChunkDAO chunkDAO) {
+    public ChatService(ChatModel chatModel) {
         this.chatModel = chatModel;
-        this.chunkDAO = chunkDAO;
     }
 
     public OpenAiChatResponse chat(OpenAiChatRequest request) {
@@ -57,10 +57,10 @@ public class ChatService {
         // Search for relevant chunks using the prompt if useRag is true
         String context = "";
         if (useRag && userPrompt != null && !userPrompt.isBlank()) {
-            List<io.github.jrohila.simpleragserver.model.ChunkDto> chunks = chunkDAO.vectorSearch(userPrompt, 10);
+            List<ChunkEntity> chunks = new ArrayList<>(); // chunkDAO.vectorSearch(userPrompt, 10);
             if (chunks != null && !chunks.isEmpty()) {
                 StringBuilder sb = new StringBuilder();
-                for (io.github.jrohila.simpleragserver.model.ChunkDto chunk : chunks) {
+                for (ChunkEntity chunk : chunks) {
                     if (chunk.getText() != null && !chunk.getText().isBlank()) {
                         sb.append(chunk.getText()).append("\n");
                     }

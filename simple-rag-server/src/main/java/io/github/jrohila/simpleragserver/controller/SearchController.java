@@ -7,13 +7,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/chunk-search")
-public class ChunkSearchController {
+@RequestMapping("/api/search")
+public class SearchController {
 
     private final HybridSearchService hybridSearchService;
 
     @Autowired
-    public ChunkSearchController(HybridSearchService hybridSearchService) {
+    public SearchController(HybridSearchService hybridSearchService) {
         this.hybridSearchService = hybridSearchService;
     }
 

@@ -1,17 +1,17 @@
 package io.github.jrohila.simpleragserver.controller;
 
-import io.github.jrohila.simpleragserver.service.EmbedService;
+import io.github.jrohila.simpleragserver.client.EmbedClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/embed")
-public class EmbedController {
+@RequestMapping("/api/client")
+public class ClientController {
     @Autowired
-    private EmbedService embedService;
+    private EmbedClient embedService;
 
-    @PostMapping("/calculateEmbedding")
+    @PostMapping("/embed")
     public ResponseEntity<float[]> calculateEmbedding(@RequestBody String input) {
         float[] embedding = embedService.getEmbedding(input);
         // Convert double[] to float[]
