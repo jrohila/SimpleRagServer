@@ -5,24 +5,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.core.ParameterizedTypeReference;
 
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
+import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Value;
 
 @Service
-public class HybridSearchService {
+public class SearchService {
 
     private final RestTemplate restTemplate;
     private final EmbedClient embedService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
-    private Environment env;
+    public enum MatchType {
+        MATCH, MATCH_PHRASE, MATCH_BOOL_PREFIX, QUERY_STRING, SIMPLE_QUERY_STRING
+    };
 
     @Value("${opensearch.uris}")
     private String uris;
@@ -36,22 +37,40 @@ public class HybridSearchService {
     @Value("${chunks.index-name}")
     private String indexName;
 
-    public HybridSearchService(EmbedClient embedService) {
+    public SearchService(EmbedClient embedService) {
         this.restTemplate = new RestTemplate();
         this.embedService = embedService;
     }
 
-    public Map<String, Object> hybridSearch(String textQuery) throws Exception {
+    public Map<String, Object> hybridSearch(
+            String textQuery,
+            MatchType matchType,
+            boolean useKnn
+    ) throws Exception {
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
+
+        List<Map> queries = new ArrayList<>();
+        switch (matchType) {
+            case MatchType.MATCH ->
+                queries.add(Map.of("match", Map.of("text", textQuery)));
+            case MatchType.MATCH_PHRASE ->
+                queries.add(Map.of("match_phrase", Map.of("text", textQuery)));
+            case MatchType.MATCH_BOOL_PREFIX ->
+                queries.add(Map.of("match_bool_prefix", Map.of("text", textQuery)));
+            case MatchType.QUERY_STRING ->
+                queries.add(Map.of("query_string", Map.of("query", textQuery)));
+            case MatchType.SIMPLE_QUERY_STRING ->
+                queries.add(Map.of("simple_query_string", Map.of("query", textQuery)));
+        }
+        if (useKnn) {
+            queries.add(Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", 50))));
+        }
 
         // Build hybrid query
         Map<String, Object> hybridQuery = Map.of(
                 "hybrid", Map.of(
-                        "queries", List.of(
-                                Map.of("match", Map.of("text", textQuery)),
-                                Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", 50)))
-                        )
+                        "queries", queries
                 )
         );
 
@@ -70,7 +89,8 @@ public class HybridSearchService {
         HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
 
         String base = uris.split(",")[0].trim();
-        String searchEndpoint = String.format("%s/%s/_search", base.endsWith("/") ? base.substring(0, base.length() - 1) : base, indexName);
+        //String searchEndpoint = String.format("%s/%s/_search", base.endsWith("/") ? base.substring(0, base.length() - 1) : base, indexName);
+        String searchEndpoint = String.format("%s/%s/_search?search_pipeline=rrf-pipeline", base.endsWith("/") ? base.substring(0, base.length() - 1) : base, indexName);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 searchEndpoint,
@@ -83,13 +103,11 @@ public class HybridSearchService {
         return response.getBody();
     }
 
-    private static String coalesce(String a, String b, String fallback) {
-        if (a != null && !a.isBlank()) {
-            return a;
-        }
-        if (b != null && !b.isBlank()) {
-            return b;
-        }
-        return fallback;
+    public List<SearchResultDTO> hybridSearchAsDto(String textQuery,
+            MatchType matchType,
+            boolean useKnn) throws Exception {
+        Map<String, Object> body = hybridSearch(textQuery, matchType, useKnn);
+        return SearchResponseMapper.toResults(body);
     }
+
 }
