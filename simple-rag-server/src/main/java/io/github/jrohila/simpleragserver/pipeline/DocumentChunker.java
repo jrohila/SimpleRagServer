@@ -60,7 +60,6 @@ public class DocumentChunker {
             }
             var doc = docOpt.get();
 
-            // Load content stream from content store
             var in = documentContentStore.getContent(doc);
             if (in == null) {
                 LOGGER.log(Level.WARNING, "DocumentChunker.process: no content for id={0}", documentId);
@@ -75,22 +74,41 @@ public class DocumentChunker {
             int saved = 0;
             int total = chunks.size();
             for (ChunkEntity chunk : chunks) {
-                chunk.setDocumentId(documentId); // Set reference to parent document
-                // Deterministic ID to avoid duplicates: hash
-                chunk.setId(chunk.getHash());
-                //
-                chunk.setEmbedding(embedService.getEmbeddingAsList(chunk.getSectionTitle() + " : " + chunk.getText()));
-                
-                // Use ChunkService for persistence (create or update if already exists by id)
-                if (chunk.getId() != null && chunkService.getById(chunk.getId()).isPresent()) {
-                    chunkService.update(chunk.getId(), chunk);
-                } else {
-                    chunkService.create(chunk);
+                chunk.setDocumentId(documentId);
+                if (chunk.getHash() != null && !chunk.getHash().isBlank()) {
+                    chunk.setId(documentId + ":" + chunk.getHash());
                 }
 
-                saved++;
-                if (saved == 1 || saved == total || saved % 10 == 0) {
-                    LOGGER.info(String.format("DocumentChunker.process: chunk progress %d/%d (docId=%s)", saved, total, documentId));
+                // Build embedding input; skip if no text to embed
+                String embedInput = (chunk.getSectionTitle() == null ? "" : chunk.getSectionTitle()) +
+                        (chunk.getSectionTitle() == null ? "" : " : ") +
+                        (chunk.getText() == null ? "" : chunk.getText());
+                if (embedInput.isBlank()) {
+                    LOGGER.log(Level.FINE, "Skipping chunk without content (no embedding input). docId={0}", documentId);
+                    continue;
+                }
+
+                // Compute embedding
+                try {
+                    chunk.setEmbedding(embedService.getEmbeddingAsList(embedInput));
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Embedding failed for a chunk; skipping. docId=" + documentId, e);
+                    continue;
+                }
+
+                // Persist via service; on validation failure, skip and continue
+                try {
+                    if (chunk.getId() != null && chunkService.getById(chunk.getId()).isPresent()) {
+                        chunkService.update(chunk.getId(), chunk);
+                    } else {
+                        chunkService.create(chunk);
+                    }
+                    saved++;
+                    if (saved == 1 || saved == total || saved % 10 == 0) {
+                        LOGGER.info(String.format("DocumentChunker.process: chunk progress %d/%d (docId=%s)", saved, total, documentId));
+                    }
+                } catch (IllegalArgumentException | IllegalStateException ex) {
+                    LOGGER.log(Level.WARNING, "Skipping invalid/duplicate chunk. docId=" + documentId + " reason=" + ex.getMessage());
                 }
             }
         } catch (IOException e) {

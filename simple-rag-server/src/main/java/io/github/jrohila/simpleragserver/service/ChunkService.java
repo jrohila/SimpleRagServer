@@ -3,6 +3,7 @@ package io.github.jrohila.simpleragserver.service;
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.repository.ChunkRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
@@ -12,17 +13,19 @@ import java.util.Optional;
 public class ChunkService {
 
     private final ChunkRepository chunkRepository;
+    private final int embeddingDim;
 
     @Autowired
-    public ChunkService(ChunkRepository chunkRepository) {
+    public ChunkService(ChunkRepository chunkRepository, @Value("${chunks.dimension-size}") int embeddingDim) {
         this.chunkRepository = chunkRepository;
+        this.embeddingDim = embeddingDim;
     }
 
     public ChunkEntity create(ChunkEntity chunk) {
-        // Require hash and ensure uniqueness
         if (chunk.getHash() == null || chunk.getHash().isBlank()) {
             throw new IllegalArgumentException("Chunk hash is required");
         }
+        validateEmbedding(chunk);
         if (chunkRepository.existsByHash(chunk.getHash())) {
             throw new IllegalStateException("Chunk with the same hash already exists");
         }
@@ -48,6 +51,7 @@ public class ChunkService {
         if (chunk.getHash() == null || chunk.getHash().isBlank()) {
             throw new IllegalArgumentException("Chunk hash is required");
         }
+        validateEmbedding(chunk);
         var existingWithHash = chunkRepository.findFirstByHash(chunk.getHash());
         if (existingWithHash.isPresent() && !existingWithHash.get().getId().equals(id)) {
             throw new IllegalStateException("Another chunk with the same hash exists");
@@ -70,5 +74,20 @@ public class ChunkService {
 
     public void deleteByDocumentId(String documentId) {
         chunkRepository.deleteByDocumentId(documentId);
+    }
+
+    private void validateEmbedding(ChunkEntity chunk) {
+        var emb = chunk.getEmbedding();
+        if (emb == null) {
+            throw new IllegalArgumentException("Chunk embedding is required");
+        }
+        if (emb.size() != embeddingDim) {
+            throw new IllegalArgumentException("Embedding dimension mismatch: expected " + embeddingDim + " but got " + emb.size());
+        }
+        for (Float v : emb) {
+            if (v == null || v.isNaN() || v.isInfinite()) {
+                throw new IllegalArgumentException("Embedding contains invalid values");
+            }
+        }
     }
 }

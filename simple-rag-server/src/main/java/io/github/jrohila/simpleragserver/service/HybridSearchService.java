@@ -41,7 +41,7 @@ public class HybridSearchService {
         this.embedService = embedService;
     }
 
-    public Map<String, Object> hybridSearch(String textQuery, String type, String index) throws Exception {
+    public Map<String, Object> hybridSearch(String textQuery) throws Exception {
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
 
@@ -70,7 +70,7 @@ public class HybridSearchService {
         HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
 
         String base = uris.split(",")[0].trim();
-        String searchEndpoint = String.format("%s/%s/_search", base.endsWith("/") ? base.substring(0, base.length() - 1) : base, index);
+        String searchEndpoint = String.format("%s/%s/_search", base.endsWith("/") ? base.substring(0, base.length() - 1) : base, indexName);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 searchEndpoint,

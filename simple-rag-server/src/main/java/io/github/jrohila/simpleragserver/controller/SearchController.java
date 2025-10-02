@@ -19,10 +19,8 @@ public class SearchController {
 
     @GetMapping
     public Map<String, Object> searchChunks(
-            @RequestParam String query,
-            @RequestParam(required = false, defaultValue = "RAG") String type,
-            @RequestParam(required = false, defaultValue = "simple_rag_server") String index
+            @RequestParam String query
     ) throws Exception {
-        return hybridSearchService.hybridSearch(query, type, index);
+        return hybridSearchService.hybridSearch(query);
     }
 }
