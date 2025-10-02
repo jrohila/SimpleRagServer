@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.codec.digest.DigestUtils;
 
 @Service
 public class XhtmlToChunk {
@@ -41,6 +42,8 @@ public class XhtmlToChunk {
                 chunk.setSectionTitle(buildSectionTitle(headlineMap));
                 chunk.setType("paragraph");
                 chunk.setPageNumber(parsePage(child));
+                // Calculate stable hash based on sectionTitle + text
+                chunk.setHash(hashOf(chunk.getSectionTitle(), chunk.getText()));
                 chunks.add(chunk);
             } else if (tag.equals("ul") || tag.equals("ol")) {
                 for (Element li : child.children()) {
@@ -50,6 +53,8 @@ public class XhtmlToChunk {
                         chunk.setSectionTitle(buildSectionTitle(headlineMap));
                         chunk.setType("li");
                         chunk.setPageNumber(parsePage(li));
+                        // Calculate stable hash based on sectionTitle + text
+                        chunk.setHash(hashOf(chunk.getSectionTitle(), chunk.getText()));
                         chunks.add(chunk);
                     }
                 }
@@ -76,5 +81,10 @@ public class XhtmlToChunk {
         } catch (NumberFormatException e) {
             return -1;
         }
+    }
+
+    private String hashOf(String sectionTitle, String text) {
+        String s = (sectionTitle == null ? "" : sectionTitle) + "\n" + (text == null ? "" : text);
+        return DigestUtils.sha256Hex(s);
     }
 }

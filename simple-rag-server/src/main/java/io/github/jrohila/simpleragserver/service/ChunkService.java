@@ -19,6 +19,13 @@ public class ChunkService {
     }
 
     public ChunkEntity create(ChunkEntity chunk) {
+        // Require hash and ensure uniqueness
+        if (chunk.getHash() == null || chunk.getHash().isBlank()) {
+            throw new IllegalArgumentException("Chunk hash is required");
+        }
+        if (chunkRepository.existsByHash(chunk.getHash())) {
+            throw new IllegalStateException("Chunk with the same hash already exists");
+        }
         return chunkRepository.save(chunk);
     }
 
@@ -37,6 +44,13 @@ public class ChunkService {
     public Optional<ChunkEntity> update(String id, ChunkEntity chunk) {
         if (!chunkRepository.existsById(id)) {
             return Optional.empty();
+        }
+        if (chunk.getHash() == null || chunk.getHash().isBlank()) {
+            throw new IllegalArgumentException("Chunk hash is required");
+        }
+        var existingWithHash = chunkRepository.findFirstByHash(chunk.getHash());
+        if (existingWithHash.isPresent() && !existingWithHash.get().getId().equals(id)) {
+            throw new IllegalStateException("Another chunk with the same hash exists");
         }
         chunk.setId(id);
         return Optional.of(chunkRepository.save(chunk));

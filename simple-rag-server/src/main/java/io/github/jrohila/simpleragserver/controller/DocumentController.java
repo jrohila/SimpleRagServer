@@ -41,15 +41,9 @@ public class DocumentController {
 
     // Upload (creates new). Returns 202 if you prefer async processing semantics; here we return 201.
     @PostMapping(consumes = "multipart/form-data")
-    public ResponseEntity<DocumentEntity> uploadDocument(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "uploader", required = false) String uploader,
-            @RequestParam(value = "language", required = false) String language,
-            @RequestParam(value = "description", required = false) String description,
-            @RequestParam(value = "tags", required = false) List<String> tags,
-            @RequestParam(value = "status", required = false) String status
+    public ResponseEntity<DocumentEntity> uploadDocument(@RequestParam("file") MultipartFile file
     ) throws IOException {
-        DocumentEntity saved = documentService.uploadDocument(file, uploader, language, description, tags, status);
+        DocumentEntity saved = documentService.uploadDocument(file);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 

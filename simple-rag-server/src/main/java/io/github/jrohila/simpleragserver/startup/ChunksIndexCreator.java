@@ -1,9 +1,7 @@
 package io.github.jrohila.simpleragserver.startup;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -24,13 +22,6 @@ import org.springframework.beans.factory.annotation.Value;
 public class ChunksIndexCreator implements ApplicationRunner {
 
     private static final Logger LOGGER = Logger.getLogger(ChunksIndexCreator.class.getName());
-
-    private final Environment env;
-
-    @Autowired
-    public ChunksIndexCreator(Environment env) {
-        this.env = env;
-    }
 
     @Value("${opensearch.uris}")
     private String uris;
@@ -82,6 +73,7 @@ public class ChunksIndexCreator implements ApplicationRunner {
         properties.put("sectionTitle", Map.of("type", "text"));
         properties.put("pageNumber", Map.of("type", "integer"));
         properties.put("language", Map.of("type", "keyword"));
+        properties.put("hash", Map.of("type", "keyword"));
         properties.put("created", Map.of("type", "date"));
         properties.put("modified", Map.of("type", "date"));
         properties.put("documentId", Map.of("type", "keyword"));
@@ -111,15 +103,5 @@ public class ChunksIndexCreator implements ApplicationRunner {
             LOGGER.log(Level.SEVERE, "Failed to create index: " + indexName, e);
             throw e;
         }
-    }
-
-    private static String coalesce(String a, String b, String fallback) {
-        if (a != null && !a.isBlank()) {
-            return a;
-        }
-        if (b != null && !b.isBlank()) {
-            return b;
-        }
-        return fallback;
     }
 }
