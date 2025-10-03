@@ -42,15 +42,16 @@ public class SearchService {
         this.embedService = embedService;
     }
 
-    public Map<String, Object> hybridSearch(
+    public Map<String, Object> searchAsRaw(
             String textQuery,
             MatchType matchType,
-            boolean useKnn
+            boolean useKnn,
+            int size
     ) throws Exception {
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
 
-        List<Map> queries = new ArrayList<>();
+        List<Map<String, Object>> queries = new ArrayList<>();
         switch (matchType) {
             case MatchType.MATCH ->
                 queries.add(Map.of("match", Map.of("text", textQuery)));
@@ -74,7 +75,10 @@ public class SearchService {
                 )
         );
 
-        Map<String, Object> body = Map.of("query", hybridQuery);
+        Map<String, Object> body = Map.of(
+                "size", size,
+                "query", hybridQuery
+        );
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -103,10 +107,11 @@ public class SearchService {
         return response.getBody();
     }
 
-    public List<SearchResultDTO> hybridSearchAsDto(String textQuery,
+    public List<SearchResultDTO> search(String textQuery,
             MatchType matchType,
-            boolean useKnn) throws Exception {
-        Map<String, Object> body = hybridSearch(textQuery, matchType, useKnn);
+            boolean useKnn,
+            int size) throws Exception {
+        Map<String, Object> body = searchAsRaw(textQuery, matchType, useKnn, size);
         return SearchResponseMapper.toResults(body);
     }
 

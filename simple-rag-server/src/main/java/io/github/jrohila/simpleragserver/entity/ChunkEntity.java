@@ -40,6 +40,9 @@ public class ChunkEntity {
     @Field(type = FieldType.Keyword)
     private String hash;
 
+    @Field(type = FieldType.Text)
+    private String documentName;
+
     @CreatedDate
     @Field(type = FieldType.Date)
     private Instant created;

@@ -12,30 +12,32 @@ import java.util.List;
 @RequestMapping("/api/search")
 public class SearchController {
 
-    private final SearchService hybridSearchService;
+    private final SearchService searchService;
 
     @Autowired
     public SearchController(SearchService hybridSearchService) {
-        this.hybridSearchService = hybridSearchService;
+        this.searchService = hybridSearchService;
     }
 
     // Raw response
     @GetMapping("/raw")
     public Map<String, Object> searchChunks(
             @RequestParam String query,
-            @RequestParam(name = "matchType", defaultValue = "Match") SearchService.MatchType matchType,
-            @RequestParam(name = "useKnn", defaultValue = "true") boolean useKnn
+        @RequestParam(name = "matchType", defaultValue = "MATCH") SearchService.MatchType matchType,
+            @RequestParam(name = "useKnn", defaultValue = "true") boolean useKnn,
+            @RequestParam(name = "size", defaultValue = "25") int size
     ) throws Exception {
-        return hybridSearchService.hybridSearch(query, matchType, useKnn);
+        return searchService.searchAsRaw(query, matchType, useKnn, size);
     }
 
     // DTO response
     @GetMapping
     public List<SearchResultDTO> searchChunksAsDto(
             @RequestParam String query,
-            @RequestParam(name = "matchType", defaultValue = "Match") SearchService.MatchType matchType,
-            @RequestParam(name = "useKnn", defaultValue = "true") boolean useKnn
+            @RequestParam(name = "matchType", defaultValue = "MATCH") SearchService.MatchType matchType,
+            @RequestParam(name = "useKnn", defaultValue = "true") boolean useKnn,
+            @RequestParam(name = "size", defaultValue = "25") int size
     ) throws Exception {
-        return hybridSearchService.hybridSearchAsDto(query, matchType, useKnn);
+        return searchService.search(query, matchType, useKnn, size);
     }
 }

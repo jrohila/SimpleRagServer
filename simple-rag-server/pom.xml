@@ -30,6 +30,7 @@
     <properties>
         <java.version>21</java.version>
         <spring-ai.version>1.0.1</spring-ai.version>
+        <opennlp.version>2.3.3</opennlp.version>
     </properties>
     <dependencies>
         <dependency>
@@ -116,6 +117,12 @@
             <artifactId>tika-langdetect-tika</artifactId>
             <version>3.2.2</version>
         </dependency>
+        <!-- Optimaize language detector for Apache Tika -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-langdetect-optimaize</artifactId>
+            <version>3.2.2</version>
+        </dependency>
         <!-- Apache PDFBox for direct PDF parsing and heading detection -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
@@ -146,6 +153,13 @@
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
+        </dependency>
+        
+        <!-- Apache OpenNLP for sentence detection -->
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-tools</artifactId>
+            <version>${opennlp.version}</version>
         </dependency>
         
     </dependencies>

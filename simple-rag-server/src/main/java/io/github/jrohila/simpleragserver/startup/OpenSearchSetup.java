@@ -76,6 +76,7 @@ public class OpenSearchSetup implements ApplicationRunner {
                 .properties("pageNumber", p -> p.integer(n -> n))
                 .properties("language", p -> p.keyword(k -> k))
                 .properties("hash", p -> p.keyword(k -> k))
+                .properties("documentName", p -> p.text(t -> t))
                 .properties("created", p -> p.date(d -> d))
                 .properties("modified", p -> p.date(d -> d))
                 .properties("documentId", p -> p.keyword(k -> k))
@@ -91,8 +92,7 @@ public class OpenSearchSetup implements ApplicationRunner {
             .build();
 
         client.indices().create(req);
-        
-        LOGGER.log(Level.INFO, "OpenSearchSetup: created index {0} (dimension={1}, space_type={2})", new Object[]{indexName, embeddingDim, similarity});
+        LOGGER.info("OpenSearchSetup: created index " + indexName + " (dimension=" + embeddingDim + ", space_type=" + similarity + ")");
     }
 
     public void createRffPipeline() throws Exception {
@@ -132,9 +132,10 @@ public class OpenSearchSetup implements ApplicationRunner {
         HttpClient http = HttpClient.newHttpClient();
         HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 == 2) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: created/updated search pipeline {0}", pipelineId);
+            LOGGER.info("OpenSearchSetup: created/updated search pipeline " + pipelineId);
         } else {
-            LOGGER.log(Level.WARNING, "OpenSearchSetup: pipeline PUT failed status={0} body={1}",new Object[]{resp.statusCode(), resp.body()});
+            LOGGER.log(Level.WARNING, "OpenSearchSetup: pipeline PUT failed status={0} body={1}",
+                new Object[]{resp.statusCode(), resp.body()});
         }
     }
 }

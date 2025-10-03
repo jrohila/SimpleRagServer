@@ -1,6 +1,7 @@
 package io.github.jrohila.simpleragserver.pipeline;
 
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.service.NlpService;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -14,6 +15,12 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 @Service
 public class XhtmlToChunk {
+
+    private final NlpService nlpService;
+
+    public XhtmlToChunk(NlpService nlpService) {
+        this.nlpService = nlpService;
+    }
     public List<ChunkEntity> parseChunks(String xhtml) {
         List<ChunkEntity> chunks = new ArrayList<>();
         Document doc = Jsoup.parse(xhtml, "", org.jsoup.parser.Parser.xmlParser());
@@ -23,6 +30,12 @@ public class XhtmlToChunk {
         // Map for headline levels and their text (e.g., 1->h1, 2->h2, ...)
         Map<Integer, String> headlineMap = new HashMap<>();
         traverse(body, headlineMap, chunks);
+
+        // Post-process: detect and set language for each chunk
+        for (ChunkEntity chunk : chunks) {
+            String lang = nlpService.detectLanguage(chunk.getText());
+            chunk.setLanguage(lang);
+        }
         return chunks;
     }
 
@@ -45,19 +58,22 @@ public class XhtmlToChunk {
                 // Calculate stable hash based on sectionTitle + text
                 chunk.setHash(hashOf(chunk.getSectionTitle(), chunk.getText()));
                 chunks.add(chunk);
+            } else if (tag.equals("li")) {
+                // Intentionally skip handling <li> here; list items are only chunked
+                // when iterating direct children of a parent <ul> or <ol> above.
+                // This prevents creating chunks for stray or out-of-context <li> elements.
             } else if (tag.equals("ul") || tag.equals("ol")) {
-                for (Element li : child.children()) {
-                    if (li.tagName().equalsIgnoreCase("li")) {
-                        ChunkEntity chunk = new ChunkEntity();
-                        chunk.setText(li.text());
-                        chunk.setSectionTitle(buildSectionTitle(headlineMap));
-                        chunk.setType("li");
-                        chunk.setPageNumber(parsePage(li));
-                        // Calculate stable hash based on sectionTitle + text
-                        chunk.setHash(hashOf(chunk.getSectionTitle(), chunk.getText()));
-                        chunks.add(chunk);
-                    }
-                }
+                // Create a single chunk for the entire list, combining all nested text
+                ChunkEntity chunk = new ChunkEntity();
+                chunk.setText(child.text());
+                chunk.setSectionTitle(buildSectionTitle(headlineMap));
+                chunk.setType("list");
+                chunk.setPageNumber(parsePage(child));
+                // Calculate stable hash based on sectionTitle + combined list text
+                chunk.setHash(hashOf(chunk.getSectionTitle(), chunk.getText()));
+                chunks.add(chunk);
+                // Do not recurse into this list to avoid duplicating content from its items
+                continue;
             }
             // Recurse for nested elements
             traverse(child, headlineMap, chunks);

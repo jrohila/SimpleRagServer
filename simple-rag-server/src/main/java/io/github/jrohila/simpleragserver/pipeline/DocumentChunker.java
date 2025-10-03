@@ -37,6 +37,9 @@ public class DocumentChunker {
     private XhtmlToChunk xhtmlToChunkService;
 
     @Autowired
+    private ChunkQualityGate chunkQualityGate;
+
+    @Autowired
     private ChunkService chunkService;
 
     @Autowired
@@ -71,10 +74,20 @@ public class DocumentChunker {
             String streamlined = xhtmlStreamLineService.streamlineParagraphs(xhtml);
             List<ChunkEntity> chunks = xhtmlToChunkService.parseChunks(streamlined);
             LOGGER.info(String.format("DocumentChunker.process: extracted chunks=%d", chunks.size()));
+            // Apply quality gate filters (e.g., remove 'und' language chunks)
+            List<ChunkEntity> filtered = chunkQualityGate.filter(chunks);
+            if (filtered.size() != chunks.size()) {
+                LOGGER.info(String.format(
+                        "DocumentChunker.process: quality gate filtered out %d chunks (kept=%d)",
+                        (chunks.size() - filtered.size()), filtered.size()));
+            }
+            chunks = filtered;
             int saved = 0;
             int total = chunks.size();
             for (ChunkEntity chunk : chunks) {
                 chunk.setDocumentId(documentId);
+                // Copy original file name into chunk as documentName for denormalized display
+                chunk.setDocumentName(doc.getOriginalFilename());
                 if (chunk.getHash() != null && !chunk.getHash().isBlank()) {
                     chunk.setId(documentId + ":" + chunk.getHash());
                 }
