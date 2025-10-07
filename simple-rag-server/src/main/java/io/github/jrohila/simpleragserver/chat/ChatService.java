@@ -43,13 +43,13 @@ public class ChatService {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
                 if (m.getRole() == null) continue;
                 switch (m.getRole()) {
-                    case "system" -> springMessages.add(new SystemMessage(m.getContent()));
+                    case "system" -> springMessages.add(new SystemMessage(m.getContentAsString()));
                     case "user" -> {
-                        springMessages.add(new UserMessage(m.getContent()));
-                        userPrompt = m.getContent();
+                        springMessages.add(new UserMessage(m.getContentAsString()));
+                        userPrompt = m.getContentAsString();
                     }
-                    case "assistant" -> springMessages.add(new AssistantMessage(m.getContent()));
-                    default -> springMessages.add(new UserMessage(m.getContent()));
+                    case "assistant" -> springMessages.add(new AssistantMessage(m.getContentAsString()));
+                    default -> springMessages.add(new UserMessage(m.getContentAsString()));
                 }
             }
         }
@@ -138,8 +138,9 @@ public class ChatService {
         if (messages == null) return 0;
         int total = 0;
         for (OpenAiChatRequest.Message m : messages) {
-            if (m.getContent() != null) {
-                total += Math.max(1, m.getContent().length() / 4); // rough heuristic
+            String content = m.getContentAsString();
+            if (content != null) {
+                total += Math.max(1, content.length() / 4); // rough heuristic
             }
         }
         return total;
@@ -154,10 +155,10 @@ public class ChatService {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
                 if (m.getRole() == null) continue;
                 switch (m.getRole()) {
-                    case "system" -> springMessages.add(new SystemMessage(m.getContent()));
-                    case "user" -> springMessages.add(new UserMessage(m.getContent()));
-                    case "assistant" -> springMessages.add(new AssistantMessage(m.getContent()));
-                    default -> springMessages.add(new UserMessage(m.getContent()));
+                    case "system" -> springMessages.add(new SystemMessage(m.getContentAsString()));
+                    case "user" -> springMessages.add(new UserMessage(m.getContentAsString()));
+                    case "assistant" -> springMessages.add(new AssistantMessage(m.getContentAsString()));
+                    default -> springMessages.add(new UserMessage(m.getContentAsString()));
                 }
             }
         }

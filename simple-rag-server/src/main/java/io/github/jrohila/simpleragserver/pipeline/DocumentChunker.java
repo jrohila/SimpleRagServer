@@ -6,9 +6,13 @@ package io.github.jrohila.simpleragserver.pipeline;
 
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
+import io.github.jrohila.simpleragserver.client.DoclingClient;
+import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 import io.github.jrohila.simpleragserver.service.ChunkService;
+import io.github.jrohila.simpleragserver.service.NlpService;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -30,14 +34,9 @@ public class DocumentChunker {
     private EmbedClient embedService;
 
     @Autowired
-    private PdfToXhtmlConversion pdfToXhtmlConversionService;
-    @Autowired
-    private XhtmlCleanup xhtmlStreamLineService;
-    @Autowired
-    private XhtmlToChunk xhtmlToChunkService;
+    private DoclingClient doclingClient;
 
-    @Autowired
-    private ChunkQualityGate chunkQualityGate;
+    // Legacy XHTML pipeline services retained for potential fallback are now unused
 
     @Autowired
     private ChunkService chunkService;
@@ -47,6 +46,9 @@ public class DocumentChunker {
 
     @Autowired
     private DocumentContentStore documentContentStore;
+
+    @Autowired
+    private NlpService nlpService;
 
     @Async("chunkingExecutor")
     public void asyncProcess(String documentId) {
@@ -69,19 +71,48 @@ public class DocumentChunker {
                 return;
             }
             byte[] bytes = in.readAllBytes();
+            // Use Docling hybrid chunker instead of local XHTML-based pipeline
+            DoclingChunkRequest.HybridChunkerOptions opts = new DoclingChunkRequest.HybridChunkerOptions();
+            opts.setUseMarkdownTables(false);
+            opts.setIncludeRawText(false);
+            opts.setMaxTokens(384); // sensible default
+            opts.setMergePeers(true);
+            // Let tokenizer default to docling's default
 
-            String xhtml = pdfToXhtmlConversionService.parseToXhtml(bytes);
-            String streamlined = xhtmlStreamLineService.streamlineParagraphs(xhtml);
-            List<ChunkEntity> chunks = xhtmlToChunkService.parseChunks(streamlined);
-            LOGGER.info(String.format("DocumentChunker.process: extracted chunks=%d", chunks.size()));
-            // Apply quality gate filters (e.g., remove 'und' language chunks)
-            List<ChunkEntity> filtered = chunkQualityGate.filter(chunks);
-            if (filtered.size() != chunks.size()) {
-                LOGGER.info(String.format(
-                        "DocumentChunker.process: quality gate filtered out %d chunks (kept=%d)",
-                        (chunks.size() - filtered.size()), filtered.size()));
+            DoclingChunkResponse resp = doclingClient.hybridChunkFromBytes(
+                    doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
+                    bytes,
+                    opts,
+                    false, // include_converted_doc
+                    "inbody",
+                    null // use default convert options
+            );
+
+            List<DoclingChunkResponse.Chunk> doclingChunks = resp.getChunks();
+            if (doclingChunks == null || doclingChunks.isEmpty()) {
+                LOGGER.info("DocumentChunker.process: Docling returned no chunks, skipping.");
+                return;
             }
-            chunks = filtered;
+
+            List<ChunkEntity> chunks = new java.util.ArrayList<>();
+            for (DoclingChunkResponse.Chunk c : doclingChunks) {
+                ChunkEntity e = new ChunkEntity();
+                e.setText(c.getText());
+                e.setSectionTitle(c.getTitle());
+                if (c.getPageNumber() != null) e.setPageNumber(c.getPageNumber());
+                // Detect language based on text content
+                try {
+                    String lang = nlpService.detectLanguage(e.getText());
+                    e.setLanguage(lang);
+                } catch (RuntimeException ex) {
+                    e.setLanguage("und");
+                }
+                // carry doc name and id later during save loop
+                // language/hash not provided by Docling chunks; leave empty
+                chunks.add(e);
+            }
+            LOGGER.info(String.format("DocumentChunker.process: docling extracted chunks=%d", chunks.size()));
+            // Apply quality gate filters (e.g., remove 'und' language chunks)
             int saved = 0;
             int total = chunks.size();
             for (ChunkEntity chunk : chunks) {
@@ -121,7 +152,7 @@ public class DocumentChunker {
                         LOGGER.info(String.format("DocumentChunker.process: chunk progress %d/%d (docId=%s)", saved, total, documentId));
                     }
                 } catch (IllegalArgumentException | IllegalStateException ex) {
-                    LOGGER.log(Level.WARNING, "Skipping invalid/duplicate chunk. docId=" + documentId + " reason=" + ex.getMessage());
+                    LOGGER.log(Level.WARNING, "Skipping invalid/duplicate chunk. docId={0} reason={1}", new Object[]{documentId, ex.getMessage()});
                 }
             }
         } catch (IOException e) {
@@ -131,7 +162,7 @@ public class DocumentChunker {
             throw e;
         } finally {
             long duration = System.currentTimeMillis() - start;
-            LOGGER.info("DocumentChunker.process: completed id=" + documentId + ", ms=" + duration);
+            LOGGER.log(Level.INFO, "DocumentChunker.process: completed id={0}, ms={1}", new Object[]{documentId, duration});
         }
     }
 

@@ -1,10 +1,12 @@
 package io.github.jrohila.simpleragserver.service;
 
 import io.github.jrohila.simpleragserver.entity.DocumentEntity;
+import io.github.jrohila.simpleragserver.entity.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import io.github.jrohila.simpleragserver.repository.ChunkRepository;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -21,15 +22,18 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentContentStore contentStore;
     private final ChunkRepository chunkRepository;
+    private final ApplicationEventPublisher events;
 
     public DocumentService(
             DocumentRepository documentRepository,
             DocumentContentStore contentStore,
-            ChunkRepository chunkRepository
+            ChunkRepository chunkRepository,
+            ApplicationEventPublisher events
     ) {
         this.documentRepository = documentRepository;
         this.contentStore = contentStore;
         this.chunkRepository = chunkRepository;
+        this.events = events;
     }
 
     public Page<DocumentEntity> listDocuments(int page, int size) {
@@ -63,11 +67,17 @@ public class DocumentService {
         }
         // content length may be set by the content store, but we can prefill
         doc.setContentLen(file.getSize());
+        
+        doc.setState(DocumentEntity.ProcessingState.OPEN);
 
         // Persist content and metadata
         contentStore.setContent(doc, file.getInputStream());
         DocumentEntity saved = documentRepository.save(doc);
-
+        // publish event to trigger async processing
+        try {
+            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(saved.getId()));
+        } catch (Exception ignore) {
+        }
         return saved;
     }
 
@@ -95,9 +105,14 @@ public class DocumentService {
             doc.setMimeType(file.getContentType());
         }
         doc.setContentLen(file.getSize());
-
+        
         contentStore.setContent(doc, file.getInputStream());
-        return documentRepository.save(doc);
+        DocumentEntity saved = documentRepository.save(doc);
+        try {
+            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(saved.getId()));
+        } catch (Exception ignore) {
+        }
+        return saved;
     }
 
     public void deleteDocument(String id) {
@@ -119,5 +134,15 @@ public class DocumentService {
         } catch (Exception ignore) {
         }
         documentRepository.deleteAll();
+    }
+
+    public DocumentEntity updateProcessingState(String documentId, ProcessingState state) {
+        if (documentId == null || documentId.isBlank() || state == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "documentId and state are required");
+        }
+        DocumentEntity doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+        doc.setState(state);
+        return documentRepository.save(doc);
     }
 }

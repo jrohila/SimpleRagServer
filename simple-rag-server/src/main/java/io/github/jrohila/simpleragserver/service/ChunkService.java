@@ -2,6 +2,7 @@ package io.github.jrohila.simpleragserver.service;
 
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.repository.ChunkRepository;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
@@ -22,11 +23,15 @@ public class ChunkService {
     }
 
     public ChunkEntity create(ChunkEntity chunk) {
-        if (chunk.getHash() == null || chunk.getHash().isBlank()) {
-            throw new IllegalArgumentException("Chunk hash is required");
+        // Compute hash from text + sectionTitle
+        String newHash = computeHash(chunk.getText(), chunk.getSectionTitle());
+        chunk.setHash(newHash);
+        // If id not provided, derive a stable one using documentId + hash
+        if ((chunk.getId() == null || chunk.getId().isBlank()) && chunk.getDocumentId() != null) {
+            chunk.setId(chunk.getDocumentId() + ":" + newHash);
         }
         validateEmbedding(chunk);
-        if (chunkRepository.existsByHash(chunk.getHash())) {
+        if (chunkRepository.existsByHash(newHash)) {
             throw new IllegalStateException("Chunk with the same hash already exists");
         }
         return chunkRepository.save(chunk);
@@ -48,15 +53,15 @@ public class ChunkService {
         if (!chunkRepository.existsById(id)) {
             return Optional.empty();
         }
-        if (chunk.getHash() == null || chunk.getHash().isBlank()) {
-            throw new IllegalArgumentException("Chunk hash is required");
-        }
+        // Compute new hash from updated content
+        String newHash = computeHash(chunk.getText(), chunk.getSectionTitle());
         validateEmbedding(chunk);
-        var existingWithHash = chunkRepository.findFirstByHash(chunk.getHash());
+        var existingWithHash = chunkRepository.findFirstByHash(newHash);
         if (existingWithHash.isPresent() && !existingWithHash.get().getId().equals(id)) {
             throw new IllegalStateException("Another chunk with the same hash exists");
         }
         chunk.setId(id);
+        chunk.setHash(newHash);
         return Optional.of(chunkRepository.save(chunk));
     }
 
@@ -89,5 +94,12 @@ public class ChunkService {
                 throw new IllegalArgumentException("Embedding contains invalid values");
             }
         }
+    }
+
+    private String computeHash(String text, String sectionTitle) {
+        String t = text == null ? "" : text;
+        String s = sectionTitle == null ? "" : sectionTitle;
+        // Use a delimiter to avoid accidental collisions from concatenation
+        return DigestUtils.sha256Hex(t + "|#|" + s);
     }
 }
