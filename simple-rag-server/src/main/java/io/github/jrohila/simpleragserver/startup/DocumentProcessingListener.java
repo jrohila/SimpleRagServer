@@ -1,7 +1,7 @@
 package io.github.jrohila.simpleragserver.startup;
 
 import io.github.jrohila.simpleragserver.entity.DocumentEntity;
-import io.github.jrohila.simpleragserver.pipeline.DocumentChunker;
+import io.github.jrohila.simpleragserver.service.DocumentChunkerService;
 import io.github.jrohila.simpleragserver.service.DocumentService;
 import io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent;
 import org.springframework.context.event.EventListener;
@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component;
 public class DocumentProcessingListener {
 
     private final DocumentService documentService;
-    private final DocumentChunker documentChunker;
+    private final DocumentChunkerService documentChunker;
 
-    public DocumentProcessingListener(DocumentService documentService, DocumentChunker documentChunker) {
+    public DocumentProcessingListener(DocumentService documentService, DocumentChunkerService documentChunker) {
         this.documentService = documentService;
         this.documentChunker = documentChunker;
     }

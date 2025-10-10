@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.pipeline;
+package io.github.jrohila.simpleragserver.service;
 
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
@@ -26,9 +26,9 @@ import org.springframework.stereotype.Component;
  * @author Lenovo
  */
 @Component
-public class DocumentChunker {
+public class DocumentChunkerService {
 
-    private static final Logger LOGGER = Logger.getLogger(DocumentChunker.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(DocumentChunkerService.class.getName());
 
     @Autowired
     private EmbedClient embedService;

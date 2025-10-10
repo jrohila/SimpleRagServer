@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.controller;
 
-import io.github.jrohila.simpleragserver.pipeline.DocumentChunker;
+import io.github.jrohila.simpleragserver.service.DocumentChunkerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProcessingController {
 
     @Autowired
-    private DocumentChunker documentChunker;
+    private DocumentChunkerService documentChunker;
 
     @PostMapping("/chunk-document/{documentId}")
     public ResponseEntity<Void> processDocumentSync(@PathVariable String documentId) {
