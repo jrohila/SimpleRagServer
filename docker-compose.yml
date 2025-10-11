@@ -17,7 +17,7 @@ services:
     depends_on:
       - opensearch
     ports:
-      - "5601:5601"
+      - "${DASHBOARDS_PORT:-15601}:5601"  # 5601 falls in Windows excluded range 5555-5654; use 15601 by default
 
   ollama:
     image: ollama/ollama:latest

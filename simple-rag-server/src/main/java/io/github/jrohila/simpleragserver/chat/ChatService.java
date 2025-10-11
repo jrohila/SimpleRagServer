@@ -65,7 +65,7 @@ public class ChatService {
                         userPrompt,
                         SearchService.MatchType.MATCH,
                         true,
-                        8
+                        25
                 );
                 if (results != null && !results.isEmpty()) {
                     StringBuilder sb = new StringBuilder();
