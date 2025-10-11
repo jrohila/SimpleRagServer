@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.jrohila.simpleragserver.dto.DoclingConversionRequest;
 import io.github.jrohila.simpleragserver.dto.DoclingConversionResponse;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -279,6 +280,35 @@ public class DoclingAsyncClient {
     }
 
     /**
+     * Start async Hybrid chunking from raw bytes.
+     */
+    public StartOperationResult hybridChunkFromBytes(
+            String filename,
+            byte[] content,
+            DoclingChunkRequest.HybridChunkerOptions hybridOptions,
+            Boolean includeConvertedDoc,
+            String targetKind,
+            DoclingConversionRequest.Options convertOptionsOverride
+    ) {
+        String base64 = Base64.getEncoder().encodeToString(content);
+        DoclingChunkRequest req = new DoclingChunkRequest();
+        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        src.setKind("file");
+        src.setFilename(filename);
+        src.setBase64String(base64);
+        req.setSources(List.of(src));
+        if (convertOptionsOverride != null) req.setConvertOptions(convertOptionsOverride);
+        req.setChunkingOptions(hybridOptions);
+        if (includeConvertedDoc != null) req.setIncludeConvertedDoc(includeConvertedDoc);
+        if (targetKind != null && !targetKind.isBlank()) {
+            DoclingChunkRequest.Target t = new DoclingChunkRequest.Target();
+            t.setKind(targetKind);
+            req.setTarget(t);
+        }
+        return executeAsyncStart("/v1/chunk/hybrid/source/async", req);
+    }
+
+    /**
      * Start async Hierarchical chunking from URL.
      */
     public StartOperationResult hierarchicalChunkFromUrl(
@@ -493,6 +523,24 @@ public class DoclingAsyncClient {
     }
 
     /**
+     * Poll until terminal specifically for chunking flows and return DoclingChunkResponse.
+     */
+    public PollChunkResult pollChunkUntilTerminal(String pollUrlOrId, long timeoutMs, long intervalMs) {
+        long start = System.currentTimeMillis();
+        OperationStatus status;
+        do {
+            status = getStatusById(pollUrlOrId);
+            if (status.isTerminal()) break;
+            try { Thread.sleep(Math.max(50L, intervalMs)); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        } while (System.currentTimeMillis() - start < Math.max(0L, timeoutMs));
+        DoclingChunkResponse response = null;
+        if (status != null && status.isSuccess()) {
+            response = fetchChunkResult(status).orElse(null);
+        }
+        return new PollChunkResult(status, response);
+    }
+
+    /**
      * Try to extract a DoclingConversionResponse from the status JSON, or follow a result URL if present.
      */
     public Optional<DoclingConversionResponse> fetchResult(OperationStatus status) {
@@ -539,9 +587,55 @@ public class DoclingAsyncClient {
     }
 
     /**
+     * Try to extract a DoclingChunkResponse from the status JSON, or follow a result URL if present.
+     */
+    public Optional<DoclingChunkResponse> fetchChunkResult(OperationStatus status) {
+        try {
+            // Attempt inline result first
+            if (status.raw != null) {
+                JsonNode resultNode = null;
+                if (status.raw.has("result")) resultNode = status.raw.get("result");
+                else if (status.raw.has("data")) resultNode = status.raw.get("data");
+                if (resultNode != null && !resultNode.isNull()) {
+                    DoclingChunkResponse r = objectMapper.treeToValue(resultNode, DoclingChunkResponse.class);
+                    return Optional.ofNullable(r);
+                }
+            }
+            // Else follow result URL
+            if (status.resultUrl != null && !status.resultUrl.isBlank()) {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Accept", "application/json");
+
+                RestTemplate shortTemplate = createRestTemplate(connectTimeoutMs, resultReadTimeoutMs);
+
+                int attempts = 3;
+                for (int i = 0; i < attempts; i++) {
+                    try {
+                        ResponseEntity<DoclingChunkResponse> resp = shortTemplate.exchange(
+                                status.resultUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), DoclingChunkResponse.class);
+                        if (resp.getStatusCode().is2xxSuccessful()) {
+                            return Optional.ofNullable(resp.getBody());
+                        }
+                        Thread.sleep(250L);
+                    } catch (Exception ex) {
+                        try { Thread.sleep(250L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    }
+                }
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            logger.warn("Failed to fetch async chunk result: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Final result of a polling run: terminal status plus optional conversion payload.
      */
     public record PollResult(OperationStatus status, DoclingConversionResponse response) {}
+
+    /** Result of polling a chunking job */
+    public record PollChunkResult(OperationStatus status, DoclingChunkResponse response) {}
 
     private OperationStatus parseOperationStatus(JsonNode root) {
         String id = firstNonNullText(root, "task_id", "id", "operation_id");

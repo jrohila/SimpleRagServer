@@ -14,8 +14,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
+import io.github.jrohila.simpleragserver.service.SearchService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +26,12 @@ public class ChatService {
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final ChatModel chatModel;
+    private final SearchService searchService;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public ChatService(ChatModel chatModel) {
+    public ChatService(ChatModel chatModel, SearchService searchService) {
         this.chatModel = chatModel;
+        this.searchService = searchService;
     }
 
     public OpenAiChatResponse chat(OpenAiChatRequest request) {
@@ -57,15 +59,26 @@ public class ChatService {
         // Search for relevant chunks using the prompt if useRag is true
         String context = "";
         if (useRag && userPrompt != null && !userPrompt.isBlank()) {
-            List<ChunkEntity> chunks = new ArrayList<>(); // chunkDAO.vectorSearch(userPrompt, 10);
-            if (chunks != null && !chunks.isEmpty()) {
-                StringBuilder sb = new StringBuilder();
-                for (ChunkEntity chunk : chunks) {
-                    if (chunk.getText() != null && !chunk.getText().isBlank()) {
-                        sb.append(chunk.getText()).append("\n");
+            try {
+                // Use boosted hybrid search with knn; limit to 8 chunks for prompt budget
+                List<SearchResultDTO> results = searchService.search(
+                        userPrompt,
+                        SearchService.MatchType.MATCH,
+                        true,
+                        8
+                );
+                if (results != null && !results.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (SearchResultDTO r : results) {
+                        String t = r.getText();
+                        if (t != null && !t.isBlank()) {
+                            sb.append(t.trim()).append("\n");
+                        }
                     }
+                    context = sb.toString();
                 }
-                context = sb.toString();
+            } catch (Exception e) {
+                log.warn("[ChatService] RAG search failed: {}", e.getMessage());
             }
         }
 

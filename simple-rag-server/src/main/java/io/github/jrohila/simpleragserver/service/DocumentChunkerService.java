@@ -7,12 +7,12 @@ package io.github.jrohila.simpleragserver.service;
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.client.DoclingClient;
+import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import io.github.jrohila.simpleragserver.repository.DocumentRepository;
-import io.github.jrohila.simpleragserver.service.ChunkService;
-import io.github.jrohila.simpleragserver.service.NlpService;
+// imports for ChunkService and NlpService are unnecessary since they're in the same package
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -20,6 +20,7 @@ import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  *
@@ -35,6 +36,12 @@ public class DocumentChunkerService {
 
     @Autowired
     private DoclingClient doclingClient;
+
+    @Autowired
+    private DoclingAsyncClient doclingAsyncClient;
+
+    @Value("${processing.chunking:async}")
+    private String chunkingMode;
 
     // Legacy XHTML pipeline services retained for potential fallback are now unused
 
@@ -79,14 +86,56 @@ public class DocumentChunkerService {
             opts.setMergePeers(true);
             // Let tokenizer default to docling's default
 
-            DoclingChunkResponse resp = doclingClient.hybridChunkFromBytes(
-                    doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
-                    bytes,
-                    opts,
-                    false, // include_converted_doc
-                    "inbody",
-                    null // use default convert options
+        DoclingChunkResponse resp;
+        boolean useAsync = chunkingMode == null || chunkingMode.isBlank() || chunkingMode.equalsIgnoreCase("async");
+        if (useAsync) {
+        var startRes = doclingAsyncClient.hybridChunkFromBytes(
+            doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
+            bytes,
+            opts,
+            false,
+            "inbody",
+            null
+        );
+        var polled = doclingAsyncClient.pollChunkUntilTerminal(
+            startRes.operationId() != null ? startRes.operationId() : startRes.pollUrl(),
+            1200_000L,
+            500L
+        );
+        if (polled.status() == null || !polled.status().isSuccess()) {
+            LOGGER.warning("Async Docling chunking did not complete successfully; falling back to sync.");
+            resp = doclingClient.hybridChunkFromBytes(
+                doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
+                bytes,
+                opts,
+                false,
+                "inbody",
+                null
             );
+        } else {
+            resp = polled.response();
+            if (resp == null || resp.getChunks() == null) {
+            LOGGER.warning("Async Docling returned empty response; falling back to sync.");
+            resp = doclingClient.hybridChunkFromBytes(
+                doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
+                bytes,
+                opts,
+                false,
+                "inbody",
+                null
+            );
+            }
+        }
+        } else {
+        resp = doclingClient.hybridChunkFromBytes(
+            doc.getOriginalFilename() != null ? doc.getOriginalFilename() : (documentId + ".pdf"),
+            bytes,
+            opts,
+            false, // include_converted_doc
+            "inbody",
+            null // use default convert options
+        );
+        }
 
             List<DoclingChunkResponse.Chunk> doclingChunks = resp.getChunks();
             if (doclingChunks == null || doclingChunks.isEmpty()) {

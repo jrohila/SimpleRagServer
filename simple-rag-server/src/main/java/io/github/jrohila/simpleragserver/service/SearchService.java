@@ -6,6 +6,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Base64;
 import java.util.List;
@@ -20,6 +22,8 @@ public class SearchService {
     private final RestTemplate restTemplate;
     private final EmbedClient embedService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final NlpService nlpService;
+    private static final Logger log = LoggerFactory.getLogger(SearchService.class);
 
     public enum MatchType {
         MATCH, MATCH_PHRASE, MATCH_BOOL_PREFIX, QUERY_STRING, SIMPLE_QUERY_STRING
@@ -37,9 +41,10 @@ public class SearchService {
     @Value("${chunks.index-name}")
     private String indexName;
 
-    public SearchService(EmbedClient embedService) {
+    public SearchService(EmbedClient embedService, NlpService nlpService) {
         this.restTemplate = new RestTemplate();
         this.embedService = embedService;
+        this.nlpService = nlpService;
     }
 
     public Map<String, Object> searchAsRaw(
@@ -48,6 +53,8 @@ public class SearchService {
             boolean useKnn,
             int size
     ) throws Exception {
+    // Log incoming text query
+    try { log.info("searchAsRaw: textQuery='{}'", textQuery); } catch (Exception ignore) {}
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
 
@@ -63,6 +70,34 @@ public class SearchService {
                 queries.add(Map.of("query_string", Map.of("query", textQuery)));
             case MatchType.SIMPLE_QUERY_STRING ->
                 queries.add(Map.of("simple_query_string", Map.of("query", textQuery)));
+        }
+
+        // Extract boost terms using NLP and add boosted queries
+        try {
+            List<String> terms = nlpService.extractCandidateTerms(textQuery);
+            if (terms != null && !terms.isEmpty()) {
+                int cap = Math.min(terms.size(), 8); // cap to avoid overly large queries
+                List<String> usedTerms = new ArrayList<>();
+                for (int i = 0; i < cap; i++) {
+                    String term = terms.get(i);
+                    if (term == null || term.isBlank()) continue;
+                    usedTerms.add(term);
+                    // Prefer phrase match with boost; fall back to match if needed
+                    Map<String, Object> boosted = Map.of(
+                            "match_phrase", Map.of(
+                                    "text", Map.of(
+                                            "query", term,
+                                            "boost", 2.5
+                                    )
+                            )
+                    );
+                    queries.add(boosted);
+                }
+                try { log.info("searchAsRaw: boostTermsApplied count={} terms={}", usedTerms.size(), usedTerms); } catch (Exception ignore) {}
+            }
+        } catch (RuntimeException ignore) {
+            // If NLP fails, skip boosts silently
+            try { log.warn("searchAsRaw: boost term extraction failed: {}", ignore.getMessage()); } catch (Exception e2) {}
         }
         if (useKnn) {
             queries.add(Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", 50))));
