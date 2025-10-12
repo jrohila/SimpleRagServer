@@ -15,6 +15,7 @@ import java.util.Map;
 import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
 import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Value;
+import java.util.HashMap; // added
 
 @Service
 public class SearchService {
@@ -24,6 +25,9 @@ public class SearchService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final NlpService nlpService;
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
+
+    // Limit the number of boosted terms added to the query
+    private static final int MAX_BOOST_TERMS = 12;
 
     public enum MatchType {
         MATCH, MATCH_PHRASE, MATCH_BOOL_PREFIX, QUERY_STRING, SIMPLE_QUERY_STRING
@@ -58,40 +62,44 @@ public class SearchService {
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
 
+        // Build lexical part as a single bool/should query to avoid exceeding hybrid sub-query limits
         List<Map<String, Object>> queries = new ArrayList<>();
+        List<Map<String, Object>> shouldClauses = new ArrayList<>();
+
+        // Base text clause (from matchType)
         switch (matchType) {
             case MatchType.MATCH ->
-                queries.add(Map.of("match", Map.of("text", textQuery)));
+                shouldClauses.add(Map.of("match", Map.of("text", textQuery)));
             case MatchType.MATCH_PHRASE ->
-                queries.add(Map.of("match_phrase", Map.of("text", textQuery)));
+                shouldClauses.add(Map.of("match_phrase", Map.of("text", textQuery)));
             case MatchType.MATCH_BOOL_PREFIX ->
-                queries.add(Map.of("match_bool_prefix", Map.of("text", textQuery)));
+                shouldClauses.add(Map.of("match_bool_prefix", Map.of("text", textQuery)));
             case MatchType.QUERY_STRING ->
-                queries.add(Map.of("query_string", Map.of("query", textQuery)));
+                shouldClauses.add(Map.of("query_string", Map.of("query", textQuery)));
             case MatchType.SIMPLE_QUERY_STRING ->
-                queries.add(Map.of("simple_query_string", Map.of("query", textQuery)));
+                shouldClauses.add(Map.of("simple_query_string", Map.of("query", textQuery)));
         }
 
-        // Extract boost terms using NLP and add boosted queries
+        // Extract boost terms using NLP and add them as additional clauses inside the same bool query
         try {
             List<String> terms = nlpService.extractCandidateTerms(textQuery);
             if (terms != null && !terms.isEmpty()) {
-                int cap = Math.min(terms.size(), 8); // cap to avoid overly large queries
+                int cap = Math.min(terms.size(), MAX_BOOST_TERMS); // cap to avoid overly large bool
                 List<String> usedTerms = new ArrayList<>();
                 for (int i = 0; i < cap; i++) {
                     String term = terms.get(i);
                     if (term == null || term.isBlank()) continue;
                     usedTerms.add(term);
-                    // Prefer phrase match with boost; fall back to match if needed
+                    // Boosted phrase match for the term
                     Map<String, Object> boosted = Map.of(
-                            "match_phrase", Map.of(
-                                    "text", Map.of(
-                                            "query", term,
-                                            "boost", 2.5
-                                    )
+                        "match_phrase", Map.of(
+                            "text", Map.of(
+                                "query", term,
+                                "boost", 2.5
                             )
+                        )
                     );
-                    queries.add(boosted);
+                    shouldClauses.add(boosted);
                 }
                 try { log.info("searchAsRaw: boostTermsApplied count={} terms={}", usedTerms.size(), usedTerms); } catch (Exception ignore) {}
             }
@@ -99,6 +107,15 @@ public class SearchService {
             // If NLP fails, skip boosts silently
             try { log.warn("searchAsRaw: boost term extraction failed: {}", ignore.getMessage()); } catch (Exception e2) {}
         }
+
+        // Wrap lexical clauses into one bool should query (counts as a single hybrid sub-query)
+        Map<String, Object> boolInner = new HashMap<>();
+        boolInner.put("should", shouldClauses);
+        boolInner.put("minimum_should_match", 1);
+        Map<String, Object> lexicalQuery = Map.of("bool", boolInner);
+        queries.add(lexicalQuery);
+
+        // Optional semantic (kNN) as the only other sub-query
         if (useKnn) {
             queries.add(Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", 50))));
         }

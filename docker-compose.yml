@@ -29,22 +29,45 @@ services:
     environment:
       - OLLAMA_KEEP_ALIVE=24h
     restart: unless-stopped
+    profiles:
+      - ollama
 
   ollama-pull-models:
     image: curlimages/curl:latest
-    depends_on:
-      - ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # ensure Linux can reach host; works on Windows/macOS too
     command: >
-      sh -c "
-        echo 'Waiting for Ollama service to be ready...' &&
-        sleep 20 &&
-        echo 'Pulling granite3.3:2b model...' &&
-        curl -X POST http://ollama:11434/api/pull -H 'Content-Type: application/json' -d '{\"name\": \"granite3.3:2b\"}' &&
-        echo 'Pulling embeddinggemma:300m embedding model...' &&
-        curl -X POST http://ollama:11434/api/pull -H 'Content-Type: application/json' -d '{\"name\": \"embeddinggemma:300m\"}' &&
-        echo 'Models pulled successfully!' &&
-        curl -X GET http://ollama:11434/api/tags
-      "
+      sh -c '
+        MODELS="$${OLLAMA_MODELS:-granite3.3:2b embeddinggemma:300m}"
+        RETRIES="$${OLLAMA_RETRY:-30}"
+        DELAY="$${OLLAMA_RETRY_DELAY:-2}"
+        OLLAMA_URL="$${OLLAMA_URL:-}"
+        if [ -n "$$OLLAMA_URL" ]; then
+          echo "Using provided OLLAMA_URL=$$OLLAMA_URL"
+        else
+          echo "Locating Ollama (container or host)..."
+          for U in http://ollama:11434 http://host.docker.internal:11434; do
+            echo "Trying $$U ..."
+            if curl -sS -m 2 "$$U/api/tags" >/dev/null 2>&1 || \
+               curl -sS --retry "$$RETRIES" --retry-delay "$$DELAY" --retry-all-errors -m 2 "$$U/api/tags" >/dev/null 2>&1; then
+              OLLAMA_URL="$$U"
+              break
+            fi
+          done
+        fi
+        if [ -z "$$OLLAMA_URL" ]; then
+          echo "Ollama not reachable; skipping model pulls."
+          exit 0
+        fi
+        echo "Using $$OLLAMA_URL"
+        for M in $$MODELS; do
+          echo "Pulling $$M..."
+          curl -sS -X POST "$$OLLAMA_URL/api/pull" -H "Content-Type: application/json" -d "{\"name\":\"$$M\"}" || true
+          echo
+        done
+        echo "Available models:"
+        curl -sS "$$OLLAMA_URL/api/tags" || true
+      '
     restart: "no"
 
   docling-serve:

@@ -1,5 +1,7 @@
 package io.github.jrohila.simpleragserver.chat;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 public class ChatController {
 
     private final ChatService chatService;
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     
     @Value("${spring.ai.ollama.chat.options.model}")
     private String defaultModel;
@@ -30,6 +33,9 @@ public class ChatController {
             request.setModel(defaultModel);
         }
         boolean rag = (useRag == null) ? true : useRag;
+        log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={}",
+            request.isStream(), rag, request.getModel(),
+            (request.getMessages() == null ? 0 : request.getMessages().size()));
         
         if (request.isStream()) {
             // Return SSE streaming response
@@ -37,7 +43,7 @@ public class ChatController {
             
             CompletableFuture.runAsync(() -> {
                 try {
-                    chatService.chatStream(request)
+                    chatService.chatStream(request, rag)
                         .doOnNext(chunk -> {
                             try {
                                 String jsonData = toJson(chunk);

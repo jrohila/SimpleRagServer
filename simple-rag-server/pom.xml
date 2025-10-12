@@ -160,6 +160,12 @@
             <artifactId>commons-codec</artifactId>
         </dependency>
         
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.14.0</version>
+        </dependency>
+        
         <!-- Apache OpenNLP for sentence detection -->
         <dependency>
             <groupId>org.apache.opennlp</groupId>
