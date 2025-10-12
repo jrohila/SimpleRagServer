@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional; // added
 // Add detector import
 import io.github.jrohila.simpleragserver.chat.util.TitleRequestDetector; // assumes detector is in this package
+import java.lang.reflect.InvocationTargetException;
 
 @Service
 public class ChatService {
@@ -55,8 +56,7 @@ public class ChatService {
         return chat(request, true);
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag) {
-        // Detect title request from the first user message, and short-circuit
+    private List<Message> handleMessage(OpenAiChatRequest request, boolean useRag) {
         String firstUserContent = null;
         if (request.getMessages() != null) {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
@@ -69,105 +69,89 @@ public class ChatService {
         boolean isTitleRequest = firstUserContent != null
                 && titleRequestDetector != null
                 && titleRequestDetector.isTitleRequest(firstUserContent);
+
+        List<Message> springMessages = new ArrayList<>();
         if (isTitleRequest) {
             if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Title request detected; sending only first user message to LLM (no systemAppend, no RAG).");
+                log.debug("[ChatService] Title request detected (stream); sending only first user message to LLM (no systemAppend, no RAG).");
             }
             List<Message> only = new ArrayList<>();
             only.add(new UserMessage(firstUserContent));
+            springMessages = only;
             if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Sending to LLM ({} messages):", only.size());
+                log.debug("[ChatService] Streaming: sending to LLM ({} messages):", only.size());
                 log.debug("  #0 [UserMessage] {}", firstUserContent);
             }
-            Prompt prompt = new Prompt(only);
-            ChatResponse resp = chatModel.call(prompt);
-            String assistantContent = "";
-            if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
-                var outMsg = resp.getResults().get(0).getOutput();
-                if (outMsg instanceof AssistantMessage am) {
-                    assistantContent = am.getText();
-                } else if (outMsg != null) {
-                    try {
-                        var mText = outMsg.getClass().getMethod("getText");
-                        Object v = mText.invoke(outMsg);
-                        assistantContent = v != null ? v.toString() : "";
-                    } catch (Exception e1) {
-                        try {
-                            var mContent = outMsg.getClass().getMethod("getContent");
-                            Object v2 = mContent.invoke(outMsg);
-                            assistantContent = v2 != null ? v2.toString() : "";
-                        } catch (Exception e2) {
-                            assistantContent = outMsg.toString();
+        } else {
+            boolean hasClientSystemOrAssistantStream = false;
+            log.info("[ChatService] chatStream invoked: msgs={} model={} ",
+                    (request.getMessages() == null ? 0 : request.getMessages().size()),
+                    request.getModel());
+            if (request.getMessages() != null) {
+                for (OpenAiChatRequest.Message m : request.getMessages()) {
+                    if (m.getRole() == null) {
+                        continue;
+                    }
+                    switch (m.getRole()) {
+                        case "system" -> {
+                            String content = m.getContentAsString();
+                            if (content == null) {
+                                content = "";
+                            }
+                            if (systemAppend != null && !systemAppend.isBlank()) {
+                                String trimmedAppend = systemAppend.trim();
+                                String trimmedContent = content.trim();
+                                if (!trimmedContent.endsWith(trimmedAppend)) {
+                                    content = (trimmedContent.isEmpty() ? trimmedAppend : trimmedContent + "\n" + trimmedAppend);
+                                }
+                            }
+                            springMessages.add(new SystemMessage(content));
+                            hasClientSystemOrAssistantStream = true;
                         }
+                        case "user" ->
+                            springMessages.add(new UserMessage(m.getContentAsString()));
+                        case "assistant" -> {
+                            // Do NOT append system text to assistant messages in streaming path.
+                            springMessages.add(new AssistantMessage(m.getContentAsString()));
+                            hasClientSystemOrAssistantStream = true;
+                        }
+                        default ->
+                            springMessages.add(new UserMessage(m.getContentAsString()));
                     }
                 }
             }
-            OpenAiChatResponse out = new OpenAiChatResponse();
-            out.setId("chatcmpl-" + UUID.randomUUID());
-            out.setModel(request.getModel());
-            OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
-            choice.setIndex(0);
-            choice.setFinishReason("stop");
-            choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
-            out.setChoices(List.of(choice));
-
-            OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
-            List<OpenAiChatRequest.Message> single = new ArrayList<>();
-            single.add(new OpenAiChatRequest.Message("assistant", assistantContent));
-            int completionTokens = estimateTokens(single);
-            int promptTokens = firstUserContent != null ? Math.max(1, firstUserContent.length() / 4) : 0;
-            usage.setPromptTokens(promptTokens);
-            usage.setCompletionTokens(completionTokens);
-            usage.setTotalTokens(promptTokens + completionTokens);
-            out.setUsage(usage);
-            return out;
-        }
-
-        List<Message> springMessages = new ArrayList<>();
-        String userPrompt = null;
-        boolean hasClientSystemOrAssistant = false;
-        if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
-                if (m.getRole() == null) {
-                    continue;
-                }
-                switch (m.getRole()) {
-                    case "system" -> {
-                        String content = m.getContentAsString();
-                        if (content == null) content = "";
-                        if (systemAppend != null && !systemAppend.isBlank()) {
-                            String trimmedAppend = systemAppend.trim();
-                            String trimmedContent = content.trim();
-                            if (!trimmedContent.endsWith(trimmedAppend)) {
-                                content = (trimmedContent.isEmpty() ? trimmedAppend : trimmedContent + "\n" + trimmedAppend);
-                            }
-                        }
-                        springMessages.add(new SystemMessage(content));
-                        hasClientSystemOrAssistant = true;
-                    }
-                    case "user" -> {
-                        springMessages.add(new UserMessage(m.getContentAsString()));
+            if (!hasClientSystemOrAssistantStream && systemAppend != null && !systemAppend.isBlank()) {
+                springMessages.add(0, new SystemMessage(systemAppend));
+            }
+            // Build RAG context similar to chat()
+            String userPrompt = null;
+            if (request.getMessages() != null) {
+                for (OpenAiChatRequest.Message m : request.getMessages()) {
+                    if ("user".equals(m.getRole())) {
                         userPrompt = m.getContentAsString();
                     }
-                    case "assistant" -> {
-                        // Do NOT append system text to assistant messages to avoid model echoing it back.
-                        springMessages.add(new AssistantMessage(m.getContentAsString()));
-                        hasClientSystemOrAssistant = true;
-                    }
-                    default -> 
-                        springMessages.add(new UserMessage(m.getContentAsString()));
+                }
+            }
+            // Search for relevant chunks using the prompt if useRag is true
+            if (useRag) {
+                springMessages = this.addContext(userPrompt, springMessages);
+            }
+
+            // DEBUG: log exactly what will be sent to the LLM (streaming)
+            if (log.isDebugEnabled()) {
+                log.debug("[ChatService] Streaming: sending to LLM ({} messages):", springMessages.size());
+                int i = 0;
+                for (Message msg : springMessages) {
+                    log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), extractMessageText(msg));
                 }
             }
         }
+        return springMessages;
+    }
 
-        // If client provided no system or assistant messages, add a default system message
-        if (!hasClientSystemOrAssistant && systemAppend != null && !systemAppend.isBlank()) {
-            springMessages.add(0, new SystemMessage(systemAppend));
-        }
-
-        // Search for relevant chunks using the prompt if useRag is true
+    private List<Message> addContext(String userPrompt, List<Message> springMessages) {
         String context = "";
-        if (useRag && userPrompt != null && !userPrompt.isBlank()) {
+        if (userPrompt != null && !userPrompt.isBlank()) {
             try {
                 // Use boosted hybrid search with knn; limit to 8 chunks for prompt budget
                 List<SearchResultDTO> results = searchService.search(
@@ -192,24 +176,58 @@ public class ChatService {
         }
 
         // Add context as a system message if found
-        if (useRag && !context.isBlank()) {
+        if (!context.isBlank()) {
             String prefix = (ragContextPrompt != null ? ragContextPrompt.trim() : "");
             if (!prefix.isEmpty()) {
                 springMessages.add(0, new SystemMessage(prefix + "\n" + context));
             } else {
                 springMessages.add(0, new SystemMessage(context));
             }
-        } else if (useRag && context.isBlank()) {
+        } else if (context.isBlank()) {
             log.info("[ChatService] No context found for prompt: '{}'. RAG enabled but no relevant chunks found.", userPrompt);
         }
-        // DEBUG: log exactly what is sent to the LLM
-        if (log.isDebugEnabled()) {
-            log.debug("[ChatService] Sending to LLM ({} messages):", springMessages.size());
-            int i = 0;
-            for (Message msg : springMessages) {
-                log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), extractMessageText(msg));
+        return springMessages;
+    }
+
+    private int estimateTokens(List<OpenAiChatRequest.Message> messages) {
+        if (messages == null) {
+            return 0;
+        }
+        int total = 0;
+        for (OpenAiChatRequest.Message m : messages) {
+            String content = m.getContentAsString();
+            if (content != null) {
+                total += Math.max(1, content.length() / 4); // rough heuristic
             }
         }
+        return total;
+    }
+
+    // Helper to extract a readable text from Spring AI Message implementations.
+    private String extractMessageText(Message msg) {
+        try {
+            switch (msg) {
+                case SystemMessage sm -> {
+                    return sm.getText();
+                }
+                case UserMessage um -> {
+                    return um.getText();
+                }
+                case AssistantMessage am -> {
+                    return am.getText();
+                }
+                default -> {
+                    return msg.toString();
+                }
+            }
+        } catch (Exception e) {
+            return msg.toString();
+        }
+    }
+
+    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag) {
+        // Detect title request from the first user message, and short-circuit
+        List<Message> springMessages = this.handleMessage(request, useRag);
 
         Prompt prompt = new Prompt(springMessages);
         ChatResponse resp = chatModel.call(prompt);
@@ -224,12 +242,12 @@ public class ChatService {
                     var mText = outMsg.getClass().getMethod("getText");
                     Object v = mText.invoke(outMsg);
                     assistantContent = v != null ? v.toString() : "";
-                } catch (Exception e1) {
+                } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e1) {
                     try {
                         var mContent = outMsg.getClass().getMethod("getContent");
                         Object v2 = mContent.invoke(outMsg);
                         assistantContent = v2 != null ? v2.toString() : "";
-                    } catch (Exception e2) {
+                    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e2) {
                         assistantContent = outMsg.toString();
                     }
                 }
@@ -263,208 +281,13 @@ public class ChatService {
         return out;
     }
 
-    private int estimateTokens(List<OpenAiChatRequest.Message> messages) {
-        if (messages == null) {
-            return 0;
-        }
-        int total = 0;
-        for (OpenAiChatRequest.Message m : messages) {
-            String content = m.getContentAsString();
-            if (content != null) {
-                total += Math.max(1, content.length() / 4); // rough heuristic
-            }
-        }
-        return total;
-    }
-
-    // Helper to extract a readable text from Spring AI Message implementations.
-    private String extractMessageText(Message msg) {
-        try {
-            if (msg instanceof SystemMessage sm) {
-                return sm.getText();
-            } else if (msg instanceof UserMessage um) {
-                return um.getText();
-            } else if (msg instanceof AssistantMessage am) {
-                return am.getText();
-            } else {
-                return msg.toString();
-            }
-        } catch (Exception e) {
-            return msg.toString();
-        }
-    }
-
     /**
      * Streaming version returning a Flux of OpenAI-compatible streaming chunks.
      */
     public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, boolean useRag) {
         // Detect title request from the first user message, and short-circuit
-        String firstUserContent = null;
-        if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
-                if ("user".equals(m.getRole())) {
-                    firstUserContent = m.getContentAsString();
-                    break;
-                }
-            }
-        }
-        boolean isTitleRequest = firstUserContent != null
-                && titleRequestDetector != null
-                && titleRequestDetector.isTitleRequest(firstUserContent);
-        if (isTitleRequest) {
-            if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Title request detected (stream); sending only first user message to LLM (no systemAppend, no RAG).");
-            }
-            List<Message> only = new ArrayList<>();
-            only.add(new UserMessage(firstUserContent));
-            if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Streaming: sending to LLM ({} messages):", only.size());
-                log.debug("  #0 [UserMessage] {}", firstUserContent);
-            }
-            Prompt prompt = new Prompt(only);
-            String model = request.getModel();
-            String id = "chatcmpl-" + UUID.randomUUID();
-            AtomicBoolean first = new AtomicBoolean(true);
-            StringBuilder cumulative = new StringBuilder();
-            AtomicInteger index = new AtomicInteger(0);
+        List<Message> springMessages = this.handleMessage(request, useRag);
 
-            return chatModel.stream(prompt)
-                .flatMap(resp -> Flux.fromIterable(resp.getResults()))
-                .map(result -> {
-                    String assistantContent = "";
-                    var outMsg = result.getOutput();
-                    if (outMsg instanceof AssistantMessage am) {
-                        try {
-                            assistantContent = am.getText();
-                        } catch (Exception ignored) {
-                            assistantContent = am.toString();
-                        }
-                    }
-                    String newDelta;
-                    if (assistantContent.startsWith(cumulative.toString())) {
-                        newDelta = assistantContent.substring(cumulative.length());
-                    } else {
-                        newDelta = assistantContent;
-                    }
-                    if (!newDelta.isEmpty()) {
-                        cumulative.append(newDelta);
-                    }
-                    OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
-                    chunk.setId(id);
-                    chunk.setModel(model);
-                    OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
-                    choice.setIndex(index.get());
-                    OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
-                    if (first.getAndSet(false)) {
-                        delta.setRole("assistant");
-                    }
-                    delta.setContent(newDelta);
-                    choice.setDelta(delta);
-                    chunk.setChoices(List.of(choice));
-                    return chunk;
-                })
-                .concatWith(Mono.fromSupplier(() -> {
-                    OpenAiChatStreamChunk done = new OpenAiChatStreamChunk();
-                    done.setId(id);
-                    done.setModel(model);
-                    OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
-                    choice.setIndex(index.get());
-                    choice.setFinishReason("stop");
-                    OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
-                    delta.setContent("");
-                    choice.setDelta(delta);
-                    done.setChoices(List.of(choice));
-                    return done;
-                }));
-        }
-
-        List<Message> springMessages = new ArrayList<>();
-        boolean hasClientSystemOrAssistantStream = false;
-        log.info("[ChatService] chatStream invoked: msgs={} model={} ",
-            (request.getMessages() == null ? 0 : request.getMessages().size()),
-            request.getModel());
-        if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
-                if (m.getRole() == null) {
-                    continue;
-                }
-                switch (m.getRole()) {
-                    case "system" -> {
-                        String content = m.getContentAsString();
-                        if (content == null) content = "";
-                        if (systemAppend != null && !systemAppend.isBlank()) {
-                            String trimmedAppend = systemAppend.trim();
-                            String trimmedContent = content.trim();
-                            if (!trimmedContent.endsWith(trimmedAppend)) {
-                                content = (trimmedContent.isEmpty() ? trimmedAppend : trimmedContent + "\n" + trimmedAppend);
-                            }
-                        }
-                        springMessages.add(new SystemMessage(content));
-                        hasClientSystemOrAssistantStream = true;
-                    }
-                    case "user" -> 
-                        springMessages.add(new UserMessage(m.getContentAsString()));
-                    case "assistant" -> {
-                        // Do NOT append system text to assistant messages in streaming path.
-                        springMessages.add(new AssistantMessage(m.getContentAsString()));
-                        hasClientSystemOrAssistantStream = true;
-                    }
-                    default -> 
-                        springMessages.add(new UserMessage(m.getContentAsString()));
-                }
-            }
-        }
-        if (!hasClientSystemOrAssistantStream && systemAppend != null && !systemAppend.isBlank()) {
-            springMessages.add(0, new SystemMessage(systemAppend));
-        }
-        // Build RAG context similar to chat()
-        String userPrompt = null;
-        if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
-                if ("user".equals(m.getRole())) {
-                    userPrompt = m.getContentAsString();
-                }
-            }
-        }
-        String context = "";
-        if (useRag && userPrompt != null && !userPrompt.isBlank()) {
-            try {
-                List<SearchResultDTO> results = searchService.search(
-                        userPrompt,
-                        SearchService.MatchType.MATCH,
-                        true,
-                        25
-                );
-                if (results != null && !results.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (SearchResultDTO r : results) {
-                        String t = r.getText();
-                        if (t != null && !t.isBlank()) {
-                            sb.append(t.trim()).append("\n");
-                        }
-                    }
-                    context = sb.toString();
-                }
-            } catch (Exception e) {
-                log.warn("[ChatService] RAG search failed (stream): {}", e.getMessage());
-            }
-        }
-        if (useRag && !context.isBlank()) {
-            String prefix = (ragContextPrompt != null ? ragContextPrompt.trim() : "");
-            if (!prefix.isEmpty()) {
-                springMessages.add(0, new SystemMessage(prefix + "\n" + context));
-            } else {
-                springMessages.add(0, new SystemMessage(context));
-            }
-        }
-        // DEBUG: log exactly what will be sent to the LLM (streaming)
-        if (log.isDebugEnabled()) {
-            log.debug("[ChatService] Streaming: sending to LLM ({} messages):", springMessages.size());
-            int i = 0;
-            for (Message msg : springMessages) {
-                log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), extractMessageText(msg));
-            }
-        }
         Prompt prompt = new Prompt(springMessages);
         String model = request.getModel();
         String id = "chatcmpl-" + UUID.randomUUID();
