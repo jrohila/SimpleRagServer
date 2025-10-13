@@ -662,10 +662,5 @@ public class DoclingAsyncClient {
         }
         return null;
     }
-    private Integer firstNonNullInt(JsonNode root, String... keys) {
-        for (String k : keys) {
-            if (root.hasNonNull(k)) return root.get(k).asInt();
-        }
-        return null;
-    }
+
 }

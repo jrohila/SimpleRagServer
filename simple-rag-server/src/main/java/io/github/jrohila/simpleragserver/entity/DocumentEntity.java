@@ -11,7 +11,6 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.time.Instant;
-import java.util.List;
 import org.springframework.content.commons.annotations.ContentId;
 import org.springframework.content.commons.annotations.ContentLength;
 import org.springframework.content.commons.annotations.MimeType;

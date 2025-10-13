@@ -19,7 +19,7 @@ public class TitleRequestDetector {
             Pattern.CASE_INSENSITIVE
     );
 
-    private final LevenshteinDistance ld = new LevenshteinDistance();
+    private final LevenshteinDistance ld = LevenshteinDistance.getDefaultInstance();
 
     public boolean isTitleRequest(String text) {
         if (text == null || text.isBlank()) {

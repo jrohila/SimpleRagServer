@@ -4,13 +4,8 @@
  */
 package io.github.jrohila.simpleragserver.config;
 
-import java.io.File;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.content.fs.config.EnableFilesystemStores;
-import org.springframework.content.fs.io.FileSystemResourceLoader;
-import org.springframework.context.annotation.Bean;
 
 @Configuration
 @EnableFilesystemStores

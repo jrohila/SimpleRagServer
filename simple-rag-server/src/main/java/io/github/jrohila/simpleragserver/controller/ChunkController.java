@@ -4,8 +4,6 @@ import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.service.ChunkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,7 +41,6 @@ public class ChunkController {
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "documentId", required = false) String documentId
     ) {
-        Pageable pageable = PageRequest.of(page, size);
         return chunkService.list(page, size, documentId);
     }
 

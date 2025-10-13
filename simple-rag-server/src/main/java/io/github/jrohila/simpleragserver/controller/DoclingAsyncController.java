@@ -4,7 +4,6 @@ import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient.OperationStatus;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient.StartOperationResult;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingConversionResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -220,13 +219,6 @@ public class DoclingAsyncController {
         headers.setLocation(URI.create(internalPoll));
         StartOperationResult body = new StartOperationResult(start.operationId(), internalPoll, start.httpStatus(), start.rawBody());
         return new ResponseEntity<>(body, headers, HttpStatus.ACCEPTED);
-    }
-
-    // ---- helpers ----
-    private static String extractIdFromUrl(String url) {
-        if (url == null) return null;
-        int i = url.lastIndexOf('/');
-        return i >= 0 ? url.substring(i + 1) : url;
     }
 
     private static io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options buildConvertOptions(
