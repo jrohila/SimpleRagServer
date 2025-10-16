@@ -151,6 +151,13 @@
             <artifactId>commons-codec</artifactId>
         </dependency>
         
+        <dependency>
+            <groupId>com.knuddels</groupId>
+            <artifactId>jtokkit</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+
+        
         <!-- Depend on local module that hosts summarizer code -->
         <dependency>
             <groupId>io.github.jrohila</groupId>

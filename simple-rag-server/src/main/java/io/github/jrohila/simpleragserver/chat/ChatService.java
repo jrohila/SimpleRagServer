@@ -4,6 +4,9 @@ import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
 import io.github.jrohila.simpleragserver.chat.util.BoostTerm; // new
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.Encoding;
+import com.knuddels.jtokkit.api.EncodingType;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -43,6 +46,17 @@ public class ChatService {
     private final String ragContextPrompt;
     private final String systemAppend;
     private final TitleRequestDetector titleRequestDetector; // added
+    private final Encoding tokenizer; // jtokkit tokenizer
+    @Value("${processing.chat.rag.max-results:200}")
+    private int ragMaxResults;
+    @Value("${opensearch.rrf.window-size:50}")
+    private int rrfWindowSize;
+    @Value("${processing.chat.token.max-context-tokens:90000}")
+    private int maxContextTokens;
+    @Value("${processing.chat.token.reserve-completion:4000}")
+    private int reserveCompletionTokens;
+    @Value("${processing.chat.token.reserve-headroom:2000}")
+    private int reserveHeadroomTokens;
 
     @Autowired
     public ChatService(ChatModel chatModel, SearchService searchService,
@@ -55,6 +69,10 @@ public class ChatService {
         this.ragContextPrompt = ragContextPrompt;
         this.systemAppend = systemAppend;
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
+    // Default to CL100K_BASE (OpenAI GPT-family). For non-OpenAI models this is an approximation.
+    this.tokenizer = Encodings
+        .newDefaultEncodingRegistry()
+        .getEncoding(EncodingType.CL100K_BASE);
     }
 
     public OpenAiChatResponse chat(OpenAiChatRequest request) {
@@ -160,23 +178,47 @@ public class ChatService {
             try {
                 List<BoostTerm> additionalBoostTerms = boostTermDetector.getBoostTermsByNouns(springMessages);
                 
-                // Use boosted hybrid search with knn; limit to 25 chunks for prompt budget
+                // Use boosted hybrid search with knn; dynamically sized
+                // Choose a coherent candidate set size: ensure at least RRF window size, and use ragMaxResults to cap
+                int minNeeded = Math.max(25, rrfWindowSize);
+                int size = Math.max(minNeeded, ragMaxResults);
+                log.info("[ChatService] RAG search size={} (minNeeded={}, rrfWindowSize={}, ragMaxResults={})", size, minNeeded, rrfWindowSize, ragMaxResults);
                 List<SearchResultDTO> results = searchService.search(
                         userPrompt,
                         SearchService.MatchType.MATCH,
                         true,
-                        25,
-            additionalBoostTerms
+                        size,
+                        additionalBoostTerms
                 );
                 if (results != null && !results.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (SearchResultDTO r : results) {
-                        String t = r.getText();
-                        if (t != null && !t.isBlank()) {
-                            sb.append(t.trim()).append("\n");
+                    // Compute token budget based on current messages (without context yet)
+                    int currentTokens = 0;
+                    try { currentTokens = countTokensForMessages(springMessages); } catch (Exception ignore) {}
+                    String prefix = (ragContextPrompt != null ? ragContextPrompt.trim() : "");
+                    int prefixTokens = countTokens(prefix);
+                    int budget = Math.max(0, maxContextTokens - currentTokens - prefixTokens - reserveCompletionTokens - reserveHeadroomTokens);
+                    if (budget <= 0) {
+                        log.info("[ChatService] Context budget is 0 or negative (currentTokens={}, prefixTokens={}). Skipping RAG context.", currentTokens, prefixTokens);
+                    } else {
+                        StringBuilder sb = new StringBuilder();
+                        int used = 0;
+                        int added = 0;
+                        for (SearchResultDTO r : results) {
+                            String t = r.getText();
+                            if (t == null || t.isBlank()) continue;
+                            String normalized = t.trim();
+                            int tokens = countTokens(normalized) + 1; // +1 for newline separator
+                            if (used + tokens > budget) {
+                                break;
+                            }
+                            sb.append(normalized).append('\n');
+                            used += tokens;
+                            added++;
                         }
+                        context = sb.toString();
+                        log.info("[ChatService] RAG packing: results={} addedChunks={} contextTokensUsed={} budget={} currentTokens={} prefixTokens={} reserve={} headroom={} ",
+                                (results == null ? 0 : results.size()), added, used, budget, currentTokens, prefixTokens, reserveCompletionTokens, reserveHeadroomTokens);
                     }
-                    context = sb.toString();
                 }
             } catch (Exception e) {
                 log.warn("[ChatService] RAG search failed: {}", e.getMessage());
@@ -197,16 +239,17 @@ public class ChatService {
         return springMessages;
     }
 
-    private int estimateTokens(List<OpenAiChatRequest.Message> messages) {
-        if (messages == null) {
-            return 0;
-        }
+    // jtokkit helpers for Spring AI messages and plain strings
+    private int countTokens(String text) {
+        if (text == null || text.isEmpty()) return 0;
+        return tokenizer.countTokens(text);
+    }
+
+    private int countTokensForMessages(List<Message> msgs) {
+        if (msgs == null) return 0;
         int total = 0;
-        for (OpenAiChatRequest.Message m : messages) {
-            String content = m.getContentAsString();
-            if (content != null) {
-                total += Math.max(1, content.length() / 4); // rough heuristic
-            }
+        for (Message msg : msgs) {
+            total += countTokens(extractMessageText(msg));
         }
         return total;
     }
@@ -238,6 +281,14 @@ public class ChatService {
         List<Message> springMessages = this.handleMessage(request, useRag);
 
         Prompt prompt = new Prompt(springMessages);
+        // Log prompt token length using jtokkit
+        try {
+            int promptTokens = countTokensForMessages(springMessages);
+            log.info("[ChatService] Tokens (prompt via jtokkit/CL100K): {} tokens across {} messages", promptTokens, springMessages.size());
+        } catch (Exception e) {
+            log.debug("[ChatService] Token count (prompt) failed: {}", e.getMessage());
+        }
+
         ChatResponse resp = chatModel.call(prompt);
         String assistantContent = "";
         if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
@@ -266,6 +317,15 @@ public class ChatService {
             log.info(assistantContent);
         }
 
+        // Log completion token length using jtokkit
+        int completionTokensCount = 0;
+        try {
+            completionTokensCount = countTokens(assistantContent);
+            log.info("[ChatService] Tokens (completion via jtokkit/CL100K): {} tokens", completionTokensCount);
+        } catch (Exception e) {
+            log.debug("[ChatService] Token count (completion) failed: {}", e.getMessage());
+        }
+
         OpenAiChatResponse out = new OpenAiChatResponse();
         out.setId("chatcmpl-" + UUID.randomUUID());
         out.setModel(request.getModel());
@@ -276,15 +336,15 @@ public class ChatService {
         choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
         out.setChoices(List.of(choice));
 
-        // Basic usage estimation (placeholders; real token counting would require model-specific logic)
+        // Usage counts using jtokkit
         OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
-        int promptTokens = estimateTokens(request.getMessages());
-        List<OpenAiChatRequest.Message> single = new ArrayList<>();
-        single.add(new OpenAiChatRequest.Message("assistant", assistantContent));
-        int completionTokens = estimateTokens(single);
+        int promptTokens = 0;
+        try {
+            promptTokens = countTokensForMessages(springMessages);
+        } catch (Exception ignore) {}
         usage.setPromptTokens(promptTokens);
-        usage.setCompletionTokens(completionTokens);
-        usage.setTotalTokens(promptTokens + completionTokens);
+        usage.setCompletionTokens(completionTokensCount);
+        usage.setTotalTokens(promptTokens + completionTokensCount);
         out.setUsage(usage);
         return out;
     }
@@ -297,6 +357,13 @@ public class ChatService {
         List<Message> springMessages = this.handleMessage(request, useRag);
 
         Prompt prompt = new Prompt(springMessages);
+        // Log prompt token length using jtokkit
+        try {
+            int promptTokens = countTokensForMessages(springMessages);
+            log.info("[ChatService] Tokens (prompt via jtokkit/CL100K, streaming): {} tokens across {} messages", promptTokens, springMessages.size());
+        } catch (Exception e) {
+            log.debug("[ChatService] Token count (prompt, streaming) failed: {}", e.getMessage());
+        }
         String model = request.getModel();
         String id = "chatcmpl-" + UUID.randomUUID();
         AtomicBoolean first = new AtomicBoolean(true);
@@ -341,6 +408,13 @@ public class ChatService {
                     return chunk;
                 })
                 .concatWith(Mono.fromSupplier(() -> {
+                    // On stream completion, log completion tokens using accumulated content
+                    try {
+                        int completionTokens = countTokens(cumulative.toString());
+                        log.info("[ChatService] Tokens (completion via jtokkit/CL100K, streaming): {} tokens", completionTokens);
+                    } catch (Exception e) {
+                        log.debug("[ChatService] Token count (completion, streaming) failed: {}", e.getMessage());
+                    }
                     OpenAiChatStreamChunk done = new OpenAiChatStreamChunk();
                     done.setId(id);
                     done.setModel(model);

@@ -56,6 +56,12 @@ public class SearchService {
     @Value("${chunks.index-name}")
     private String indexName;
 
+    // RRF pipeline alignment (window size and rank constant)
+    @Value("${opensearch.rrf.window-size:50}")
+    private int rrfWindowSize;
+    @Value("${opensearch.rrf.rank-constant:60}")
+    private int rrfRankConstant;
+
     public SearchService(EmbedClient embedService, NlpService nlpService) {
         this.restTemplate = new RestTemplate();
         this.embedService = embedService;
@@ -166,7 +172,8 @@ public class SearchService {
         // Return a single clause (nested bool/should) to be added once into top-level shouldClauses
         Map<String, Object> innerBool = new HashMap<>();
         innerBool.put("should", innerShould);
-        // minimum_should_match omitted -> any boosted term contributes
+        // Explicitly require at least one boosted term to match
+        innerBool.put("minimum_should_match", 1);
         return Map.of("bool", innerBool);
     }
 
@@ -184,9 +191,10 @@ public class SearchService {
         // Get embedding vector from EmbedService
         List<Float> embedding = embedService.getEmbeddingAsList(textQuery);
 
-        // Build lexical part as a single bool/should query to avoid exceeding hybrid sub-query limits
+    // Build lexical part as a single bool query to avoid exceeding hybrid sub-query limits
         List<Map<String, Object>> queries = new ArrayList<>();
         List<Map<String, Object>> shouldClauses = new ArrayList<>();
+    List<Map<String, Object>> mustClauses = new ArrayList<>();
 
         // Base text clause (from matchType)
         switch (matchType) {
@@ -200,21 +208,27 @@ public class SearchService {
         // Add exactly ONE boosted clause (extracted terms first, then provided)
         Map<String, Object> boostClause = buildBoostClause(textQuery, additionalBoostTerms);
         if (boostClause != null) {
-            shouldClauses.add(boostClause);
+            // Require that at least one boost term matches
+            mustClauses.add(boostClause);
         } else {
             try { log.info("buildBoostClause: no boost terms available"); } catch (Exception ignore) {}
         }
 
-        // Wrap lexical clauses into one bool should query (counts as a single hybrid sub-query)
+        // Wrap lexical clauses into one bool query (counts as a single hybrid sub-query)
         Map<String, Object> boolInner = new HashMap<>();
         boolInner.put("should", shouldClauses);
         boolInner.put("minimum_should_match", 1);
+        if (!mustClauses.isEmpty()) {
+            boolInner.put("must", mustClauses);
+        }
         Map<String, Object> lexicalQuery = Map.of("bool", boolInner);
         queries.add(lexicalQuery);
 
         // Optional semantic (kNN) as the only other sub-query
         if (useKnn) {
-            queries.add(Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", 50))));
+            int k = Math.max(1, rrfWindowSize);
+            queries.add(Map.of("knn", Map.of("embedding", Map.of("vector", embedding, "k", k))));
+            try { log.info("searchAsRaw: using knn.k={} aligned with RRF window-size={} (rank-constant={})", k, rrfWindowSize, rrfRankConstant); } catch (Exception ignore) {}
         }
 
         // Build hybrid query
