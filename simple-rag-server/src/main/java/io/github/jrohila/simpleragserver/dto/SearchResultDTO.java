@@ -20,5 +20,7 @@ public class SearchResultDTO {
     private float score;
     private String text;
     private ReferenceDTO reference;
+    // Embedding vector for the chunk (if present in index)
+    private java.util.List<Float> embedding;
 
 }

@@ -1,0 +1,43 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Maven package skip tests",
+			"type": "shell",
+			"command": "mvn -q -e -DskipTests package",
+			"args": [],
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Maven package skip tests",
+			"type": "shell",
+			"command": "mvn -q -e -DskipTests package",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Maven package skip tests",
+			"type": "shell",
+			"command": "mvn -q -e -DskipTests package",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Maven package skip tests",
+			"type": "shell",
+			"command": "mvn -q -e -DskipTests package",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Maven package skip tests",
+			"type": "shell",
+			"command": "mvn -q -e -DskipTests package",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

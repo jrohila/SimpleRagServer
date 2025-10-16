@@ -1,5 +1,7 @@
 package io.github.jrohila.simpleragserver.chat;
 
+import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
+import io.github.jrohila.simpleragserver.chat.util.BoostTerm; // new
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +27,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional; // added
 // Add detector import
-import io.github.jrohila.simpleragserver.chat.util.TitleRequestDetector; // assumes detector is in this package
+import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
 import java.lang.reflect.InvocationTargetException;
 
 @Service
@@ -33,6 +35,9 @@ public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
+    @Autowired
+    private BoostTermDetector boostTermDetector;
+    
     private final ChatModel chatModel;
     private final SearchService searchService;
     private final String ragContextPrompt;
@@ -153,12 +158,15 @@ public class ChatService {
         String context = "";
         if (userPrompt != null && !userPrompt.isBlank()) {
             try {
-                // Use boosted hybrid search with knn; limit to 8 chunks for prompt budget
+                List<BoostTerm> additionalBoostTerms = boostTermDetector.getBoostTermsByNouns(springMessages);
+                
+                // Use boosted hybrid search with knn; limit to 25 chunks for prompt budget
                 List<SearchResultDTO> results = searchService.search(
                         userPrompt,
                         SearchService.MatchType.MATCH,
                         true,
-                        25
+                        25,
+            additionalBoostTerms
                 );
                 if (results != null && !results.isEmpty()) {
                     StringBuilder sb = new StringBuilder();

@@ -38,7 +38,7 @@ services:
       - "host.docker.internal:host-gateway"  # ensure Linux can reach host; works on Windows/macOS too
     command: >
       sh -c '
-        MODELS="$${OLLAMA_MODELS:-granite3.3:2b embeddinggemma:300m}"
+        MODELS="$${OLLAMA_MODELS:-ibm/granite4:tiny-h embeddinggemma:300m}"
         RETRIES="$${OLLAMA_RETRY:-30}"
         DELAY="$${OLLAMA_RETRY_DELAY:-2}"
         OLLAMA_URL="$${OLLAMA_URL:-}"

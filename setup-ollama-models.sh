@@ -18,13 +18,13 @@ if ! ollama list | grep -q "embeddinggemma:300m"; then
     ollama pull all-minilm:22m
 fi
 
-echo "Pulling granite3.3:2b..."
-ollama pull granite3.3:2b || echo "Warning: granite3.3:2b not found. Trying granite3.1:2b..."
+echo "Pulling ibm/granite4:tiny-h..."
+ollama pull ibm/granite4:tiny-h || echo "Warning: ibm/granite4:tiny-h not found. Trying ibm/granite4:tiny-hf..."
 
-# If granite3.3:2b fails, try granite3.1:2b
-if ! ollama list | grep -q "granite3.3:2b"; then
-    echo "Trying granite3.1:2b as alternative..."
-    ollama pull granite3.1:2b
+# If ibm/granite4:tiny-h fails, try ibm/granite4:tiny-hf
+if ! ollama list | grep -q "ibm/granite4:tiny-h"; then
+    echo "Trying ibm/granite4:tiny-hf as alternative..."
+    ollama pull ibm/granite4:tiny-hf
 fi
 
 echo "Model setup complete!"

@@ -73,6 +73,19 @@ public class SearchResponseMapper {
 
                 // documentName and url are not present in the chunk doc; leave null for now
                 dto.setReference(ref);
+
+                // Embedding vector (if present). Expect a list of numbers in 'embedding'.
+                Object emb = source.get("embedding");
+                if (emb instanceof List) {
+                    List<?> raw = (List<?>) emb;
+                    List<Float> vec = new ArrayList<>(raw.size());
+                    for (Object o : raw) {
+                        if (o instanceof Number) {
+                            vec.add(((Number) o).floatValue());
+                        }
+                    }
+                    dto.setEmbedding(vec);
+                }
             }
 
             results.add(dto);
