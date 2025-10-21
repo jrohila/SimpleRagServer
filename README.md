@@ -48,7 +48,7 @@ Everything runs locally via Docker Compose.
 
 ## Services (Docker Compose)
 - OpenSearch (9200): hybrid retrieval backend
-- OpenSearch Dashboards (5601): UI for queries and monitoring
+- OpenSearch Dashboards (15601): UI for queries and monitoring
 - Ollama (11434): local LLMs (optional via profile)
 - Model puller: pulls Ollama models automatically (container or host)
 - Docling Serve (5001): document parsing and chunking (always used)
