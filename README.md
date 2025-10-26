@@ -1,25 +1,23 @@
 # SimpleRagServer
 
-An OpenAI-compatible RAG server built with Spring Boot, OpenSearch, and Ollama
-
-SimpleRagServer is a lightweight, fully open-source Retrieval-Augmented Generation (RAG) backend designed for developers who want to run private, local, or enterprise-grade LLM pipelines without cloud dependencies.
-
-It provides an OpenAI-compatible API (`/v1/chat/completions`) that can be dropped into any client or SDK that supports OpenAI, while running everything locally using:
-- OpenSearch for hybrid retrieval (lexical + vector search)
-- Ollama for hosting local LLMs and embeddings
-- Docling Serve for document parsing and chunking
-
-The project’s goal is simplicity and transparency: a self-hosted RAG system with production-level architecture (Spring Boot microservice, Docker Compose environment, and modular processing pipelines) that can evolve into a scalable, enterprise-ready “SimpleAgentServer.”
+SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generation (RAG) backend built with Spring Boot, OpenSearch, and Ollama. It enables private, local, or enterprise-grade LLM pipelines with hybrid search, local LLM/embedding support, and document chunking—all fully dockerized for easy deployment.
 
 ## Features
-- OpenAI-compatible API: `/v1/chat/completions`
-- Hybrid RAG retrieval: OpenSearch lexical + kNN vector search
-- Automatic context injection: context prefixed via a system message before LLM call
-- Docling-powered chunking: always-on document parsing via Docling Serve
-- Local LLM hosting: Ollama (host or container) for chat and embeddings
-- Streaming support: OpenAI-style server-sent events
-- Configurable prompts: via `application.properties`
-- Dockerized stack: start the whole environment with one command
+- OpenAI-compatible `/v1/chat/completions` API (works with OpenAI clients/SDKs)
+- Hybrid search: combines lexical and kNN vector retrieval in OpenSearch
+- Automatic context injection and system prompt handling
+- Docling-powered document parsing and chunking
+- Local LLM and embedding model support (Ollama, with model auto-pulling)
+- Streaming and non-streaming chat support
+- Modular, production-grade Spring Boot architecture
+- Docker Compose for one-command startup of all services
+
+## Docker Compose Services
+- `opensearch`: Hybrid search backend (9200)
+- `dashboards`: OpenSearch Dashboards UI (15601)
+- `ollama`: Local LLM/embedding server (11434, optional profile)
+- `ollama-pull-models`: Auto-pulls required Ollama models
+- `docling-serve`: Document chunking and parsing (5001)
 
 ## Architecture Overview
 ```
@@ -27,36 +25,26 @@ The project’s goal is simplicity and transparency: a self-hosted RAG system wi
  │   Client     │──────▶│  SimpleRagServer │──────▶│   Ollama   │
  │ (OpenAI API) │       │   (Spring Boot)  │◀──────│ (LLM Host) │
  └──────────────┘       └──────┬───────────┘       └────────────┘
-                                │
-                                ▼
-                        ┌───────────────┐
-                        │  OpenSearch   │  ← hybrid retrieval (lexical + vector)
-                        └───────────────┘
-                                │
-                                ▼
-                        ┌───────────────┐
-                        │ Docling Serve │  ← document parsing and chunking
-                        └───────────────┘
+        │
+        ▼
+      ┌───────────────┐
+      │  OpenSearch   │  ← hybrid retrieval (lexical + vector)
+      └───────────────┘
+        │
+        ▼
+      ┌───────────────┐
+      │ Docling Serve │  ← document parsing and chunking
+      └───────────────┘
 ```
-
-Everything runs locally via Docker Compose.
 
 ## Prerequisites
 - Docker and Docker Compose v2
 - Java 21+ and Maven (to run the Spring Boot app)
 - Optional: Ollama installed on the host if not using the container
 
-## Services (Docker Compose)
-- OpenSearch (9200): hybrid retrieval backend
-- OpenSearch Dashboards (15601): UI for queries and monitoring
-- Ollama (11434): local LLMs (optional via profile)
-- Model puller: pulls Ollama models automatically (container or host)
-- Docling Serve (5001): document parsing and chunking (always used)
-
 ## Quickstart
 
-1) Start backing services
-- Default (uses host Ollama if available):
+1) Start all services:
 ```bash
 docker compose up -d
 ```
