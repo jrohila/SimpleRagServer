@@ -63,14 +63,16 @@ public class OpenSearchSetup implements ApplicationRunner {
         }
 
         CreateIndexRequest req = new CreateIndexRequest.Builder()
-            .index(indexName)
-            .settings(s -> s.index(i -> i
+                .index(indexName)
+                .settings(s -> s.index(i -> i
                 .numberOfShards(1)
                 .numberOfReplicas(0)
                 .knn(true)
-            ))
-            .mappings(m -> m
-                .properties("text", p -> p.text(t -> t))
+        ))
+                .mappings(m -> m
+                .properties("text", p -> p.text(t -> t
+                .fields("keyword", f -> f.keyword(k -> k))
+        ))
                 .properties("type", p -> p.keyword(k -> k))
                 .properties("sectionTitle", p -> p.text(t -> t))
                 .properties("pageNumber", p -> p.integer(n -> n))
@@ -81,15 +83,15 @@ public class OpenSearchSetup implements ApplicationRunner {
                 .properties("modified", p -> p.date(d -> d))
                 .properties("documentId", p -> p.keyword(k -> k))
                 .properties("embedding", p -> p.knnVector(k -> k
-                    .dimension(embeddingDim)
-                    .method(me -> me
-                        .name("hnsw")
-                        .engine("lucene")
-                        .spaceType(similarity)
-                    )
-                ))
-            )
-            .build();
+                .dimension(embeddingDim)
+                .method(me -> me
+                .name("hnsw")
+                .engine("lucene")
+                .spaceType(similarity)
+                )
+        ))
+                )
+                .build();
 
         client.indices().create(req);
         LOGGER.info("OpenSearchSetup: created index " + indexName + " (dimension=" + embeddingDim + ", space_type=" + similarity + ")");
@@ -99,16 +101,16 @@ public class OpenSearchSetup implements ApplicationRunner {
         String pipelineId = "rrf-pipeline";
 
         Map<String, Object> body = Map.of(
-            "description", "Post processor for hybrid RRF search",
-            "phase_results_processors", List.of(
-                Map.of("score-ranker-processor",
-                    Map.of("combination",
-                        Map.of("technique", "rrf",
-                               "rank_constant", 60,
-                               "window_size", 50)
-                    )
+                "description", "Post processor for hybrid RRF search",
+                "phase_results_processors", List.of(
+                        Map.of("score-ranker-processor",
+                                Map.of("combination",
+                                        Map.of("technique", "rrf",
+                                                "rank_constant", 60,
+                                                "window_size", 50)
+                                )
+                        )
                 )
-            )
         );
 
         // Build request
@@ -119,9 +121,9 @@ public class OpenSearchSetup implements ApplicationRunner {
         String json = mapper.writeValueAsString(body);
 
         HttpRequest.Builder req = HttpRequest.newBuilder()
-            .uri(uri)
-            .header("Content-Type", "application/json")
-            .PUT(HttpRequest.BodyPublishers.ofString(json));
+                .uri(uri)
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(json));
 
         if (username != null && !username.isBlank()) {
             String token = Base64.getEncoder().encodeToString((username + ":" + (password == null ? "" : password))
@@ -135,7 +137,7 @@ public class OpenSearchSetup implements ApplicationRunner {
             LOGGER.info("OpenSearchSetup: created/updated search pipeline " + pipelineId);
         } else {
             LOGGER.log(Level.WARNING, "OpenSearchSetup: pipeline PUT failed status={0} body={1}",
-                new Object[]{resp.statusCode(), resp.body()});
+                    new Object[]{resp.statusCode(), resp.body()});
         }
     }
 }

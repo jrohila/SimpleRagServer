@@ -1,5 +1,7 @@
 package io.github.jrohila.simpleragserver.entity;
 
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -13,9 +15,11 @@ import org.springframework.data.annotation.LastModifiedDate;
 import java.time.Instant;
 import java.util.List;
 
+
 @Getter
 @Setter
 @ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Document(indexName = "chunks", createIndex = false)
 public class ChunkEntity {
 

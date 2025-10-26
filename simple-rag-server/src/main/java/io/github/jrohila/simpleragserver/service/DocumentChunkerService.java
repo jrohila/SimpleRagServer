@@ -10,6 +10,7 @@ import io.github.jrohila.simpleragserver.client.DoclingClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
 import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.pipeline.ChunkQualityGate;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 // imports for ChunkService and NlpService are unnecessary since they're in the same package
@@ -56,6 +57,9 @@ public class DocumentChunkerService {
 
     @Autowired
     private NlpService nlpService;
+
+    @Autowired
+    private ChunkQualityGate qualityGate;
 
     @Async("chunkingExecutor")
     public void asyncProcess(String documentId) {
@@ -178,6 +182,12 @@ public class DocumentChunkerService {
                         (chunk.getText() == null ? "" : chunk.getText());
                 if (embedInput.isBlank()) {
                     LOGGER.log(Level.FINE, "Skipping chunk without content (no embedding input). docId={0}", documentId);
+                    continue;
+                }
+
+                // Quality gate: require at least 3 sentences
+                if (!qualityGate.filter(chunk)) {
+                    LOGGER.log(Level.FINE, "Skipping chunk that failed quality gate. docId={0}", documentId);
                     continue;
                 }
 

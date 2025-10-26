@@ -12,7 +12,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>24</maven.compiler.release>
+    <maven.compiler.release>21</maven.compiler.release>
         <wordnet.version>2.4.0</wordnet.version>
         <wordnet-dict.version>3.1</wordnet-dict.version>
         <maven.download.plugin>1.13.0</maven.download.plugin>
