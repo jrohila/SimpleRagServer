@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.github.jrohila.simpleragserver.dto.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.dto.ExtractedFactsDTO;
+import io.github.jrohila.simpleragserver.util.LlmOutputCleaner;
 
 @Service
 public class ChatResponsePostProcessor implements ChatStreamConsumer {
@@ -93,6 +94,8 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
                             }
                             log.info("[PostProcessor] Fact extractor response: {}", assistantOut);
 
+                            assistantOut = LlmOutputCleaner.getJson(assistantOut);
+                            
                             // Parse assistantOut JSON into ExtractedFactDTO(s) and update facts
                             List<ExtractedFactDTO> parsedFacts = parseFactsFromJson(assistantOut);
                             if (parsedFacts != null && !parsedFacts.isEmpty()) {

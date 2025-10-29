@@ -55,6 +55,9 @@ public class ChunkSearchService {
 
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
+    
+    @Autowired
+    private SummarizerService summarizerService;
 
     // Limit the number of boosted terms added to the query
     private static final int MAX_TERMS = 12;
@@ -137,6 +140,16 @@ public class ChunkSearchService {
         }
     }
 
+    public String summarySearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+        List<SearchResult<ChunkEntity>> results = this.hybridSearch(query, matchType, terms, size, enableFuzziness, language);
+        StringBuilder combined = new StringBuilder();
+        for (SearchResult<ChunkEntity> result : results) {
+            combined.append(this.summarizerService.summarize(result.getContent().getText(), -1, SummarizerService.Method.BART));
+            combined.append(System.lineSeparator());
+        }
+        return combined.toString();
+    }
+    
     // Note: client-side rescoring removed for simplicity; results are returned as-is from kNN.
     // (Optional cap can be added later if needed)
     /**

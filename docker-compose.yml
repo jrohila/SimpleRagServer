@@ -85,5 +85,23 @@ services:
       retries: 3
       start_period: 60s
 
+
+  text-generation-inference:
+    image: ghcr.io/huggingface/text-generation-inference:latest
+    ports:
+      - "8000:80"
+    environment:
+      - MODEL_ID=t5-large
+      # - NUM_SHARD=1  # Uncomment for multi-GPU
+      # - MAX_INPUT_LENGTH=1024  # Optional: limit input size
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
 volumes:
   ollama_data:

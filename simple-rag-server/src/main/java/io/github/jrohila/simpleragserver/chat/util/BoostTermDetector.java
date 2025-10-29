@@ -10,6 +10,7 @@ import io.github.jrohila.simpleragserver.service.util.SearchTerm;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,52 +31,78 @@ public class BoostTermDetector {
 
     public List<SearchTerm> buildSearchTerms(String query, List<Message> messages, Double queryTermWeight, Double userMessageWeight, Double assistantMessageWeight) {
         Set<String> terms = new HashSet<>();
-        List<SearchTerm> results = new ArrayList<>();
+        Map<String, SearchTerm> queryTermMap = new LinkedHashMap<>();
+        Map<String, SearchTerm> userMessageTermMap = new LinkedHashMap<>();
+        Map<String, SearchTerm> assistantMessageTermMap = new LinkedHashMap<>();    
 
-        List<String> queryTerms = nlpService.extractCandidateTerms(query, NlpEngine.STANFORD_CORE_NLP);
-        for (String queryTerm : queryTerms) {
-            SearchTerm term = new SearchTerm();
-            term.setTerm(queryTerm);
-            term.setBoostWeight(queryTermWeight);
-            term.setMandatory(false);
-            terms.add(queryTerm);
-            results.add(term);
-        }
+        Thread termsFromQueryThread = new Thread(() -> {
+            List<String> queryTerms = nlpService.extractCandidateTerms(query, NlpEngine.STANFORD_CORE_NLP);
+            for (String queryTerm : queryTerms) {
+                SearchTerm term = new SearchTerm();
+                term.setTerm(queryTerm);
+                term.setBoostWeight(queryTermWeight);
+                term.setMandatory(false);
+                queryTermMap.put(queryTerm, term);
+                terms.add(queryTerm);
+            }
+        });
+        termsFromQueryThread.start();
 
-        for (Message message : messages) {
-            if (MessageType.USER.equals(message.getMessageType())) {
-                List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
-                for (String messageTerm : messageTerms) {
-                    if (!terms.contains(messageTerm)) {
+        Thread termsFromUserMessagesThread = new Thread(() -> {
+            for (Message message : messages) {
+                if (MessageType.USER.equals(message.getMessageType())) {
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
+                    for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);
                         term.setBoostWeight(userMessageWeight);
                         term.setMandatory(false);
-
-                        terms.add(messageTerm);
-                        results.add(term);
+                        userMessageTermMap.put(messageTerm, term);
                     }
                 }
             }
-        }
+        });
+        termsFromUserMessagesThread.start();
 
-        for (Message message : messages) {
-            if (MessageType.ASSISTANT.equals(message.getMessageType())) {
-                List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
-                for (String messageTerm : messageTerms) {
-                    if (!terms.contains(messageTerm)) {
+        Thread termsFromAssistantMessagesThread = new Thread(() -> {
+            for (Message message : messages) {
+                if (MessageType.ASSISTANT.equals(message.getMessageType())) {
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
+                    for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);
                         term.setBoostWeight(assistantMessageWeight);
                         term.setMandatory(false);
-
-                        terms.add(messageTerm);
-                        results.add(term);
+                        assistantMessageTermMap.put(messageTerm, term);
                     }
                 }
             }
+        });
+        termsFromAssistantMessagesThread.start();
+
+        try {
+            termsFromQueryThread.join();
+            termsFromUserMessagesThread.join();
+            termsFromAssistantMessagesThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-        return results;
+
+        // Combine all terms into the results list
+        for (String termKey : userMessageTermMap.keySet()) {
+            if (!terms.contains(termKey)) {
+                terms.add(termKey);
+                queryTermMap.put(termKey, userMessageTermMap.get(termKey));
+            }
+        }
+        for (String termKey : assistantMessageTermMap.keySet()) {
+            if (!terms.contains(termKey)) {
+                terms.add(termKey);
+                queryTermMap.put(termKey, assistantMessageTermMap.get(termKey));
+            }
+        }
+
+        return queryTermMap.values().stream().toList();
     }
 
     public List<String> popularNouns(List<Message> messages) {
