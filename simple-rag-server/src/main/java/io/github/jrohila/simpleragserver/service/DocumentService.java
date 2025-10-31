@@ -4,7 +4,6 @@ import io.github.jrohila.simpleragserver.entity.DocumentEntity;
 import io.github.jrohila.simpleragserver.entity.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
-import io.github.jrohila.simpleragserver.repository.ChunkRepository;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
@@ -21,18 +20,18 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentContentStore contentStore;
-    private final ChunkRepository chunkRepository;
+    private final ChunkService chunkService;
     private final ApplicationEventPublisher events;
 
     public DocumentService(
             DocumentRepository documentRepository,
             DocumentContentStore contentStore,
-            ChunkRepository chunkRepository,
+            ChunkService chunkService,
             ApplicationEventPublisher events
     ) {
         this.documentRepository = documentRepository;
         this.contentStore = contentStore;
-        this.chunkRepository = chunkRepository;
+        this.chunkService = chunkService;
         this.events = events;
     }
 
@@ -121,7 +120,7 @@ public class DocumentService {
         }
         // Cascade delete chunks by documentId if your repository supports it
         try {
-            chunkRepository.deleteByDocumentId(id);
+            chunkService.deleteByDocumentId(id);
         } catch (Exception ignore) {
         }
         documentRepository.deleteById(id);
@@ -130,7 +129,7 @@ public class DocumentService {
     public void deleteAllDocuments() {
         // Delete all chunks before deleting documents
         try {
-            chunkRepository.deleteAll();
+            chunkService.deleteAll();
         } catch (Exception ignore) {
         }
         documentRepository.deleteAll();

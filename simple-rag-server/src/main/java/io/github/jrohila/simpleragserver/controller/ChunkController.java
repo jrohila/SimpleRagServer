@@ -2,6 +2,7 @@ package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.entity.ChunkEntity;
 import io.github.jrohila.simpleragserver.service.ChunkService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.*;
@@ -36,7 +37,7 @@ public class ChunkController {
 
     // List (optionally filter by documentId)
     @GetMapping
-    public Page<ChunkEntity> listChunks(
+    public List<ChunkEntity> listChunks(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "documentId", required = false) String documentId
