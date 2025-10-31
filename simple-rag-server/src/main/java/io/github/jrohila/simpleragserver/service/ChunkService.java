@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 // Removed ChunkRepository import
 import org.apache.commons.codec.digest.DigestUtils;
 import org.opensearch.client.opensearch.OpenSearchClient;

@@ -4,15 +4,14 @@
  */
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.client.DoclingClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.pipeline.ChunkQualityGate;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
-import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 // imports for ChunkService and NlpService are unnecessary since they're in the same package
 import java.io.IOException;
 import java.util.List;
@@ -50,7 +49,7 @@ public class DocumentChunkerService {
     private ChunkService chunkService;
 
     @Autowired
-    private DocumentRepository documentRepository;
+    private DocumentService documentService;
 
     @Autowired
     private DocumentContentStore documentContentStore;
@@ -69,7 +68,7 @@ public class DocumentChunkerService {
     public void process(String documentId) {
         long start = System.currentTimeMillis();
         try {
-            var docOpt = documentRepository.findById(documentId);
+            var docOpt = documentService.getById(documentId);
             if (docOpt.isEmpty()) {
                 LOGGER.log(Level.WARNING, "DocumentChunker.process: document not found id={0}", documentId);
                 return;

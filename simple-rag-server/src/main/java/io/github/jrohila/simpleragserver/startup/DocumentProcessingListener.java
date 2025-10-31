@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.startup;
 
-import io.github.jrohila.simpleragserver.entity.DocumentEntity;
+import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.service.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.DocumentChunkerService;
 import io.github.jrohila.simpleragserver.service.DocumentService;

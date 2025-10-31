@@ -3,7 +3,7 @@ package io.github.jrohila.simpleragserver.controller;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient.OperationStatus;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient.StartOperationResult;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -221,16 +221,16 @@ public class DoclingAsyncController {
         return new ResponseEntity<>(body, headers, HttpStatus.ACCEPTED);
     }
 
-    private static io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options buildConvertOptions(
+    private static io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options buildConvertOptions(
             java.util.List<String> toFormats,
             java.lang.Boolean doOcr,
             java.lang.Boolean doTableStructure,
             java.lang.String tableMode,
             java.lang.String pipeline
     ) {
-        io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options conv = null;
+        io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options conv = null;
         if ((toFormats != null && !toFormats.isEmpty()) || doOcr != null || doTableStructure != null || tableMode != null || pipeline != null) {
-            conv = new io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options();
+            conv = new io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options();
             if (toFormats != null && !toFormats.isEmpty()) conv.setToFormats(toFormats);
             if (doOcr != null) conv.setDoOcr(doOcr);
             if (doTableStructure != null) conv.setDoTableStructure(doTableStructure);

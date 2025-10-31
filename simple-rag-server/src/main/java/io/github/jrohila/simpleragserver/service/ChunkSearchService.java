@@ -5,7 +5,7 @@
 package io.github.jrohila.simpleragserver.service;
 
 import io.github.jrohila.simpleragserver.client.EmbedClient;
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

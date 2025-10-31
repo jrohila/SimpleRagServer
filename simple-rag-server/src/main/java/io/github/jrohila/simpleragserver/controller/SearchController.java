@@ -4,13 +4,13 @@ import io.github.jrohila.simpleragserver.controller.util.HybridSearchRequest;
 import io.github.jrohila.simpleragserver.controller.util.SearchResultDtoMapper;
 import io.github.jrohila.simpleragserver.controller.util.Term;
 import io.github.jrohila.simpleragserver.controller.util.VectorSearchRequest;
-import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
+import io.github.jrohila.simpleragserver.domain.SearchResultDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import io.github.jrohila.simpleragserver.service.SummarizerService;
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.service.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import org.springframework.http.MediaType;

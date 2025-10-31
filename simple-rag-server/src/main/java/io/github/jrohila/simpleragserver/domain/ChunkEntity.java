@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.entity;
+package io.github.jrohila.simpleragserver.domain;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

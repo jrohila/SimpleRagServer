@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.dto.ExtractedFactDTO;
+import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

@@ -11,17 +11,9 @@ import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBui
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.elasticsearch.config.EnableElasticsearchAuditing;
-import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 
 @Configuration
-@EnableElasticsearchAuditing
 public class OpenSearchConfig {
-
-    @Bean(name = "elasticsearchMappingContext")
-    SimpleElasticsearchMappingContext elasticsearchMappingContext() {
-        return new SimpleElasticsearchMappingContext();
-    }
 
     // Build the HC5 transport (closed on shutdown)
     @Bean(name = "openSearchTransport", destroyMethod = "close")

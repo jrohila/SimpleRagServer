@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.pipeline;
 
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import org.springframework.stereotype.Component;
 
 import java.text.BreakIterator;

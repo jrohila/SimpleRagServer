@@ -27,8 +27,11 @@ public class OpenSearchSetup implements ApplicationRunner {
 
     private final OpenSearchClient client;
 
+    @Value("${documents.index-name}")
+    private String documentIndexName;
+
     @Value("${chunks.index-name}")
-    private String indexName;
+    private String chunkIndexName;
 
     @Value("${chunks.dimension-size}")
     private int embeddingDim;
@@ -51,19 +54,53 @@ public class OpenSearchSetup implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         // Call individual creation methods here
+        createDocumentsIndex();
         createChunksIndex();
         createRffPipeline();
     }
 
-    public void createChunksIndex() throws Exception {
-        BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
+    /**
+     * Creates the documents index using the mapping from DocumentEntity.
+     */
+    public void createDocumentsIndex() throws Exception {
+        BooleanResponse exists = client.indices().exists(b -> b.index(documentIndexName));
         if (exists.value()) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
+            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", documentIndexName);
             return;
         }
 
         CreateIndexRequest req = new CreateIndexRequest.Builder()
-                .index(indexName)
+                .index(documentIndexName)
+                .settings(s -> s.index(i -> i
+                .numberOfShards(1)
+                .numberOfReplicas(0)
+        ))
+                .mappings(m -> m
+                .properties("id", p -> p.keyword(k -> k))
+                .properties("state", p -> p.keyword(k -> k))
+                .properties("originalFilename", p -> p.text(t -> t))
+                .properties("contentId", p -> p.keyword(k -> k))
+                .properties("contentLen", p -> p.long_(l -> l))
+                .properties("mimeType", p -> p.keyword(k -> k))
+                .properties("hash", p -> p.keyword(k -> k))
+                .properties("createdTime", p -> p.date(d -> d))
+                .properties("updatedTime", p -> p.date(d -> d))
+                )
+                .build();
+
+        client.indices().create(req);
+        LOGGER.info("OpenSearchSetup: created index " + documentIndexName);
+    }
+
+    public void createChunksIndex() throws Exception {
+        BooleanResponse exists = client.indices().exists(b -> b.index(chunkIndexName));
+        if (exists.value()) {
+            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", chunkIndexName);
+            return;
+        }
+
+        CreateIndexRequest req = new CreateIndexRequest.Builder()
+                .index(chunkIndexName)
                 .settings(s -> s.index(i -> i
                 .numberOfShards(1)
                 .numberOfReplicas(0)
@@ -94,7 +131,7 @@ public class OpenSearchSetup implements ApplicationRunner {
                 .build();
 
         client.indices().create(req);
-        LOGGER.info("OpenSearchSetup: created index " + indexName + " (dimension=" + embeddingDim + ", space_type=" + similarity + ")");
+        LOGGER.info("OpenSearchSetup: created index " + chunkIndexName + " (dimension=" + embeddingDim + ", space_type=" + similarity + ")");
     }
 
     public void createRffPipeline() throws Exception {

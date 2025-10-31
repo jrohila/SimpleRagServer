@@ -1,7 +1,7 @@
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.entity.DocumentEntity;
-import io.github.jrohila.simpleragserver.entity.DocumentEntity.ProcessingState;
+import io.github.jrohila.simpleragserver.domain.DocumentEntity;
+import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.context.ApplicationEventPublisher;
@@ -69,6 +69,13 @@ public class DocumentService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to get document by id", e);
         }
+    }
+
+    /**
+     * Alias for getById for compatibility with repository-style naming.
+     */
+    public Optional<DocumentEntity> findById(String id) {
+        return getById(id);
     }
 
     public DocumentEntity uploadDocument(MultipartFile file) throws IOException {
