@@ -2,15 +2,9 @@ package io.github.jrohila.simpleragserver.entity;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
 import java.util.List;
@@ -20,43 +14,29 @@ import java.util.List;
 @Setter
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(indexName = "chunks", createIndex = false)
 public class ChunkEntity {
 
-    @Id
     private String id;
 
-    @Field(type = FieldType.Text)
     private String text;
 
-    @Field(type = FieldType.Keyword)
     private String type;
 
-    @Field(type = FieldType.Text)
     private String sectionTitle;
 
-    @Field(type = FieldType.Integer)
     private int pageNumber;
 
-    @Field(type = FieldType.Keyword)
     private String language;
 
-    @Field(type = FieldType.Keyword)
     private String hash;
 
-    @Field(type = FieldType.Text)
     private String documentName;
 
-    @CreatedDate
-    @Field(type = FieldType.Date)
-    private Instant created;
+    private String created;
 
-    @LastModifiedDate
-    @Field(type = FieldType.Date)
-    private Instant modified;
+    private String modified;
 
     // Reference to the parent document by id (denormalized reference)
-    @Field(type = FieldType.Keyword)
     private String documentId;
 
     // Embedding stored for KNN search - ensure index mapping defines knn_vector

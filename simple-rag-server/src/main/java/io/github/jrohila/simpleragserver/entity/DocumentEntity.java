@@ -1,5 +1,6 @@
 package io.github.jrohila.simpleragserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -19,6 +20,7 @@ import org.springframework.content.commons.annotations.OriginalFileName;
 @Getter
 @Setter
 @ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Document(indexName = "documents")
 public class DocumentEntity {
 
@@ -48,14 +50,9 @@ public class DocumentEntity {
     @MimeType
     private String mimeType;
     
-    @Field(type = FieldType.Keyword) 
     private String hash;
 
-    @CreatedDate
-    @Field(type = FieldType.Date)
-    private Instant createdTime;
+    private String createdTime;
 
-    @LastModifiedDate
-    @Field(type = FieldType.Date)
-    private Instant updatedTime;
+    private String updatedTime;
 }

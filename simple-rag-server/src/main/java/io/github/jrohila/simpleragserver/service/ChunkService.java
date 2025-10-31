@@ -28,6 +28,7 @@ public class ChunkService {
     }
 
     public ChunkEntity create(ChunkEntity chunk) {
+    String now = java.time.Instant.now().toString();
         // Compute hash from text + sectionTitle
         String newHash = computeHash(chunk.getText(), chunk.getSectionTitle());
         chunk.setHash(newHash);
@@ -41,6 +42,8 @@ public class ChunkService {
         if (existing.isPresent()) {
             throw new IllegalStateException("Chunk with the same hash already exists");
         }
+        chunk.setCreated(now);
+        chunk.setModified(now);
         // Index the chunk
         try {
             openSearchClient.index(i -> i
@@ -93,6 +96,7 @@ public class ChunkService {
     }
 
     public Optional<ChunkEntity> update(String id, ChunkEntity chunk) {
+    String now = java.time.Instant.now().toString();
         // Check if exists
         if (getById(id).isEmpty()) {
             return Optional.empty();
@@ -106,6 +110,10 @@ public class ChunkService {
         }
         chunk.setId(id);
         chunk.setHash(newHash);
+        if (chunk.getCreated() == null) {
+            chunk.setCreated(now);
+        }
+        chunk.setModified(now);
         try {
             openSearchClient.index(i -> i
                 .index(baseIndexName)
