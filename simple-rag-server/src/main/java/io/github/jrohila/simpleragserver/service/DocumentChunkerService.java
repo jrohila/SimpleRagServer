@@ -61,14 +61,14 @@ public class DocumentChunkerService {
     private ChunkQualityGate qualityGate;
 
     @Async("chunkingExecutor")
-    public void asyncProcess(String documentId) {
-        this.process(documentId);
+    public void asyncProcess(String collectionId, String documentId) {
+        this.process(collectionId, documentId);
     }
 
-    public void process(String documentId) {
+    public void process(String collectionId, String documentId) {
         long start = System.currentTimeMillis();
         try {
-            var docOpt = documentService.getById(documentId);
+            var docOpt = documentService.getById(collectionId, documentId);
             if (docOpt.isEmpty()) {
                 LOGGER.log(Level.WARNING, "DocumentChunker.process: document not found id={0}", documentId);
                 return;
@@ -200,10 +200,10 @@ public class DocumentChunkerService {
 
                 // Persist via service; on validation failure, skip and continue
                 try {
-                    if (chunk.getId() != null && chunkService.getById(chunk.getId()).isPresent()) {
-                        chunkService.update(chunk.getId(), chunk);
+                    if (chunk.getId() != null && chunkService.getById(collectionId, chunk.getId()).isPresent()) {
+                        chunkService.update(collectionId, chunk.getId(), chunk);
                     } else {
-                        chunkService.create(chunk);
+                        chunkService.create(collectionId, chunk);
                     }
                     saved++;
                     if (saved == 1 || saved == total || saved % 10 == 0) {

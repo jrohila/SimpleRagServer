@@ -14,8 +14,8 @@ import java.util.Optional;
 @Service
 public class ChunkService {
 
-    @Value("${chunks.index-name}")
-    private String baseIndexName;
+    @Autowired
+    private IndicesManager indicesManager;
 
     @Autowired
     private OpenSearchClient openSearchClient;
@@ -27,8 +27,8 @@ public class ChunkService {
         this.embeddingDim = embeddingDim;
     }
 
-    public ChunkEntity create(ChunkEntity chunk) {
-    String now = java.time.Instant.now().toString();
+    public ChunkEntity create(String collectionId, ChunkEntity chunk) {
+        String now = java.time.Instant.now().toString();
         // Compute hash from text + sectionTitle
         String newHash = computeHash(chunk.getText(), chunk.getSectionTitle());
         chunk.setHash(newHash);
@@ -38,7 +38,7 @@ public class ChunkService {
         }
         validateEmbedding(chunk);
         // Check for existing chunk with same hash
-        var existing = findFirstByHash(newHash);
+        var existing = findFirstByHash(collectionId, newHash);
         if (existing.isPresent()) {
             throw new IllegalStateException("Chunk with the same hash already exists");
         }
@@ -46,10 +46,12 @@ public class ChunkService {
         chunk.setModified(now);
         // Index the chunk
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             openSearchClient.index(i -> i
-                .index(baseIndexName)
-                .id(chunk.getId())
-                .document(chunk)
+                    .index(indexName)
+                    .id(chunk.getId())
+                    .document(chunk)
             );
             return chunk;
         } catch (Exception e) {
@@ -57,9 +59,11 @@ public class ChunkService {
         }
     }
 
-    public Optional<ChunkEntity> getById(String id) {
+    public Optional<ChunkEntity> getById(String collectionId, String id) {
         try {
-            var resp = openSearchClient.get(g -> g.index(baseIndexName).id(id), ChunkEntity.class);
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
+            var resp = openSearchClient.get(g -> g.index(indexName).id(id), ChunkEntity.class);
             if (resp.found()) {
                 return Optional.of(resp.source());
             } else {
@@ -70,19 +74,21 @@ public class ChunkService {
         }
     }
 
-    public java.util.List<ChunkEntity> list(int page, int size, String documentId) {
+    public java.util.List<ChunkEntity> list(String collectionId, int page, int size, String documentId) {
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             var builder = org.opensearch.client.opensearch.core.SearchRequest.of(s -> s
-                .index(baseIndexName)
-                .from(page * size)
-                .size(size)
-                .query(q -> {
-                    if (documentId != null && !documentId.isEmpty()) {
-                        return q.term(t -> t.field("documentId").value(org.opensearch.client.opensearch._types.FieldValue.of(documentId)));
-                    } else {
-                        return q.matchAll(m -> m);
-                    }
-                })
+                    .index(indexName)
+                    .from(page * size)
+                    .size(size)
+                    .query(q -> {
+                        if (documentId != null && !documentId.isEmpty()) {
+                            return q.term(t -> t.field("documentId").value(org.opensearch.client.opensearch._types.FieldValue.of(documentId)));
+                        } else {
+                            return q.matchAll(m -> m);
+                        }
+                    })
             );
             var resp = openSearchClient.search(builder, ChunkEntity.class);
             java.util.List<ChunkEntity> results = new java.util.ArrayList<>();
@@ -95,16 +101,16 @@ public class ChunkService {
         }
     }
 
-    public Optional<ChunkEntity> update(String id, ChunkEntity chunk) {
-    String now = java.time.Instant.now().toString();
+    public Optional<ChunkEntity> update(String collectionId, String id, ChunkEntity chunk) {
+        String now = java.time.Instant.now().toString();
         // Check if exists
-        if (getById(id).isEmpty()) {
+        if (getById(collectionId, id).isEmpty()) {
             return Optional.empty();
         }
         // Compute new hash from updated content
         String newHash = computeHash(chunk.getText(), chunk.getSectionTitle());
         validateEmbedding(chunk);
-        var existingWithHash = findFirstByHash(newHash);
+        var existingWithHash = findFirstByHash(collectionId, newHash);
         if (existingWithHash.isPresent() && !existingWithHash.get().getId().equals(id)) {
             throw new IllegalStateException("Another chunk with the same hash exists");
         }
@@ -115,10 +121,12 @@ public class ChunkService {
         }
         chunk.setModified(now);
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             openSearchClient.index(i -> i
-                .index(baseIndexName)
-                .id(id)
-                .document(chunk)
+                    .index(indexName)
+                    .id(id)
+                    .document(chunk)
             );
             return Optional.of(chunk);
         } catch (Exception e) {
@@ -126,31 +134,37 @@ public class ChunkService {
         }
     }
 
-    public boolean deleteById(String id) {
+    public boolean deleteById(String collectionId, String id) {
         try {
-            var resp = openSearchClient.delete(d -> d.index(baseIndexName).id(id));
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
+            var resp = openSearchClient.delete(d -> d.index(indexName).id(id));
             return resp.result().jsonValue().equalsIgnoreCase("deleted");
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete chunk by id", e);
         }
     }
 
-    public void deleteAll() {
+    public void deleteAll(String collectionId) {
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             openSearchClient.deleteByQuery(d -> d
-                .index(baseIndexName)
-                .query(q -> q.matchAll(m -> m))
+                    .index(indexName)
+                    .query(q -> q.matchAll(m -> m))
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete all chunks", e);
         }
     }
 
-    public void deleteByDocumentId(String documentId) {
+    public void deleteByDocumentId(String collectionId, String documentId) {
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             openSearchClient.deleteByQuery(d -> d
-                .index(baseIndexName)
-                .query(q -> q.term(t -> t.field("documentId").value(org.opensearch.client.opensearch._types.FieldValue.of(documentId))))
+                    .index(indexName)
+                    .query(q -> q.term(t -> t.field("documentId").value(org.opensearch.client.opensearch._types.FieldValue.of(documentId))))
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete chunks by documentId", e);
@@ -158,13 +172,15 @@ public class ChunkService {
     }
 
     // Helper: findFirstByHash using OpenSearchClient
-    private Optional<ChunkEntity> findFirstByHash(String hash) {
+    private Optional<ChunkEntity> findFirstByHash(String collectionId, String hash) {
         try {
+            String indexName = indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+
             var resp = openSearchClient.search(s -> s
-                .index(baseIndexName)
-                .size(1)
-                .query(q -> q.term(t -> t.field("hash").value(org.opensearch.client.opensearch._types.FieldValue.of(hash))))
-            , ChunkEntity.class);
+                    .index(indexName)
+                    .size(1)
+                    .query(q -> q.term(t -> t.field("hash").value(org.opensearch.client.opensearch._types.FieldValue.of(hash)))),
+                    ChunkEntity.class);
             if (!resp.hits().hits().isEmpty()) {
                 return Optional.of(resp.hits().hits().get(0).source());
             } else {
@@ -189,7 +205,7 @@ public class ChunkService {
             }
         }
     }
-    
+
     private String computeHash(String text, String sectionTitle) {
         String t = text == null ? "" : text;
         String s = sectionTitle == null ? "" : sectionTitle;

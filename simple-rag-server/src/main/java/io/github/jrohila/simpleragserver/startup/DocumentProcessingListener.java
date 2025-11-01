@@ -30,14 +30,14 @@ public class DocumentProcessingListener {
         String documentId = evt.documentId();
         try {
             // mark as processing
-            documentService.updateProcessingState(documentId, DocumentEntity.ProcessingState.PROCESSING);
+            documentService.updateProcessingState(evt.collectionId(), documentId, DocumentEntity.ProcessingState.PROCESSING);
             // process
-            documentChunker.process(documentId);
+            documentChunker.process(evt.collectionId(), documentId);
             // mark as done
-            documentService.updateProcessingState(documentId, DocumentEntity.ProcessingState.DONE);
+            documentService.updateProcessingState(evt.collectionId(), documentId, DocumentEntity.ProcessingState.DONE);
         } catch (Exception ex) {
             log.error("Exception during document processing for id {}: {}", documentId, ex.getMessage(), ex);
-            documentService.updateProcessingState(documentId, DocumentEntity.ProcessingState.FAILED);
+            documentService.updateProcessingState(evt.collectionId(), documentId, DocumentEntity.ProcessingState.FAILED);
         }
     }
 }

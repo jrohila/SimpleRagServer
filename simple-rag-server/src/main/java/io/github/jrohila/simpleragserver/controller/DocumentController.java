@@ -26,48 +26,50 @@ public class DocumentController {
     @GetMapping
     public List<DocumentEntity> listDocuments(
             @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "20") int size
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "collectionId", required = false) String collectionId
     ) {
-        return documentService.listDocuments(page, size);
+        return documentService.listDocuments(collectionId, page, size);
     }
 
     // Get by id
-    @GetMapping("/{id}")
-    public ResponseEntity<DocumentEntity> getDocument(@PathVariable String id) {
-        Optional<DocumentEntity> doc = documentService.getById(id);
+    @GetMapping("/{collectionId}/{id}")
+    public ResponseEntity<DocumentEntity> getDocument(@PathVariable String collectionId, @PathVariable String id) {
+        Optional<DocumentEntity> doc = documentService.getById(collectionId, id);
         return doc.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // Upload (creates new). Returns 202 if you prefer async processing semantics; here we return 201.
     @PostMapping(consumes = "multipart/form-data")
-    public ResponseEntity<DocumentEntity> uploadDocument(@RequestParam("file") MultipartFile file
+    public ResponseEntity<DocumentEntity> uploadDocument(@RequestParam("collectionId") String collectionId, @RequestParam("file") MultipartFile file
     ) throws IOException {
-        DocumentEntity saved = documentService.uploadDocument(file);
+        DocumentEntity saved = documentService.uploadDocument(collectionId, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     // Update file for an existing document
-    @PutMapping(path = "/{id}", consumes = "multipart/form-data")
+    @PutMapping(path = "/{collectionId}/{id}", consumes = "multipart/form-data")
     public ResponseEntity<DocumentEntity> updateDocument(
+            @PathVariable String collectionId,
             @PathVariable String id,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "language", required = false) String language
     ) throws IOException {
-        DocumentEntity saved = documentService.updateDocument(id, file, language);
+        DocumentEntity saved = documentService.updateDocument(collectionId, id, file, language);
         return ResponseEntity.ok(saved);
     }
 
     // Delete by id
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
-        documentService.deleteDocument(id);
+    @DeleteMapping("/{collectionId}/{id}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable String collectionId, @PathVariable String id) {
+        documentService.deleteDocument(collectionId, id);
         return ResponseEntity.noContent().build();
     }
 
     // Delete all
-    @DeleteMapping
-    public ResponseEntity<Void> deleteAllDocuments() {
-        documentService.deleteAllDocuments();
+    @DeleteMapping("/{collectionId}")
+    public ResponseEntity<Void> deleteAllDocuments(@PathVariable String collectionId) {
+        documentService.deleteAllDocuments(collectionId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -105,7 +105,7 @@ public class ContextAdditionPipe {
 
                 log.info(terms.toString());
 
-                List<SearchResult<ChunkEntity>> results = chunkSearchService.hybridSearch(userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
+                List<SearchResult<ChunkEntity>> results = chunkSearchService.hybridSearch("mbti", userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
 
                 if (results != null && !results.isEmpty()) {
                     // Compute token budget based on current messages (without context yet)

@@ -5,13 +5,14 @@ import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,35 +21,37 @@ import org.springframework.beans.factory.annotation.Value;
 @Service
 public class DocumentService {
 
-    @Value("${documents.index-name}")
-    private String baseIndexName;
-
     @Autowired
     private OpenSearchClient openSearchClient;
 
     private final DocumentContentStore contentStore;
     private final ChunkService chunkService;
     private final ApplicationEventPublisher events;
+    private final IndicesManager indicesManager;
 
     public DocumentService(
             DocumentContentStore contentStore,
             ChunkService chunkService,
+            IndicesManager indicesManager,
             ApplicationEventPublisher events
     ) {
         this.contentStore = contentStore;
         this.chunkService = chunkService;
+        this.indicesManager = indicesManager;
         this.events = events;
     }
 
-    public java.util.List<DocumentEntity> listDocuments(int page, int size) {
+    public List<DocumentEntity> listDocuments(String collectionId, int page, int size) {
         try {
+            String indiceName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
             var resp = openSearchClient.search(s -> s
-                .index(baseIndexName)
-                .from(page * size)
-                .size(size)
-                .query(q -> q.matchAll(m -> m))
-            , DocumentEntity.class);
-            java.util.List<DocumentEntity> results = new java.util.ArrayList<>();
+                    .index(indiceName)
+                    .from(page * size)
+                    .size(size)
+                    .query(q -> q.matchAll(m -> m)),
+                    DocumentEntity.class);
+            List<DocumentEntity> results = new ArrayList<>();
             for (var hit : resp.hits().hits()) {
                 results.add(hit.source());
             }
@@ -58,9 +61,11 @@ public class DocumentService {
         }
     }
 
-    public Optional<DocumentEntity> getById(String id) {
+    public Optional<DocumentEntity> getById(String collectionId, String id) {
         try {
-            var resp = openSearchClient.get(g -> g.index(baseIndexName).id(id), DocumentEntity.class);
+            String indiceName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
+            var resp = openSearchClient.get(g -> g.index(indiceName).id(id), DocumentEntity.class);
             if (resp.found()) {
                 return Optional.of(resp.source());
             } else {
@@ -71,29 +76,22 @@ public class DocumentService {
         }
     }
 
-    /**
-     * Alias for getById for compatibility with repository-style naming.
-     */
-    public Optional<DocumentEntity> findById(String id) {
-        return getById(id);
-    }
-
-    public DocumentEntity uploadDocument(MultipartFile file) throws IOException {
+    public DocumentEntity uploadDocument(String collectionId, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
 
         String hash = DigestUtils.sha256Hex(file.getInputStream());
-        if (findByHash(hash).isPresent()) {
+        if (findByHash(collectionId, hash).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Document with the same hash already exists");
         }
 
-    String now = java.time.Instant.now().toString();
+        String now = java.time.Instant.now().toString();
         DocumentEntity doc = new DocumentEntity();
         // Only set fields that exist on DocumentEntity
         doc.setHash(hash);
-    // Set id to a random UUID
-    doc.setId(java.util.UUID.randomUUID().toString());
+        // Set id to a random UUID
+        doc.setId(java.util.UUID.randomUUID().toString());
         if (file.getOriginalFilename() != null) {
             doc.setOriginalFilename(file.getOriginalFilename());
         }
@@ -103,31 +101,30 @@ public class DocumentService {
         // content length may be set by the content store, but we can prefill
         doc.setContentLen(file.getSize());
 
-    doc.setState(DocumentEntity.ProcessingState.OPEN);
-    doc.setCreatedTime(now);
-    doc.setUpdatedTime(now);
+        doc.setState(DocumentEntity.ProcessingState.OPEN);
+        doc.setCreatedTime(now);
+        doc.setUpdatedTime(now);
 
         // Persist content and metadata
         contentStore.setContent(doc, file.getInputStream());
-        indexDocument(doc);
-            try {
-                events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(doc.getId()));
-            } catch (Exception ignore) {
-            }
+        indexDocument(collectionId, doc);
+        try {
+            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(collectionId, doc.getId()));
+        } catch (Exception ignore) {
+        }
         return doc;
     }
 
-    public DocumentEntity updateDocument(String id, MultipartFile file, String language) throws IOException {
-    String now = java.time.Instant.now().toString();
-        DocumentEntity doc = getById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+    public DocumentEntity updateDocument(String collectionId, String id, MultipartFile file, String language) throws IOException {
+        String now = java.time.Instant.now().toString();
+        DocumentEntity doc = getById(collectionId, id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
 
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
 
         String newHash = DigestUtils.sha256Hex(file.getInputStream());
-        if (findByHashExcludingId(newHash, id).isPresent()) {
+        if (findByHashExcludingId(collectionId, newHash, id).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Another document with the same hash exists");
         }
 
@@ -146,78 +143,82 @@ public class DocumentService {
             doc.setCreatedTime(now);
         }
         doc.setUpdatedTime(now);
-        indexDocument(doc);
-            try {
-                events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(doc.getId()));
-            } catch (Exception ignore) {
-            }
+        indexDocument(collectionId, doc);
+        try {
+            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(collectionId, doc.getId()));
+        } catch (Exception ignore) {
+        }
         return doc;
     }
 
-    public void deleteDocument(String id) {
-        if (!existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found");
-        }
+    public void deleteDocument(String collectionId, String id) {
         // Cascade delete chunks by documentId if your repository supports it
         try {
-            chunkService.deleteByDocumentId(id);
-        } catch (Exception ignore) {
-        }
-        try {
-            openSearchClient.delete(d -> d.index(baseIndexName).id(id));
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
+            if (!existsById(collectionId, id)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found");
+            }
+
+            chunkService.deleteByDocumentId(collectionId, id);
+
+            openSearchClient.delete(d -> d.index(incideName).id(id));
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete document", e);
         }
     }
 
-    public void deleteAllDocuments() {
+    public void deleteAllDocuments(String collectionId) {
         // Delete all chunks before deleting documents
         try {
-            chunkService.deleteAll();
-        } catch (Exception ignore) {
-        }
-        try {
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
+            chunkService.deleteAll(collectionId);
+
             openSearchClient.deleteByQuery(d -> d
-                .index(baseIndexName)
-                .query(q -> q.matchAll(m -> m))
+                    .index(incideName)
+                    .query(q -> q.matchAll(m -> m))
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete all documents", e);
         }
     }
 
-    public DocumentEntity updateProcessingState(String documentId, ProcessingState state) {
+    public DocumentEntity updateProcessingState(String collectionId, String documentId, ProcessingState state) {
         if (documentId == null || documentId.isBlank() || state == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "documentId and state are required");
         }
-        DocumentEntity doc = getById(documentId)
+        DocumentEntity doc = getById(collectionId, documentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
         doc.setState(state);
-        indexDocument(doc);
+        indexDocument(collectionId, doc);
         return doc;
     }
 
     // --- OpenSearchClient helper methods ---
-
-    private void indexDocument(DocumentEntity doc) {
+    private void indexDocument(String collectionId, DocumentEntity doc) {
         try {
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
             openSearchClient.index(i -> i
-                .index(baseIndexName)
-                .id(doc.getId())
-                .document(doc)
+                    .index(incideName)
+                    .id(doc.getId())
+                    .document(doc)
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to index document", e);
         }
     }
 
-    private Optional<DocumentEntity> findByHash(String hash) {
+    private Optional<DocumentEntity> findByHash(String collectionId, String hash) {
         try {
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
             var resp = openSearchClient.search(s -> s
-                .index(baseIndexName)
-                .size(1)
-                .query(q -> q.term(t -> t.field("hash").value(org.opensearch.client.opensearch._types.FieldValue.of(hash))))
-            , DocumentEntity.class);
+                    .index(incideName)
+                    .size(1)
+                    .query(q -> q.term(t -> t.field("hash").value(org.opensearch.client.opensearch._types.FieldValue.of(hash)))),
+                    DocumentEntity.class);
             if (!resp.hits().hits().isEmpty()) {
                 return Optional.of(resp.hits().hits().get(0).source());
             } else {
@@ -228,27 +229,31 @@ public class DocumentService {
         }
     }
 
-    private Optional<DocumentEntity> findByHashExcludingId(String hash, String excludeId) {
+    private Optional<DocumentEntity> findByHashExcludingId(String collectionId, String hash, String excludeId) {
         try {
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
             var resp = openSearchClient.search(s -> s
-                .index(baseIndexName)
-                .size(2)
-                .query(q -> q.bool(b -> b
+                    .index(incideName)
+                    .size(2)
+                    .query(q -> q.bool(b -> b
                     .must(q2 -> q2.term(t -> t.field("hash").value(org.opensearch.client.opensearch._types.FieldValue.of(hash))))
-                ))
-            , DocumentEntity.class);
+            )),
+                    DocumentEntity.class);
             return resp.hits().hits().stream()
-                .map(h -> h.source())
-                .filter(d -> !d.getId().equals(excludeId))
-                .findFirst();
+                    .map(h -> h.source())
+                    .filter(d -> !d.getId().equals(excludeId))
+                    .findFirst();
         } catch (Exception e) {
             throw new RuntimeException("Failed to search by hash (excluding id)", e);
         }
     }
 
-    private boolean existsById(String id) {
+    private boolean existsById(String collectionId, String id) {
         try {
-            var resp = openSearchClient.get(g -> g.index(baseIndexName).id(id), DocumentEntity.class);
+            String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
+            var resp = openSearchClient.get(g -> g.index(incideName).id(id), DocumentEntity.class);
             return resp.found();
         } catch (Exception e) {
             throw new RuntimeException("Failed to check existence by id", e);

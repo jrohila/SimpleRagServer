@@ -36,9 +36,6 @@ import org.springframework.beans.factory.annotation.Value;
 @Service
 public class ChunkSearchService {
 
-    @Value("${chunks.index-name}")
-    private String baseIndexName;
-
     @Autowired
     private OpenSearchClient openSearchClient;
 
@@ -50,6 +47,9 @@ public class ChunkSearchService {
     @Autowired
     private SummarizerService summarizerService;
 
+    @Autowired
+    private IndicesManager indicesManager;
+    
     // Limit the number of boosted terms added to the query
     private static final int MAX_TERMS = 12;
 
@@ -57,7 +57,7 @@ public class ChunkSearchService {
         MATCH, MATCH_PHRASE, MATCH_BOOL_PREFIX, QUERY_STRING, SIMPLE_QUERY_STRING
     };
 
-    public List<SearchResult<ChunkEntity>> vectorSearch(String query, List<SearchTerm> terms, int size, String language) {
+    public List<SearchResult<ChunkEntity>> vectorSearch(String collectionId, String query, List<SearchTerm> terms, int size, String language) {
         try {
             // Build embedding for kNN
             List<Float> embedding = embedClient.getEmbeddingAsList(query);
@@ -106,8 +106,10 @@ public class ChunkSearchService {
                     .filter(filterQueries)
             ));
 
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
             SearchRequest searchRequest = SearchRequest.of(b -> b
-                    .index(baseIndexName)
+                    .index(indexName)
                     .size(size)
                     .query(boolQuery)
             );
@@ -121,8 +123,8 @@ public class ChunkSearchService {
         }
     }
 
-    public String summarySearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
-        List<SearchResult<ChunkEntity>> results = this.hybridSearch(query, matchType, terms, size, enableFuzziness, language);
+    public String summarySearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+        List<SearchResult<ChunkEntity>> results = this.hybridSearch(collectionId, query, matchType, terms, size, enableFuzziness, language);
         StringBuilder combined = new StringBuilder();
         for (SearchResult<ChunkEntity> result : results) {
             combined.append(this.summarizerService.summarize(result.getContent().getText(), -1, SummarizerService.Method.BART));
@@ -139,7 +141,7 @@ public class ChunkSearchService {
      * Notes: - enableFuzziness applies only to MATCH queries on the "text"
      * field; others are unchanged.
      */
-    public List<SearchResult<ChunkEntity>> hybridSearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+    public List<SearchResult<ChunkEntity>> hybridSearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
             // Build embedding for kNN
             List<Float> embedding = embedClient.getEmbeddingAsList(query);
@@ -223,8 +225,10 @@ public class ChunkSearchService {
             // Compose filter clause: mandatoryFilterQueries
             List<Query> filterQueries = new ArrayList<>(mandatoryFilterQueries);
 
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
             SearchRequest searchRequest = SearchRequest.of(b -> b
-                    .index(baseIndexName)
+                    .index(indexName)
                     .pipeline("rrf-pipeline")
                     .size(size)
                     .query(q -> q.bool(bb -> bb
@@ -244,12 +248,12 @@ public class ChunkSearchService {
             log.info("OpenSearch hybrid response: total hits = {}", totalHits);
 
             return this.processSearchResponse(resp);
-        } catch (IOException | OpenSearchException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Failed to execute hybrid search (OpenSearch client)", e);
         }
     }
 
-    public List<SearchResult<ChunkEntity>> lexicalSearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+    public List<SearchResult<ChunkEntity>> lexicalSearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
             // 1) Build base lexical clause as Query
             Query baseTextQuery;
@@ -334,8 +338,10 @@ public class ChunkSearchService {
                     .filter(filters)
             ));
 
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
             SearchRequest searchRequest = SearchRequest.of(b -> b
-                    .index(baseIndexName)
+                    .index(indexName)
                     .size(size)
                     .query(boolQuery)
             );
