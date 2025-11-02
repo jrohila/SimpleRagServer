@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 // Removed ChunkRepository import

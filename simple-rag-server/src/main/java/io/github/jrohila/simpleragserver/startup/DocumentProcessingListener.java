@@ -1,9 +1,9 @@
 package io.github.jrohila.simpleragserver.startup;
 
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.DocumentChunkerService;
-import io.github.jrohila.simpleragserver.service.DocumentService;
+import io.github.jrohila.simpleragserver.repository.DocumentService;
 import io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

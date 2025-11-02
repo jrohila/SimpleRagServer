@@ -4,6 +4,8 @@
  */
 package io.github.jrohila.simpleragserver.service;
 
+import io.github.jrohila.simpleragserver.repository.ChunkService;
+import io.github.jrohila.simpleragserver.repository.DocumentService;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.client.DoclingClient;

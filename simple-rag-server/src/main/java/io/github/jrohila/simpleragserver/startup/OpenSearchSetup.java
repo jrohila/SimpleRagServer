@@ -19,7 +19,7 @@ import java.net.http.HttpResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
-import io.github.jrohila.simpleragserver.service.IndicesManager;
+import io.github.jrohila.simpleragserver.repository.IndicesManager;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;

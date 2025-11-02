@@ -30,7 +30,7 @@ import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.chat.util.GraniteHelper;
 import io.github.jrohila.simpleragserver.service.ChatResponsePostProcessor;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.lang.reflect.InvocationTargetException;
 
 @Service

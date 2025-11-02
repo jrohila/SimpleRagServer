@@ -1,8 +1,7 @@
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
-import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Optional;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class DocumentService {

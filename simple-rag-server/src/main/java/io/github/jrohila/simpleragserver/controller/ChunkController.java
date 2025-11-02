@@ -1,7 +1,7 @@
 package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
-import io.github.jrohila.simpleragserver.service.ChunkService;
+import io.github.jrohila.simpleragserver.repository.ChunkService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;

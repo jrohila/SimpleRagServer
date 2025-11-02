@@ -10,7 +10,7 @@ import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.UserFactsService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import io.github.jrohila.simpleragserver.service.SummarizerService;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import org.springframework.http.MediaType;
 import java.util.ArrayList;

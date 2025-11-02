@@ -5,7 +5,7 @@
 package io.github.jrohila.simpleragserver.controller.util;
 
 import io.github.jrohila.simpleragserver.controller.SearchController;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;

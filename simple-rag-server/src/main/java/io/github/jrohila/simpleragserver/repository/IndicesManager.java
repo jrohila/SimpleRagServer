@@ -1,9 +1,11 @@
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.repository;
 
+import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.startup.OpenSearchSetup;
@@ -39,19 +41,58 @@ public class IndicesManager {
     public IndicesManager(OpenSearchClient client) {
         this.client = client;
     }
+    
+    public String createIfNotExist(Class<?> type) throws Exception {
+        return this.createIfNotExist(null, type);
+    }
 
     public String createIfNotExist(String collectionId, Class<?> type) throws Exception {
         String indexName = this.getIndexName(collectionId, type);
         if (!existingIndices.contains(indexName)) {
             if (DocumentEntity.class.equals(type)) {
                 this.createDocumentsIndex(collectionId);
-            } else {
-                if (ChunkEntity.class.equals(type)) {
-                    this.createChunksIndex(collectionId);
-                }
+            } else if (ChunkEntity.class.equals(type)) {
+                this.createChunksIndex(collectionId);
+            } else if (ChatEntity.class.equals(type)) {
+                this.createChatIndex(collectionId);
             }
         }
         return indexName;
+    }
+
+    private void createChatIndex(String collectionId) throws Exception {
+        String indexName = this.getIndexName(collectionId, ChatEntity.class);
+
+        BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
+        if (exists.value()) {
+            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
+            return;
+        }
+
+        CreateIndexRequest req = new CreateIndexRequest.Builder()
+                .index(indexName)
+                .settings(s -> s.index(i -> i
+                .numberOfShards(1)
+                .numberOfReplicas(0)
+        ))
+                .mappings(m -> m
+                .properties("id", p -> p.keyword(k -> k))
+                .properties("publicName", p -> p.text(t -> t))
+                .properties("internalName", p -> p.text(t -> t))
+                .properties("internalDescription", p -> p.text(t -> t))
+                .properties("defaultLanguage", p -> p.keyword(k -> k))
+                .properties("defaultCollectionId", p -> p.keyword(k -> k))
+                .properties("defaultSystemPrompt", p -> p.text(t -> t))
+                .properties("defaultSystemPromptAppend", p -> p.text(t -> t))
+                .properties("defaultContextPrompt", p -> p.text(t -> t))
+                .properties("defaultMemoryPrompt", p -> p.text(t -> t))
+                .properties("defaultExtractorPrompt", p -> p.text(t -> t))
+                )
+                .build();
+
+        client.indices().create(req);
+        this.existingIndices.add(indexName);
+        LOGGER.log(Level.INFO, "OpenSearchSetup: created chat index {0}", indexName);
     }
 
     /**
@@ -100,7 +141,7 @@ public class IndicesManager {
             indexName = type.getTypeName();
         }
         indexName = indexName.toLowerCase();
-        
+
         return indexName;
     }
 

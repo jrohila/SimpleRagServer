@@ -1,7 +1,7 @@
 package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
-import io.github.jrohila.simpleragserver.service.DocumentService;
+import io.github.jrohila.simpleragserver.repository.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
