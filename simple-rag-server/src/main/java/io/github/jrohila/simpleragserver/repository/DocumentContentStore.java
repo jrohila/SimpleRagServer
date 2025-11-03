@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.repository;
 
-import io.github.jrohila.simpleragserver.entity.DocumentEntity;
+import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import org.springframework.content.commons.store.ContentStore;
 
 /**

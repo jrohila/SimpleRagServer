@@ -3,10 +3,10 @@ package io.github.jrohila.simpleragserver.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import io.github.jrohila.simpleragserver.dto.DoclingConversionRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingConversionResponse;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingConversionRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingConversionResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

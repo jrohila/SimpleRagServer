@@ -4,14 +4,14 @@ import io.github.jrohila.simpleragserver.controller.util.HybridSearchRequest;
 import io.github.jrohila.simpleragserver.controller.util.SearchResultDtoMapper;
 import io.github.jrohila.simpleragserver.controller.util.Term;
 import io.github.jrohila.simpleragserver.controller.util.VectorSearchRequest;
-import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
+import io.github.jrohila.simpleragserver.domain.SearchResultDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import io.github.jrohila.simpleragserver.service.SummarizerService;
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import org.springframework.http.MediaType;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ public class SearchController {
 
     // Lexical-only search (no vector, no hybrid), same payload as hybrid
     @PostMapping(path = "/lexical", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> lexicalSearch(@RequestBody HybridSearchRequest req) {
+    public List<SearchResultDTO> lexicalSearch(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -57,7 +57,7 @@ public class SearchController {
             }
         }
 
-        List<SearchResult<ChunkEntity>> hits = chunkSearchService.lexicalSearch(query, matchType, svcTerms, size, enableFuzziness, language);
+        List<SearchResult<ChunkEntity>> hits = chunkSearchService.lexicalSearch(collectionId, query, matchType, svcTerms, size, enableFuzziness, language);
 
         // Map to DTOs
         List<SearchResultDTO> out = new ArrayList<>();
@@ -69,7 +69,7 @@ public class SearchController {
 
     // Pure vector search (kNN) with optional language and mandatory term filters, plus client-side rerank by boost weights
     @PostMapping(path = "/vector", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> vectorSearch(@RequestBody VectorSearchRequest req) {
+    public List<SearchResultDTO> vectorSearch(@RequestParam String collectionId, @RequestBody VectorSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -91,7 +91,7 @@ public class SearchController {
             }
         }
 
-        List<SearchResult<ChunkEntity>> hits = chunkSearchService.vectorSearch(query, svcTerms, size, language);
+        List<SearchResult<ChunkEntity>> hits = chunkSearchService.vectorSearch(collectionId, query, svcTerms, size, language);
 
         List<SearchResultDTO> out = new ArrayList<>();
         hits.forEach(hit -> {
@@ -102,7 +102,7 @@ public class SearchController {
 
     // Hybrid search using Spring Data OpenSearch (lexical + kNN with per-term boost and mandatory filters)
     @PostMapping(path = "/hybrid", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> hybridSearch(@RequestBody HybridSearchRequest req) {
+    public List<SearchResultDTO> hybridSearch(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -129,7 +129,7 @@ public class SearchController {
             }
         }
 
-        List<SearchResult<ChunkEntity>> hits = chunkSearchService.hybridSearch(query, matchType, svcTerms, size, enableFuzziness, language);
+        List<SearchResult<ChunkEntity>> hits = chunkSearchService.hybridSearch(collectionId, query, matchType, svcTerms, size, enableFuzziness, language);
         // Map to SearchResultDTO for consistent response shape
         List<SearchResultDTO> out = new ArrayList<>();
         hits.forEach(hit -> {
@@ -140,7 +140,7 @@ public class SearchController {
 
     // Summary endpoint using summarySearch in ChunkSearchService
     @PostMapping(path = "/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public String summary(@RequestBody HybridSearchRequest req) {
+    public String summary(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -166,7 +166,7 @@ public class SearchController {
             }
         }
 
-        return chunkSearchService.summarySearch(query, matchType, svcTerms, size, enableFuzziness, language);
+        return chunkSearchService.summarySearch(collectionId, query, matchType, svcTerms, size, enableFuzziness, language);
     }
 
 }

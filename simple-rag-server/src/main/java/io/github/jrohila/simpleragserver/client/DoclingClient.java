@@ -1,9 +1,9 @@
 package io.github.jrohila.simpleragserver.client;
 
-import io.github.jrohila.simpleragserver.dto.DoclingConversionRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingConversionResponse;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingConversionRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingConversionResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.dto;
+package io.github.jrohila.simpleragserver.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;

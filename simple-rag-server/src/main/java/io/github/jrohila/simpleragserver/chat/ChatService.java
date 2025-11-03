@@ -1,11 +1,12 @@
 package io.github.jrohila.simpleragserver.chat;
 
 import io.github.jrohila.simpleragserver.chat.util.TokenGenerator;
+import io.github.jrohila.simpleragserver.domain.ChatEntity;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // removed unused jtokkit imports (token counting handled via ChatHelper)
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -27,10 +28,11 @@ import java.util.Optional; // added
 // Add detector import
 import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
 import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
+import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.chat.util.GraniteHelper;
 import io.github.jrohila.simpleragserver.service.ChatResponsePostProcessor;
-import io.github.jrohila.simpleragserver.service.ChunkSearchService;
+import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.lang.reflect.InvocationTargetException;
 
 @Service
@@ -39,13 +41,15 @@ public class ChatService {
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     @Autowired
+    private MessageListPreProcessPipe messageListPreProcessPipe;
+
+    @Autowired
     private ContextAdditionPipe contextAdditionPipe;
 
     @Autowired
     private ChatHelper chatHelper;
 
     private final ChatModel chatModel;
-    private final String systemAppend;
     private final TitleRequestDetector titleRequestDetector; // added
 
     @Autowired
@@ -57,18 +61,16 @@ public class ChatService {
     @Autowired
     public ChatService(ChatModel chatModel, ChunkSearchService chunkSearchService,
             // detector is optional to avoid failing if bean not present
-            Optional<TitleRequestDetector> titleRequestDetector,
-            @Value("${processing.chat.system.append}") String systemAppend) {
+            Optional<TitleRequestDetector> titleRequestDetector) {
         this.chatModel = chatModel;
-        this.systemAppend = systemAppend;
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request) {
-        return chat(request, true);
+    public OpenAiChatResponse chat(OpenAiChatRequest request, ChatEntity chatEntity) {
+        return chat(request, true, chatEntity);
     }
 
-    private List<Message> handleMessage(OpenAiChatRequest request, boolean useRag) {
+    private List<Message> handleMessage(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
         String firstUserContent = null;
         if (request.getMessages() != null) {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
@@ -95,65 +97,13 @@ public class ChatService {
                 log.debug("  #0 [UserMessage] {}", firstUserContent);
             }
         } else {
-            boolean hasClientSystemOrAssistantStream = false;
-            log.info("[ChatService] chatStream invoked: msgs={} model={} ",
-                    (request.getMessages() == null ? 0 : request.getMessages().size()),
-                    request.getModel());
-            if (request.getMessages() != null) {
-                for (OpenAiChatRequest.Message m : request.getMessages()) {
-                    if (m.getRole() == null) {
-                        continue;
-                    }
-                    switch (m.getRole()) {
-                        case "system" -> {
-                            String content = m.getContentAsString();
-                            if (content == null) {
-                                content = "";
-                            }
-                            if (systemAppend != null && !systemAppend.isBlank()) {
-                                String trimmedAppend = systemAppend.trim();
-                                String trimmedContent = content.trim();
-                                if (!trimmedContent.endsWith(trimmedAppend)) {
-                                    content = (trimmedContent.isEmpty() ? trimmedAppend : trimmedContent + "\n" + trimmedAppend);
-                                }
-                            }
-                            springMessages.add(new SystemMessage(content));
-                            hasClientSystemOrAssistantStream = true;
-                        }
-                        case "user" ->
-                            springMessages.add(new UserMessage(m.getContentAsString()));
-                        case "assistant" -> {
-                            // Do NOT append system text to assistant messages in streaming path.
-                            springMessages.add(new AssistantMessage(m.getContentAsString()));
-                            hasClientSystemOrAssistantStream = true;
-                        }
-                        default ->
-                            springMessages.add(new UserMessage(m.getContentAsString()));
-                    }
-                }
-            }
-            if (!hasClientSystemOrAssistantStream && systemAppend != null && !systemAppend.isBlank()) {
-                springMessages.add(0, new SystemMessage(systemAppend));
-            }
+            log.info("[ChatService] chatStream invoked: msgs={} model={} ", (request.getMessages() == null ? 0 : request.getMessages().size()), request.getModel());
+            List<Integer> rollingTokens = TokenGenerator.createTokens(springMessages);
 
-            // Compute and log rolling tokens (based on newest-first last up to 5 USER messages only)
-            List<Integer> rollingTokens = null;
-            try {
-                rollingTokens = TokenGenerator.createTokens(springMessages);
-                log.info("[ChatService] Rolling tokens (user-only, newest-first, size={}): {}", rollingTokens.size(), rollingTokens);
-            } catch (Exception e) {
-                log.debug("[ChatService] Rolling token computation failed: {}", e.getMessage());
-            }
-
-            // Build RAG context
-            if (useRag) {
-                springMessages = contextAdditionPipe.process(springMessages);
-            }
-            
-            if ((rollingTokens != null) && (!rollingTokens.isEmpty())) {
-                springMessages = contextAdditionPipe.appendMemory(springMessages, rollingTokens);
-            }
-            
+            springMessages = this.messageListPreProcessPipe.transform(request);
+            springMessages = this.messageListPreProcessPipe.process(springMessages, chatEntity);
+            springMessages = this.contextAdditionPipe.process(springMessages, chatEntity);
+            springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
 
             // DEBUG: log exactly what will be sent to the LLM (streaming)
             if (log.isDebugEnabled()) {
@@ -167,11 +117,11 @@ public class ChatService {
         return springMessages;
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag) {
+    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        List<Message> springMessages = this.handleMessage(request, useRag);
+        List<Message> springMessages = this.handleMessage(request, useRag, chatEntity);
 
-        Prompt prompt = GraniteHelper.toGranitePrompt(springMessages);        
+        Prompt prompt = GraniteHelper.toGranitePrompt(springMessages);
         // Log prompt token length using jtokkit
         try {
             int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
@@ -240,9 +190,9 @@ public class ChatService {
     /**
      * Streaming version returning a Flux of OpenAI-compatible streaming chunks.
      */
-    public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, boolean useRag) {
+    public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        List<Message> springMessages = this.handleMessage(request, useRag);
+        List<Message> springMessages = this.handleMessage(request, useRag, chatEntity);
 
         // Compute and log rolling tokens (based on newest-first last up to 5 USER messages only)
         List<Integer> rollingTokens = new ArrayList<>();
@@ -268,8 +218,8 @@ public class ChatService {
         AtomicBoolean first = new AtomicBoolean(true);
         StringBuilder cumulative = new StringBuilder();
         AtomicInteger index = new AtomicInteger(0);
-        
-        Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages);        
+
+        Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages);
         return chatModel.stream(granitePrompt)
                 .flatMap(resp -> Flux.fromIterable(resp.getResults()))
                 .map(result -> {

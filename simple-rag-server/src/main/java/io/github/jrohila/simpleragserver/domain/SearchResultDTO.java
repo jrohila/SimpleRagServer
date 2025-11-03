@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.dto;
+package io.github.jrohila.simpleragserver.domain;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -15,12 +15,12 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-public class ReferenceDTO {
+public class SearchResultDTO {
     
-    private String documentId;
-    private String documentName;
-    private String sectionTitle;
-    private int pageNumber;
-    private String url;
-    
+    private float score;
+    private String text;
+    private ReferenceDTO reference;
+    // Embedding vector for the chunk (if present in index)
+    private java.util.List<Float> embedding;
+
 }

@@ -17,8 +17,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.jrohila.simpleragserver.domain.ChatEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.DocumentEntity;
+import io.github.jrohila.simpleragserver.repository.IndicesManager;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class OpenSearchSetup implements ApplicationRunner {
@@ -26,15 +31,6 @@ public class OpenSearchSetup implements ApplicationRunner {
     private static final Logger LOGGER = Logger.getLogger(OpenSearchSetup.class.getName());
 
     private final OpenSearchClient client;
-
-    @Value("${chunks.index-name}")
-    private String indexName;
-
-    @Value("${chunks.dimension-size}")
-    private int embeddingDim;
-
-    @Value("${chunks.similarity-function}")
-    private String similarity; // cosinesimil | l2 | innerproduct
 
     // OpenSearch connection (reused for pipeline HTTP call)
     @Value("${opensearch.uris}")
@@ -44,57 +40,63 @@ public class OpenSearchSetup implements ApplicationRunner {
     @Value("${opensearch.password:}")
     private String password;
 
+    @Autowired
+    private IndicesManager indicesManager;
+
     public OpenSearchSetup(OpenSearchClient client) {
         this.client = client;
     }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        waitForOpenSearch();
         // Call individual creation methods here
-        createChunksIndex();
+        indicesManager.createIfNotExist(null, DocumentEntity.class);
+        indicesManager.createIfNotExist(null, ChunkEntity.class);
+        indicesManager.createIfNotExist(null, ChatEntity.class);
+
         createRffPipeline();
     }
 
-    public void createChunksIndex() throws Exception {
-        BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
-        if (exists.value()) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
-            return;
+    /**
+     * Waits up to 5 minutes for OpenSearch to be available on the configured URI.
+     * If not available after 5 minutes, logs a warning and continues.
+     */
+    private void waitForOpenSearch() {
+        String healthUrl = osUri.replaceAll("/+$", "") + "/_cluster/health";
+        HttpClient http = HttpClient.newHttpClient();
+        long start = System.currentTimeMillis();
+        long timeout = 5 * 60 * 1000L; // 5 minutes
+        boolean available = false;
+        while (System.currentTimeMillis() - start < timeout) {
+            try {
+                HttpRequest.Builder req = HttpRequest.newBuilder()
+                        .uri(URI.create(healthUrl))
+                        .GET();
+                if (username != null && !username.isBlank()) {
+                    String token = Base64.getEncoder().encodeToString((username + ":" + (password == null ? "" : password))
+                            .getBytes(StandardCharsets.UTF_8));
+                    req.header("Authorization", "Basic " + token);
+                }
+                HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() / 100 == 2) {
+                    LOGGER.log(Level.INFO, "OpenSearch is available: {0}", healthUrl);
+                    available = true;
+                    break;
+                }
+            } catch (Exception e) {
+                // Not available yet
+            }
+            try {
+                Thread.sleep(2000); // Wait 2 seconds before retry
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
-
-        CreateIndexRequest req = new CreateIndexRequest.Builder()
-                .index(indexName)
-                .settings(s -> s.index(i -> i
-                .numberOfShards(1)
-                .numberOfReplicas(0)
-                .knn(true)
-        ))
-                .mappings(m -> m
-                .properties("text", p -> p.text(t -> t
-                .fields("keyword", f -> f.keyword(k -> k))
-        ))
-                .properties("type", p -> p.keyword(k -> k))
-                .properties("sectionTitle", p -> p.text(t -> t))
-                .properties("pageNumber", p -> p.integer(n -> n))
-                .properties("language", p -> p.keyword(k -> k))
-                .properties("hash", p -> p.keyword(k -> k))
-                .properties("documentName", p -> p.text(t -> t))
-                .properties("created", p -> p.date(d -> d))
-                .properties("modified", p -> p.date(d -> d))
-                .properties("documentId", p -> p.keyword(k -> k))
-                .properties("embedding", p -> p.knnVector(k -> k
-                .dimension(embeddingDim)
-                .method(me -> me
-                .name("hnsw")
-                .engine("lucene")
-                .spaceType(similarity)
-                )
-        ))
-                )
-                .build();
-
-        client.indices().create(req);
-        LOGGER.info("OpenSearchSetup: created index " + indexName + " (dimension=" + embeddingDim + ", space_type=" + similarity + ")");
+        if (!available) {
+            LOGGER.log(Level.WARNING, "OpenSearch was not available after 5 minutes, continuing anyway: {0}", healthUrl);
+        }
     }
 
     public void createRffPipeline() throws Exception {
@@ -134,7 +136,7 @@ public class OpenSearchSetup implements ApplicationRunner {
         HttpClient http = HttpClient.newHttpClient();
         HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 == 2) {
-            LOGGER.info("OpenSearchSetup: created/updated search pipeline " + pipelineId);
+            LOGGER.log(Level.INFO, "OpenSearchSetup: created/updated search pipeline {0}", pipelineId);
         } else {
             LOGGER.log(Level.WARNING, "OpenSearchSetup: pipeline PUT failed status={0} body={1}",
                     new Object[]{resp.statusCode(), resp.body()});

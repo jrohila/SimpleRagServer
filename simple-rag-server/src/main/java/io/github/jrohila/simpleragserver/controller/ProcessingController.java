@@ -17,15 +17,15 @@ public class ProcessingController {
     @Autowired
     private DocumentChunkerService documentChunker;
 
-    @PostMapping("/chunk-document/{documentId}")
-    public ResponseEntity<Void> processDocumentSync(@PathVariable String documentId) {
-        documentChunker.process(documentId);
+    @PostMapping("/chunk-document/{collectionId}/{documentId}")
+    public ResponseEntity<Void> processDocumentSync(@PathVariable String collectionId, @PathVariable String documentId) {
+        documentChunker.process(collectionId, documentId);
         return ResponseEntity.accepted().build();
     }
 
-    @PostMapping("/chunk-document/async/{documentId}")
-    public ResponseEntity<Void> processDocumentAsync(@PathVariable String documentId) {
-        documentChunker.asyncProcess(documentId);
+    @PostMapping("/chunk-document/async/{collectionId}/{documentId}")
+    public ResponseEntity<Void> processDocumentAsync(@PathVariable String collectionId, @PathVariable String documentId) {
+        documentChunker.asyncProcess(collectionId, documentId);
         return ResponseEntity.accepted().build();
     }
 

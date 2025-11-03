@@ -22,8 +22,8 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import io.github.jrohila.simpleragserver.dto.ExtractedFactDTO;
-import io.github.jrohila.simpleragserver.dto.ExtractedFactsDTO;
+import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
+import io.github.jrohila.simpleragserver.domain.ExtractedFactsDTO;
 import io.github.jrohila.simpleragserver.util.LlmOutputCleaner;
 
 @Service

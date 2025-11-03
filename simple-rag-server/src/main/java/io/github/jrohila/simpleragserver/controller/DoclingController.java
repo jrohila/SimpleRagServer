@@ -1,9 +1,9 @@
 package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.client.DoclingClient;
-import io.github.jrohila.simpleragserver.dto.DoclingConversionResponse;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingConversionResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -149,9 +149,9 @@ public class DoclingController {
             targetKind = "inbody";
         }
 
-        io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options convertOptions = null;
+        io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options convertOptions = null;
         if ((toFormats != null && !toFormats.isEmpty()) || doOcr != null || doTableStructure != null || tableMode != null || pipeline != null) {
-            convertOptions = new io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options();
+            convertOptions = new io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options();
             if (toFormats != null && !toFormats.isEmpty()) convertOptions.setToFormats(toFormats);
             if (doOcr != null) convertOptions.setDoOcr(doOcr);
             if (doTableStructure != null) convertOptions.setDoTableStructure(doTableStructure);
@@ -242,9 +242,9 @@ public class DoclingController {
             targetKind = "inbody";
         }
 
-        io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options convertOptions = null;
+        io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options convertOptions = null;
         if ((toFormats != null && !toFormats.isEmpty()) || doOcr != null || doTableStructure != null || tableMode != null || pipeline != null) {
-            convertOptions = new io.github.jrohila.simpleragserver.dto.DoclingConversionRequest.Options();
+            convertOptions = new io.github.jrohila.simpleragserver.domain.DoclingConversionRequest.Options();
             if (toFormats != null && !toFormats.isEmpty()) convertOptions.setToFormats(toFormats);
             if (doOcr != null) convertOptions.setDoOcr(doOcr);
             if (doTableStructure != null) convertOptions.setDoTableStructure(doTableStructure);

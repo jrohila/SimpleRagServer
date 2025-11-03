@@ -2,19 +2,15 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.service;
+package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.client.EmbedClient;
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
+import io.github.jrohila.simpleragserver.service.SummarizerService;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
-import io.github.jrohila.simpleragserver.service.util.SearchResultMapper;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
 import java.io.IOException;
 import java.util.LinkedHashSet;
@@ -28,11 +24,10 @@ import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.OpenSearchException;
+import org.opensearch.client.opensearch.core.search.Hit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.elasticsearch.core.query.StringQuery;
-import org.springframework.data.domain.PageRequest;
 // Note: NativeSearchQueryBuilder isn't available in this project's dependencies; we'll use StringQuery.
 
 /**
@@ -41,9 +36,6 @@ import org.springframework.data.domain.PageRequest;
  */
 @Service
 public class ChunkSearchService {
-
-    @Value("${chunks.index-name}")
-    private String indexName;
 
     @Autowired
     private OpenSearchClient openSearchClient;
@@ -54,11 +46,11 @@ public class ChunkSearchService {
     private EmbedClient embedClient;
 
     @Autowired
-    private ElasticsearchOperations elasticsearchOperations;
-    
-    @Autowired
     private SummarizerService summarizerService;
 
+    @Autowired
+    private IndicesManager indicesManager;
+    
     // Limit the number of boosted terms added to the query
     private static final int MAX_TERMS = 12;
 
@@ -66,16 +58,16 @@ public class ChunkSearchService {
         MATCH, MATCH_PHRASE, MATCH_BOOL_PREFIX, QUERY_STRING, SIMPLE_QUERY_STRING
     };
 
-    public List<SearchResult<ChunkEntity>> vectorSearch(String query, List<SearchTerm> terms, int size, String language) {
+    public List<SearchResult<ChunkEntity>> vectorSearch(String collectionId, String query, List<SearchTerm> terms, int size, String language) {
         try {
             // Build embedding for kNN
             List<Float> embedding = embedClient.getEmbeddingAsList(query);
             int k = Math.max(1, size);
 
-            // Build filter clauses from language and mandatory terms
-            List<Map<String, Object>> filters = new ArrayList<>();
+            // Build filter queries from language and mandatory terms
+            List<Query> filterQueries = new ArrayList<>();
             if (language != null && !language.isBlank()) {
-                filters.add(Map.of("term", Map.of("language", language)));
+                filterQueries.add(Query.of(q -> q.term(t -> t.field("language").value(org.opensearch.client.opensearch._types.FieldValue.of(language)))));
             }
             if (terms != null && !terms.isEmpty()) {
                 Set<String> seen = new LinkedHashSet<>();
@@ -95,8 +87,7 @@ public class ChunkSearchService {
                     if (applied >= MAX_TERMS) {
                         continue; // cap
                     }
-                    // Use match_phrase on text to avoid relying on text.keyword mapping
-                    filters.add(Map.of("match_phrase", Map.of("text", Map.of("query", raw))));
+                    filterQueries.add(Query.of(q -> q.matchPhrase(mp -> mp.field("text").query(raw))));
                     applied++;
                 }
                 if (seen.size() > MAX_TERMS) {
@@ -107,41 +98,34 @@ public class ChunkSearchService {
                 }
             }
 
-            // knn clause placed under bool.must as per example
-            Map<String, Object> knn = Map.of(
-                    "knn",
-                    Map.of(
-                            "embedding",
-                            Map.of(
-                                    "vector", embedding,
-                                    "k", k
-                            )
-                    )
+            // Build kNN query
+            Query knnQuery = Query.of(q -> q.knn(kq -> kq.field("embedding").vector(embedding).k(k)));
+
+            // Compose bool query: must = knn, filter = filterQueries
+            Query boolQuery = Query.of(q -> q.bool(b -> b
+                    .must(knnQuery)
+                    .filter(filterQueries)
+            ));
+
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
+            SearchRequest searchRequest = SearchRequest.of(b -> b
+                    .index(indexName)
+                    .size(size)
+                    .query(boolQuery)
             );
 
-            Map<String, Object> bool = new LinkedHashMap<>();
-            bool.put("must", knn);
-            if (!filters.isEmpty()) {
-                bool.put("filter", filters);
-            }
+            log.info("Vector kNN query: {}", searchRequest.toString());
 
-            Map<String, Object> queryNode = Map.of("bool", bool);
-
-            String queryJsonContent = new ObjectMapper().writeValueAsString(queryNode);
-
-            StringQuery stringQuery = new StringQuery(queryJsonContent);
-            stringQuery.setPageable(PageRequest.of(0, size));
-
-            log.info("Vector query (with filters): {}", queryJsonContent);
-            
-            return SearchResultMapper.processSearchHits(elasticsearchOperations.search(stringQuery, ChunkEntity.class));
+            SearchResponse<ChunkEntity> resp = openSearchClient.search(searchRequest, ChunkEntity.class);
+            return this.processSearchResponse(resp);
         } catch (Exception e) {
             throw new RuntimeException("Failed to execute vector search", e);
         }
     }
 
-    public String summarySearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
-        List<SearchResult<ChunkEntity>> results = this.hybridSearch(query, matchType, terms, size, enableFuzziness, language);
+    public String summarySearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+        List<SearchResult<ChunkEntity>> results = this.hybridSearch(collectionId, query, matchType, terms, size, enableFuzziness, language);
         StringBuilder combined = new StringBuilder();
         for (SearchResult<ChunkEntity> result : results) {
             combined.append(this.summarizerService.summarize(result.getContent().getText(), -1, SummarizerService.Method.BART));
@@ -149,7 +133,7 @@ public class ChunkSearchService {
         }
         return combined.toString();
     }
-    
+
     // Note: client-side rescoring removed for simplicity; results are returned as-is from kNN.
     // (Optional cap can be added later if needed)
     /**
@@ -158,7 +142,7 @@ public class ChunkSearchService {
      * Notes: - enableFuzziness applies only to MATCH queries on the "text"
      * field; others are unchanged.
      */
-    public List<SearchResult<ChunkEntity>> hybridSearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+    public List<SearchResult<ChunkEntity>> hybridSearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
             // Build embedding for kNN
             List<Float> embedding = embedClient.getEmbeddingAsList(query);
@@ -242,15 +226,17 @@ public class ChunkSearchService {
             // Compose filter clause: mandatoryFilterQueries
             List<Query> filterQueries = new ArrayList<>(mandatoryFilterQueries);
 
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
             SearchRequest searchRequest = SearchRequest.of(b -> b
                     .index(indexName)
                     .pipeline("rrf-pipeline")
                     .size(size)
                     .query(q -> q.bool(bb -> bb
-                        .should(shouldQueries)
-                        .filter(filterQueries)
-                        .minimumShouldMatch("1")
-                    ))
+                    .should(shouldQueries)
+                    .filter(filterQueries)
+                    .minimumShouldMatch("1")
+            ))
             );
 
             // Execute using OpenSearch client
@@ -262,49 +248,48 @@ public class ChunkSearchService {
             }
             log.info("OpenSearch hybrid response: total hits = {}", totalHits);
 
-            return SearchResultMapper.processSearchResponse(resp);
-        } catch (IOException | OpenSearchException e) {
+            return this.processSearchResponse(resp);
+        } catch (Exception e) {
             throw new RuntimeException("Failed to execute hybrid search (OpenSearch client)", e);
         }
     }
 
-    public List<SearchResult<ChunkEntity>> lexicalSearch(String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+    public List<SearchResult<ChunkEntity>> lexicalSearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
-            // 1) Build base lexical clause
-            Map<String, Object> baseTextClause;
+            // 1) Build base lexical clause as Query
+            Query baseTextQuery;
             switch (matchType) {
                 case MATCH -> {
                     if (enableFuzziness) {
-                        Map<String, Object> matchNode = new LinkedHashMap<>();
-                        Map<String, Object> textNode = new LinkedHashMap<>();
-                        textNode.put("query", query);
-                        textNode.put("fuzziness", "AUTO");
-                        textNode.put("prefix_length", 1);
-                        textNode.put("max_expansions", 50);
-                        matchNode.put("text", textNode);
-                        baseTextClause = Map.of("match", matchNode);
+                        baseTextQuery = Query.of(q -> q.match(m -> m
+                                .field("text")
+                                .query(org.opensearch.client.opensearch._types.FieldValue.of(query))
+                                .fuzziness("AUTO")
+                                .prefixLength(1)
+                                .maxExpansions(50)
+                        ));
                     } else {
-                        baseTextClause = Map.of("match", Map.of("text", query));
+                        baseTextQuery = Query.of(q -> q.match(m -> m.field("text").query(org.opensearch.client.opensearch._types.FieldValue.of(query))));
                     }
                 }
                 case MATCH_PHRASE ->
-                    baseTextClause = Map.of("match_phrase", Map.of("text", query));
+                    baseTextQuery = Query.of(q -> q.matchPhrase(mp -> mp.field("text").query(query)));
                 case MATCH_BOOL_PREFIX ->
-                    baseTextClause = Map.of("match_bool_prefix", Map.of("text", query));
+                    baseTextQuery = Query.of(q -> q.matchBoolPrefix(mbp -> mbp.field("text").query(query)));
                 case QUERY_STRING ->
-                    baseTextClause = Map.of("query_string", Map.of("query", query));
+                    baseTextQuery = Query.of(q -> q.queryString(qs -> qs.query(query)));
                 case SIMPLE_QUERY_STRING ->
-                    baseTextClause = Map.of("simple_query_string", Map.of("query", query));
+                    baseTextQuery = Query.of(q -> q.simpleQueryString(sqs -> sqs.query(query)));
                 default ->
-                    baseTextClause = Map.of("match", Map.of("text", query));
+                    baseTextQuery = Query.of(q -> q.match(m -> m.field("text").query(org.opensearch.client.opensearch._types.FieldValue.of(query))));
             }
 
             // 2) Collect boosts and filters (language + mandatory terms)
-            List<Map<String, Object>> shouldBoost = new ArrayList<>();
-            List<Map<String, Object>> filters = new ArrayList<>();
+            List<Query> shouldBoost = new ArrayList<>();
+            List<Query> filters = new ArrayList<>();
 
             if (language != null && !language.isBlank()) {
-                filters.add(Map.of("term", Map.of("language", language)));
+                filters.add(Query.of(q -> q.term(t -> t.field("language").value(org.opensearch.client.opensearch._types.FieldValue.of(language)))));
             }
 
             if (terms != null && !terms.isEmpty()) {
@@ -327,16 +312,15 @@ public class ChunkSearchService {
                         continue;  // cap
                     }
                     // Boosting clause (match_phrase with optional boost)
-                    Map<String, Object> textNode = new LinkedHashMap<>();
-                    textNode.put("query", term);
                     if (t.getBoostWeight() != null) {
-                        textNode.put("boost", t.getBoostWeight());
+                        shouldBoost.add(Query.of(q -> q.matchPhrase(mp -> mp.field("text").query(term).boost(t.getBoostWeight().floatValue()))));
+                    } else {
+                        shouldBoost.add(Query.of(q -> q.matchPhrase(mp -> mp.field("text").query(term))));
                     }
-                    shouldBoost.add(Map.of("match_phrase", Map.of("text", textNode)));
 
                     // Mandatory filter
                     if (t.isMandatory()) {
-                        filters.add(Map.of("match_phrase", Map.of("text", Map.of("query", term))));
+                        filters.add(Query.of(q -> q.matchPhrase(mp -> mp.field("text").query(term))));
                     }
                     applied++;
                 }
@@ -348,30 +332,41 @@ public class ChunkSearchService {
                 }
             }
 
-            // 3) Build bool query: must baseTextClause, should boosts, filter mandatory terms/lang
-            Map<String, Object> bool = new LinkedHashMap<>();
-            List<Map<String, Object>> mustList = new ArrayList<>();
-            mustList.add(baseTextClause);
-            bool.put("must", mustList);
-            if (!shouldBoost.isEmpty()) {
-                bool.put("should", shouldBoost);
-            }
-            if (!filters.isEmpty()) {
-                bool.put("filter", filters);
-            }
+            // 3) Build bool query: must baseTextQuery, should boosts, filter mandatory terms/lang
+            Query boolQuery = Query.of(q -> q.bool(b -> b
+                    .must(baseTextQuery)
+                    .should(shouldBoost)
+                    .filter(filters)
+            ));
 
-            Map<String, Object> topQuery = Map.of("bool", bool);
+            String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
+            
+            SearchRequest searchRequest = SearchRequest.of(b -> b
+                    .index(indexName)
+                    .size(size)
+                    .query(boolQuery)
+            );
 
-            String rawJson = new ObjectMapper().writeValueAsString(topQuery);
-            StringQuery stringQuery = new StringQuery(rawJson);
-            stringQuery.setPageable(PageRequest.of(0, size));
+            log.info("Lexical query: {}", searchRequest.toString());
 
-            log.info("Lexical query: {}", rawJson);
-
-            return SearchResultMapper.processSearchHits(elasticsearchOperations.search(stringQuery, ChunkEntity.class));
+            SearchResponse<ChunkEntity> resp = openSearchClient.search(searchRequest, ChunkEntity.class);
+            return this.processSearchResponse(resp);
         } catch (Exception e) {
             throw new RuntimeException("Failed to execute lexical search", e);
         }
+    }
+
+    private List<SearchResult<ChunkEntity>> processSearchResponse(SearchResponse<ChunkEntity> response) {
+        List<SearchResult<ChunkEntity>> results = new ArrayList<>();
+
+        for (Hit<ChunkEntity> hit : response.hits().hits()) {
+            SearchResult<ChunkEntity> result = new SearchResult();
+            result.setContent(hit.source());
+            result.setScore(hit.score());
+            results.add(result);
+        }
+
+        return results;
     }
 
 }

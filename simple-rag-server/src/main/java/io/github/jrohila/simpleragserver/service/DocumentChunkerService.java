@@ -4,15 +4,16 @@
  */
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.repository.ChunkService;
+import io.github.jrohila.simpleragserver.repository.DocumentService;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.client.DoclingClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkRequest;
-import io.github.jrohila.simpleragserver.dto.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
+import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.pipeline.ChunkQualityGate;
 import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
-import io.github.jrohila.simpleragserver.repository.DocumentRepository;
 // imports for ChunkService and NlpService are unnecessary since they're in the same package
 import java.io.IOException;
 import java.util.List;
@@ -50,7 +51,7 @@ public class DocumentChunkerService {
     private ChunkService chunkService;
 
     @Autowired
-    private DocumentRepository documentRepository;
+    private DocumentService documentService;
 
     @Autowired
     private DocumentContentStore documentContentStore;
@@ -62,14 +63,14 @@ public class DocumentChunkerService {
     private ChunkQualityGate qualityGate;
 
     @Async("chunkingExecutor")
-    public void asyncProcess(String documentId) {
-        this.process(documentId);
+    public void asyncProcess(String collectionId, String documentId) {
+        this.process(collectionId, documentId);
     }
 
-    public void process(String documentId) {
+    public void process(String collectionId, String documentId) {
         long start = System.currentTimeMillis();
         try {
-            var docOpt = documentRepository.findById(documentId);
+            var docOpt = documentService.getById(collectionId, documentId);
             if (docOpt.isEmpty()) {
                 LOGGER.log(Level.WARNING, "DocumentChunker.process: document not found id={0}", documentId);
                 return;
@@ -201,10 +202,10 @@ public class DocumentChunkerService {
 
                 // Persist via service; on validation failure, skip and continue
                 try {
-                    if (chunk.getId() != null && chunkService.getById(chunk.getId()).isPresent()) {
-                        chunkService.update(chunk.getId(), chunk);
+                    if (chunk.getId() != null && chunkService.getById(collectionId, chunk.getId()).isPresent()) {
+                        chunkService.update(collectionId, chunk.getId(), chunk);
                     } else {
-                        chunkService.create(chunk);
+                        chunkService.create(collectionId, chunk);
                     }
                     saved++;
                     if (saved == 1 || saved == total || saved % 10 == 0) {

@@ -4,9 +4,9 @@
  */
 package io.github.jrohila.simpleragserver.controller.util;
 
-import io.github.jrohila.simpleragserver.dto.ReferenceDTO;
-import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
-import io.github.jrohila.simpleragserver.entity.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ReferenceDTO;
+import io.github.jrohila.simpleragserver.domain.SearchResultDTO;
+import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 
 /**
  *

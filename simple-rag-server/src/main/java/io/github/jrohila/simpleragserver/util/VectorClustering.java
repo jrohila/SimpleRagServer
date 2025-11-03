@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.util;
 
-import io.github.jrohila.simpleragserver.dto.SearchResultDTO;
+import io.github.jrohila.simpleragserver.domain.SearchResultDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
