@@ -11,10 +11,12 @@ SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generati
 - Streaming and non-streaming chat support
 - Modular, production-grade Spring Boot architecture
 - Docker Compose for one-command startup of all services
+- **Multi-tenant collections:** Segregate documents by collection, each with its own OpenSearch index.
+- **Chat entity abstraction:** Each chat has its own settings and links to a collection, controlling context, prompts, and document scope.
 
 ## Docker Compose Services
 - `opensearch`: Hybrid search backend (9200)
-- `dashboards`: OpenSearch Dashboards UI (15601)
+- `dashboards`: OpenSearch Dashboards UI (15601, **opt-in**; start with `--profile dashboards`)
 - `ollama`: Local LLM/embedding server (11434, optional profile)
 - `ollama-pull-models`: Auto-pulls required Ollama models
 - `docling-serve`: Document chunking and parsing (5001)
@@ -72,6 +74,16 @@ mvn -q spring-boot:run
 
 ## API Usage
 
+### Onboarding (Create New Chat)
+
+The onboarding endpoint allows you to create a new chat and collection, specifying all chat and collection settings. Example parameters:
+
+- `publicName`, `internalName`, `internalDescription`, `defaultLanguage`, `defaultSystemPrompt`, `defaultSystemPromptAppend`, `defaultContextPrompt`, `defaultMemoryPrompt`, `defaultExtractorPrompt`, `collectionName`, `collectionDescription`
+- `overrideSystemMessage` (boolean, default: `true`): Whether to override the system message for this chat
+- `overrideAssistantMessage` (boolean, default: `true`): Whether to override the assistant message for this chat
+
+### Chat Completion
+
 Non-streaming:
 ```bash
 curl -s http://localhost:8080/v1/chat/completions \
@@ -99,7 +111,7 @@ curl -N http://localhost:8080/v1/chat/completions \
 In `simple-rag-server/src/main/resources/application.properties`:
 - `processing.chat.system.append=...`
 - `processing.chat.rag.context-prompt=...`
-- `logging.level.io.github.jrohila.simpleragserver.chat=DEBUG` (to log messages sent to the LLM)
+- `logging.level.io.github.jrohila.simpleragserver=DEBUG` (to enable debug logging)
 
 ## Behavior Summary
 - RAG retrieval: hybrid query; boosted terms are capped to avoid oversized queries
@@ -107,6 +119,9 @@ In `simple-rag-server/src/main/resources/application.properties`:
 - Title request bypass: first user message detected as a title request is sent directly (no RAG/system append)
 - Streaming and non-streaming parity: same message assembly and RAG logic
 - Docling integration: always on via REST
+- **Collections:** Each collection creates a separate OpenSearch index, allowing document segregation and multi-tenant scenarios.
+- **Chat entity:** Each chat wraps up its settings and links to a collection, defining what documents and chunks the chat can access.
+- **Startup wait:** The server waits up to 5 minutes for OpenSearch to be available before continuing startup.
 
 ## Build
 
