@@ -49,12 +49,54 @@ public class OpenSearchSetup implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        waitForOpenSearch();
         // Call individual creation methods here
         indicesManager.createIfNotExist(null, DocumentEntity.class);
         indicesManager.createIfNotExist(null, ChunkEntity.class);
         indicesManager.createIfNotExist(null, ChatEntity.class);
 
         createRffPipeline();
+    }
+
+    /**
+     * Waits up to 5 minutes for OpenSearch to be available on the configured URI.
+     * If not available after 5 minutes, logs a warning and continues.
+     */
+    private void waitForOpenSearch() {
+        String healthUrl = osUri.replaceAll("/+$", "") + "/_cluster/health";
+        HttpClient http = HttpClient.newHttpClient();
+        long start = System.currentTimeMillis();
+        long timeout = 5 * 60 * 1000L; // 5 minutes
+        boolean available = false;
+        while (System.currentTimeMillis() - start < timeout) {
+            try {
+                HttpRequest.Builder req = HttpRequest.newBuilder()
+                        .uri(URI.create(healthUrl))
+                        .GET();
+                if (username != null && !username.isBlank()) {
+                    String token = Base64.getEncoder().encodeToString((username + ":" + (password == null ? "" : password))
+                            .getBytes(StandardCharsets.UTF_8));
+                    req.header("Authorization", "Basic " + token);
+                }
+                HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() / 100 == 2) {
+                    LOGGER.log(Level.INFO, "OpenSearch is available: {0}", healthUrl);
+                    available = true;
+                    break;
+                }
+            } catch (Exception e) {
+                // Not available yet
+            }
+            try {
+                Thread.sleep(2000); // Wait 2 seconds before retry
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        if (!available) {
+            LOGGER.log(Level.WARNING, "OpenSearch was not available after 5 minutes, continuing anyway: {0}", healthUrl);
+        }
     }
 
     public void createRffPipeline() throws Exception {
