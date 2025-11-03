@@ -43,6 +43,8 @@ public class OpenApiConfiguration {
                     onboardingSchema.getProperties().put("defaultExtractorPrompt", new StringSchema().example(extractorPrompt));
                     onboardingSchema.getProperties().put("collectionName", new StringSchema().example("Onboarding Collection"));
                     onboardingSchema.getProperties().put("collectionDescription", new StringSchema().example("A collection for onboarding documents."));
+                    onboardingSchema.getProperties().put("overrideSystemMessage", new Schema<Boolean>().type("boolean").example(true));
+                    onboardingSchema.getProperties().put("overrideAssistantMessage", new Schema<Boolean>().type("boolean").example(true));
                 }
                 // Set default values for request params in the operation parameters
                 openApi.getPaths().forEach((path, pathItem) -> {
@@ -51,13 +53,13 @@ public class OpenApiConfiguration {
                             if (operation.getParameters() != null) {
                                 operation.getParameters().forEach(param -> {
                                     if (param.getName().equals("publicName")) {
-                                        param.setExample("My Public Chat");
+                                        param.setExample("MyChat");
                                     }
                                     if (param.getName().equals("internalName")) {
-                                        param.setExample("internal_chat_name");
+                                        param.setExample("My Chat Assistant");
                                     }
                                     if (param.getName().equals("internalDescription")) {
-                                        param.setExample("A chat for onboarding new users");
+                                        param.setExample("General purpose chat assistant using RAG to power MyChat.");
                                     }
                                     if (param.getName().equals("defaultLanguage")) {
                                         param.setExample("en");
@@ -82,6 +84,12 @@ public class OpenApiConfiguration {
                                     }
                                     if (param.getName().equals("collectionDescription")) {
                                         param.setExample("A collection for onboarding documents.");
+                                    }
+                                    if (param.getName().equals("overrideSystemMessage")) {
+                                        param.setExample(true);
+                                    }
+                                    if (param.getName().equals("overrideAssistantMessage")) {
+                                        param.setExample(true);
                                     }
                                 });
                             }

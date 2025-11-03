@@ -45,18 +45,22 @@ public class OnboardingController {
         @RequestParam String defaultExtractorPrompt,
         @RequestParam String collectionName,
         @RequestParam String collectionDescription,
+        @RequestParam(defaultValue = "true") boolean overrideSystemMessage,
+        @RequestParam(defaultValue = "true") boolean overrideAssistantMessage,
         @RequestParam(value = "file", required = false) List<MultipartFile> files) {
-        // Map RequestParams to ChatEntity
-        ChatEntity chat = new ChatEntity();
-        chat.setPublicName(publicName);
-        chat.setInternalName(internalName);
-        chat.setInternalDescription(internalDescription);
-        chat.setDefaultLanguage(defaultLanguage);
-        chat.setDefaultSystemPrompt(defaultSystemPrompt);
-        chat.setDefaultSystemPromptAppend(defaultSystemPromptAppend);
-        chat.setDefaultContextPrompt(defaultContextPrompt);
-        chat.setDefaultMemoryPrompt(defaultMemoryPrompt);
-        chat.setDefaultExtractorPrompt(defaultExtractorPrompt);
+    // Map RequestParams to ChatEntity
+    ChatEntity chat = new ChatEntity();
+    chat.setPublicName(publicName);
+    chat.setInternalName(internalName);
+    chat.setInternalDescription(internalDescription);
+    chat.setDefaultLanguage(defaultLanguage);
+    chat.setDefaultSystemPrompt(defaultSystemPrompt);
+    chat.setDefaultSystemPromptAppend(defaultSystemPromptAppend);
+    chat.setDefaultContextPrompt(defaultContextPrompt);
+    chat.setDefaultMemoryPrompt(defaultMemoryPrompt);
+    chat.setDefaultExtractorPrompt(defaultExtractorPrompt);
+    chat.setOverrideSystemMessage(overrideSystemMessage);
+    chat.setOverrideAssistantMessage(overrideAssistantMessage);
 
         // Map RequestParams to CollectionEntity
         CollectionEntity collection = new CollectionEntity();
@@ -65,8 +69,8 @@ public class OnboardingController {
         CollectionEntity createdCollection = collectionService.create(collection);
 
         // Save chat
-        ChatEntity createdChat = chatManagerService.create(chat);
         chat.setDefaultCollectionId(createdCollection.getId());
+        ChatEntity createdChat = chatManagerService.create(chat);
 
         // Save documents
         List<DocumentEntity> createdDocs = new ArrayList<>();

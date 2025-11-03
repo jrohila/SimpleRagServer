@@ -54,14 +54,14 @@ public class IndicesManager {
             } else if (ChunkEntity.class.equals(type)) {
                 this.createChunksIndex(collectionId);
             } else if (ChatEntity.class.equals(type)) {
-                this.createChatIndex(collectionId);
+                this.createChatIndex();
             }
         }
         return indexName;
     }
 
-    private void createChatIndex(String collectionId) throws Exception {
-        String indexName = this.getIndexName(collectionId, ChatEntity.class);
+    private void createChatIndex() throws Exception {
+        String indexName = this.getIndexName(null, ChatEntity.class);
 
         BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
         if (exists.value()) {
@@ -77,7 +77,7 @@ public class IndicesManager {
         ))
                 .mappings(m -> m
                 .properties("id", p -> p.keyword(k -> k))
-                .properties("publicName", p -> p.text(t -> t))
+                .properties("publicName", p -> p.keyword(k -> k))
                 .properties("internalName", p -> p.text(t -> t))
                 .properties("internalDescription", p -> p.text(t -> t))
                 .properties("defaultLanguage", p -> p.keyword(k -> k))
@@ -87,6 +87,8 @@ public class IndicesManager {
                 .properties("defaultContextPrompt", p -> p.text(t -> t))
                 .properties("defaultMemoryPrompt", p -> p.text(t -> t))
                 .properties("defaultExtractorPrompt", p -> p.text(t -> t))
+                .properties("overrideSystemMessage", p -> p.boolean_(b -> b))
+                .properties("overrideAssistantMessage", p -> p.boolean_(b -> b))
                 )
                 .build();
 

@@ -17,6 +17,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.repository.IndicesManager;
@@ -51,6 +52,7 @@ public class OpenSearchSetup implements ApplicationRunner {
         // Call individual creation methods here
         indicesManager.createIfNotExist(null, DocumentEntity.class);
         indicesManager.createIfNotExist(null, ChunkEntity.class);
+        indicesManager.createIfNotExist(null, ChatEntity.class);
 
         createRffPipeline();
     }

@@ -41,4 +41,7 @@ public class ChatEntity {
 
     private String defaultExtractorPrompt;
 
+    private boolean overrideSystemMessage;
+    private boolean overrideAssistantMessage;
+
 }

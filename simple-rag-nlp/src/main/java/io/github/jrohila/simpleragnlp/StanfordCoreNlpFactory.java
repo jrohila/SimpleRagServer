@@ -7,14 +7,7 @@ package io.github.jrohila.simpleragnlp;
 import io.github.jrohila.simpleragnlp.impl.TermFinderSCNImpl;
 import java.util.Properties;
 
-import edu.stanford.nlp.ling.CoreAnnotations;
-import edu.stanford.nlp.ling.CoreLabel;
-import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
-import edu.stanford.nlp.semgraph.SemanticGraph;
-import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations;
-import edu.stanford.nlp.semgraph.SemanticGraphEdge;
-import edu.stanford.nlp.util.CoreMap;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -53,7 +46,7 @@ public class StanfordCoreNlpFactory {
         if (depparseModel != null) {
             props.setProperty("annotators", "tokenize,ssplit,pos,lemma,depparse");
             props.setProperty("depparse.model", depparseModel);
-            log.info("StanfordCoreNLP: using depparse model={}", depparseModel);
+            log.debug("StanfordCoreNLP: using depparse model={}", depparseModel);
         } else {
             // SR parser models in your JAR
             String parseModel = firstAvailableResource(
@@ -64,11 +57,11 @@ public class StanfordCoreNlpFactory {
             props.setProperty("parse.model", parseModel);
             // Optional: cap sentence length for speed
             props.setProperty("parse.maxlen", "100");
-            log.info("StanfordCoreNLP: using parse model={}", parseModel);
+            log.debug("StanfordCoreNLP: using parse model={}", parseModel);
         }
 
         this.stanfordPipeline = new StanfordCoreNLP(props);
-        log.info("StanfordCoreNLP initialized. pos.model={}", posModel);
+        log.debug("StanfordCoreNLP initialized. pos.model={}", posModel);
     }
 
     public StanfordCoreNLP getStanfordPipeline() {

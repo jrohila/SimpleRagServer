@@ -8,6 +8,7 @@ import io.github.jrohila.simpleragserver.chat.ChatService;
 import io.github.jrohila.simpleragserver.chat.OpenAiChatRequest;
 import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
+import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
@@ -33,12 +34,6 @@ public class ContextAdditionPipe {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
-    @Value("${processing.chat.rag.memory-prompt}")
-    private String memoryContextPrompt;
-
-    @Value("${processing.chat.rag.context-prompt}")
-    private String ragContextPrompt;
-
     @Value("${processing.chat.rag.max-results:200}")
     private int ragMaxResults;
     @Value("${opensearch.rrf.window-size:50}")
@@ -62,13 +57,13 @@ public class ContextAdditionPipe {
     @Autowired
     private ChunkSearchService chunkSearchService;
 
-    public List<Message> appendMemory(List<Message> springMessages, List<Integer> fingerprints) {
+    public List<Message> appendMemory(List<Message> springMessages, List<Integer> fingerprints, ChatEntity chatEntity) {
         List<ExtractedFactDTO> facts = userFactsService.getFacts(fingerprints);
         if ((facts != null) && (!facts.isEmpty())) {
             try {
                 String memory = new com.fasterxml.jackson.databind.ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(facts);
                 if (!memory.isBlank()) {
-                    String prefix = (memoryContextPrompt != null ? memoryContextPrompt.trim() : "");
+                    String prefix = (chatEntity.getDefaultMemoryPrompt() != null ? chatEntity.getDefaultMemoryPrompt().trim() : "");
                     if (!prefix.isEmpty()) {
                         springMessages.add(0, new SystemMessage(prefix + "\n" + memory));
                     } else {
@@ -82,7 +77,7 @@ public class ContextAdditionPipe {
         return springMessages;
     }
 
-    public List<Message> process(List<Message> springMessages) {
+    public List<Message> process(List<Message> springMessages, ChatEntity chatEntity) {
         String userPrompt = null;
         if (springMessages != null) {
             for (Message m : springMessages) {
@@ -105,7 +100,7 @@ public class ContextAdditionPipe {
 
                 log.info(terms.toString());
 
-                List<SearchResult<ChunkEntity>> results = chunkSearchService.hybridSearch("mbti", userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
+                List<SearchResult<ChunkEntity>> results = chunkSearchService.hybridSearch(chatEntity.getDefaultCollectionId(), userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
 
                 if (results != null && !results.isEmpty()) {
                     // Compute token budget based on current messages (without context yet)
@@ -114,7 +109,7 @@ public class ContextAdditionPipe {
                         currentTokens = this.chatHelper.countTokensForMessages(springMessages);
                     } catch (Exception ignore) {
                     }
-                    String prefix = (ragContextPrompt != null ? ragContextPrompt.trim() : "");
+                    String prefix = (chatEntity.getDefaultContextPrompt() != null ? chatEntity.getDefaultContextPrompt().trim() : "");
                     int prefixTokens = this.chatHelper.countTokens(prefix);
                     int budget = Math.max(0, maxContextTokens - currentTokens - prefixTokens - reserveCompletionTokens - reserveHeadroomTokens);
                     if (budget <= 0) {
@@ -151,7 +146,7 @@ public class ContextAdditionPipe {
 
         // Add context as a system message if found
         if (!context.isBlank()) {
-            String prefix = (ragContextPrompt != null ? ragContextPrompt.trim() : "");
+            String prefix = (chatEntity.getDefaultContextPrompt() != null ? chatEntity.getDefaultContextPrompt().trim() : "");
             if (!prefix.isEmpty()) {
                 springMessages.add(0, new SystemMessage(prefix + "\n" + context));
             } else {
