@@ -55,7 +55,7 @@ public class ChatController {
                 SseEmitter emitter = new SseEmitter(30000L); // 30 second timeout
                 CompletableFuture.runAsync(() -> {
                     try {
-                        chatService.chatStream(request, rag, chatEntity)
+                        chatService.chatStream(request, chatEntity)
                             .doOnNext(chunk -> {
                                 try {
                                     String jsonData = toJson(chunk);
@@ -86,7 +86,7 @@ public class ChatController {
                 // Non-streaming response
                 return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(chatService.chat(request, rag, chatEntity));
+                    .body(chatService.chat(request, chatEntity));
             }
         } catch (Throwable t) {
             log.error("Error in createCompletion", t);
