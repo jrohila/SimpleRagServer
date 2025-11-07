@@ -23,3 +23,5 @@
 hs_err_pid*
 replay_pid*
 /Simple-rag-nlp/target/
+/SimpleRagUi/target/
+/node_modules

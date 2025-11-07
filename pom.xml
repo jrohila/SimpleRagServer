@@ -24,5 +24,6 @@
     <modules>
         <module>simple-rag-nlp</module>
         <module>simple-rag-server</module>
+        <module>SimpleRagUi</module>
     </modules>
 </project>
