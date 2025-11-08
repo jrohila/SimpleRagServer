@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { GlobalStyles } from '../../styles/GlobalStyles';
 
 export function Chats() {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={GlobalStyles.centerContent}>
       <Text>Chats Screen</Text>
     </View>
   );

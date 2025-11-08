@@ -1,6 +1,7 @@
 import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View, TextInput, Platform } from 'react-native';
+import { View, TextInput, Platform } from 'react-native';
+import { HomeStyles } from '../../styles/HomeStyles';
 
 export function Home() {
   const [messages, setMessages] = useState<IMessage[]>([{
@@ -21,7 +22,7 @@ export function Home() {
   }, []);
 
   return (
-    <View style={styles.container}>
+  <View style={HomeStyles.container}>
       <GiftedChat
         messages={messages}
         onSend={onSend}
@@ -29,13 +30,13 @@ export function Home() {
         placeholder="Type a message..."
         showUserAvatar
         alwaysShowSend
-        messagesContainerStyle={styles.messagesContainer}
+  messagesContainerStyle={HomeStyles.messagesContainer}
         text={text}
         onInputTextChanged={setText}
         renderComposer={props => (
           <TextInput
             {...props.textInputProps}
-            style={[styles.input, props.textInputStyle]}
+            style={[HomeStyles.input, props.textInputStyle]}
             value={text}
             onChangeText={setText}
             placeholder="Type a message..."
@@ -76,7 +77,7 @@ export function Home() {
           />
         )}
         renderSend={props => (
-          <Send {...props} containerStyle={styles.sendContainer}>
+          <Send {...props} containerStyle={HomeStyles.sendContainer}>
             {props.children}
           </Send>
         )}
@@ -87,31 +88,4 @@ export function Home() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  messagesContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    backgroundColor: '#000',
-  },
-  input: {
-    color: '#fff',
-    backgroundColor: '#222',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    margin: 8,
-    fontSize: 16,
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-  sendContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 8,
-    height: undefined,
-  },
-});
+
