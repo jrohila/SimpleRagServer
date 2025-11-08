@@ -18,9 +18,8 @@ SplashScreen.preventAutoHideAsync();
 const prefix = createURL('/');
 
 export function App() {
-  const colorScheme = useColorScheme();
-
-  const theme = colorScheme === 'dark' ? DarkTheme : DefaultTheme
+  // Use the default theme for the app
+  const theme = DefaultTheme;
 
   return (
     <Navigation
