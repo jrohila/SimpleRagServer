@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Window } from '../../components/Window';
 import { GlobalStyles } from '../../styles/GlobalStyles';
 
 export function Onboarding() {
@@ -49,50 +51,53 @@ export function Onboarding() {
   };
 
   return (
-    <ScrollView contentContainerStyle={GlobalStyles.centerContent}>
-      <Text style={styles.label}>Public Name</Text>
-      <TextInput style={styles.input} placeholder="Public Name" value={form.publicName} onChangeText={v => handleChange('publicName', v)} />
-      <Text style={styles.label}>Internal Name</Text>
-      <TextInput style={styles.input} placeholder="Internal Name" value={form.internalName} onChangeText={v => handleChange('internalName', v)} />
-      <Text style={styles.label}>Internal Description</Text>
-      <TextInput style={styles.input} placeholder="Internal Description" value={form.internalDescription} onChangeText={v => handleChange('internalDescription', v)} />
-      <Text style={styles.label}>Default Language</Text>
-      <TextInput style={styles.input} placeholder="Default Language" value={form.defaultLanguage} onChangeText={v => handleChange('defaultLanguage', v)} />
-      <Text style={styles.label}>Default System Prompt</Text>
-    <TextInput style={[styles.input, styles.textarea]} placeholder="Default System Prompt" value={form.defaultSystemPrompt} onChangeText={v => handleChange('defaultSystemPrompt', v)} multiline numberOfLines={5} />
-    <TextInput style={[styles.input, styles.textarea]} placeholder="Default System Prompt Append" value={form.defaultSystemPromptAppend} onChangeText={v => handleChange('defaultSystemPromptAppend', v)} multiline numberOfLines={5} />
-    <TextInput style={[styles.input, styles.textarea]} placeholder="Default Context Prompt" value={form.defaultContextPrompt} onChangeText={v => handleChange('defaultContextPrompt', v)} multiline numberOfLines={5} />
-    <TextInput style={[styles.input, styles.textarea]} placeholder="Default Memory Prompt" value={form.defaultMemoryPrompt} onChangeText={v => handleChange('defaultMemoryPrompt', v)} multiline numberOfLines={5} />
-    <TextInput style={[styles.input, styles.textarea]} placeholder="Default Extractor Prompt" value={form.defaultExtractorPrompt} onChangeText={v => handleChange('defaultExtractorPrompt', v)} multiline numberOfLines={5} />
-      <Text style={styles.label}>Collection Name</Text>
-      <TextInput style={styles.input} placeholder="Collection Name" value={form.collectionName} onChangeText={v => handleChange('collectionName', v)} />
-      <Text style={styles.label}>Collection Description</Text>
-      <TextInput style={styles.input} placeholder="Collection Description" value={form.collectionDescription} onChangeText={v => handleChange('collectionDescription', v)} />
-      <View style={styles.switchRow}>
-        <Text>Override System Message</Text>
-        <Button title={form.overrideSystemMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideSystemMessage', !form.overrideSystemMessage)} />
-      </View>
-      <View style={styles.switchRow}>
-        <Text>Override Assistant Message</Text>
-        <Button title={form.overrideAssistantMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideAssistantMessage', !form.overrideAssistantMessage)} />
-      </View>
-      <View style={styles.buttonRow}>
-        <Button title="Cancel" onPress={handleClear} color="#888" />
-        <Button title="Create" onPress={handleCreate} color="#007bff" />
-      </View>
-    </ScrollView>
+    <SafeAreaView style={{ flex: 1 }}>
+  <ScrollView>
+        <Window>
+          <Text style={styles.label}>Public Name</Text>
+          <TextInput style={styles.input} placeholder="Public Name" value={form.publicName} onChangeText={v => handleChange('publicName', v)} />
+          <Text style={styles.label}>Internal Name</Text>
+          <TextInput style={styles.input} placeholder="Internal Name" value={form.internalName} onChangeText={v => handleChange('internalName', v)} />
+          <Text style={styles.label}>Internal Description</Text>
+          <TextInput style={styles.input} placeholder="Internal Description" value={form.internalDescription} onChangeText={v => handleChange('internalDescription', v)} />
+          <Text style={styles.label}>Default Language</Text>
+          <TextInput style={styles.input} placeholder="Default Language" value={form.defaultLanguage} onChangeText={v => handleChange('defaultLanguage', v)} />
+          <Text style={styles.label}>Default System Prompt</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Default System Prompt" value={form.defaultSystemPrompt} onChangeText={v => handleChange('defaultSystemPrompt', v)} multiline numberOfLines={5} />
+          <Text style={styles.label}>Default System Prompt Append</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Default System Prompt Append" value={form.defaultSystemPromptAppend} onChangeText={v => handleChange('defaultSystemPromptAppend', v)} multiline numberOfLines={5} />
+          <Text style={styles.label}>Default Context Prompt</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Default Context Prompt" value={form.defaultContextPrompt} onChangeText={v => handleChange('defaultContextPrompt', v)} multiline numberOfLines={5} />
+          <Text style={styles.label}>Default Memory Prompt</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Default Memory Prompt" value={form.defaultMemoryPrompt} onChangeText={v => handleChange('defaultMemoryPrompt', v)} multiline numberOfLines={5} />
+          <Text style={styles.label}>Default Extractor Prompt</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="Default Extractor Prompt" value={form.defaultExtractorPrompt} onChangeText={v => handleChange('defaultExtractorPrompt', v)} multiline numberOfLines={5} />
+          <Text style={styles.label}>Collection Name</Text>
+          <TextInput style={styles.input} placeholder="Collection Name" value={form.collectionName} onChangeText={v => handleChange('collectionName', v)} />
+          <Text style={styles.label}>Collection Description</Text>
+          <TextInput style={styles.input} placeholder="Collection Description" value={form.collectionDescription} onChangeText={v => handleChange('collectionDescription', v)} />
+          <View style={styles.switchRow}>
+            <Text>Override System Message</Text>
+            <Button title={form.overrideSystemMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideSystemMessage', !form.overrideSystemMessage)} />
+          </View>
+          <View style={styles.switchRow}>
+            <Text>Override Assistant Message</Text>
+            <Button title={form.overrideAssistantMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideAssistantMessage', !form.overrideAssistantMessage)} />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button title="Cancel" onPress={handleClear} color="#888" />
+            <Button title="Create" onPress={handleCreate} color="#007bff" />
+          </View>
+        </Window>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  textarea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
   },
   label: {
     alignSelf: 'flex-start',
@@ -108,6 +113,10 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 12,
     backgroundColor: '#fff',
+  },
+  textarea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   switchRow: {
     flexDirection: 'column',
