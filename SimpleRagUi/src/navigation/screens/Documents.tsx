@@ -146,22 +146,29 @@ export function Documents() {
                 )}
               </View>
             {/* Document Form */}
-            <View style={styles.form}> 
-              <Text style={styles.label}>Filename</Text>
-              <TextInput style={styles.input} value={document?.originalFilename || ''} editable={false} />
-              <Text style={styles.label}>Type</Text>
-              <TextInput style={styles.input} value={document?.mimeType || ''} editable={false} />
-              <Text style={styles.label}>Size</Text>
-              <TextInput style={styles.input} value={document?.contentLen?.toString() || ''} editable={false} />
-              <Text style={styles.label}>Created</Text>
-              <TextInput style={styles.input} value={document?.createdTime || ''} editable={false} />
-              <Text style={styles.label}>Updated</Text>
-              <TextInput style={styles.input} value={document?.updatedTime || ''} editable={false} />
-              <Text style={styles.label}>State</Text>
-              <TextInput style={styles.input} value={document?.state || ''} editable={false} />
-              <Text style={styles.label}>Select File</Text>
-              <Button title={file ? 'File Selected' : 'Choose File'} onPress={handleFileSelect} />
-              <View style={styles.buttonCol}>
+            <View style={[styles.form, { flex: 1, justifyContent: 'space-between' }]}> 
+              <View style={{ flexDirection: 'column', width: '100%' }}>
+                {[ 
+                  { label: 'Filename', value: document?.originalFilename || '' },
+                  { label: 'Type', value: document?.mimeType || '' },
+                  { label: 'Size', value: document?.contentLen?.toString() || '' },
+                  { label: 'Created', value: document?.createdTime || '' },
+                  { label: 'Updated', value: document?.updatedTime || '' },
+                  { label: 'State', value: document?.state || '' },
+                ].map((field) => (
+                  <View key={field.label} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>{field.label}</Text>
+                    <TextInput style={[styles.input, { flex: 1, marginVertical: 0 }]} value={field.value} editable={false} />
+                  </View>
+                ))}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>Select File</Text>
+                  <View style={{ flex: 1 }}>
+                    <Button title={file ? 'File Selected' : 'Choose File'} onPress={handleFileSelect} />
+                  </View>
+                </View>
+              </View>
+              <View style={[styles.buttonCol, { flexDirection: 'column', alignItems: 'flex-end', marginTop: 16 }]}> 
                 <View style={styles.buttonWrapper}>
                   <Button title="Update" onPress={handleUpdate} disabled={updating || !file} />
                 </View>

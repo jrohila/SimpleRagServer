@@ -12,9 +12,6 @@ const styles = StyleSheet.create({
     minWidth: 120,
     maxWidth: 260,
     height: '100%',
-    backgroundColor: '#f5f5f5',
-    borderRightWidth: 1,
-    borderRightColor: '#ddd',
     marginRight: 16,
   },
   sidebarContent: {
