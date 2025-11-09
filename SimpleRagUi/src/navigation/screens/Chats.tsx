@@ -2,13 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import { getChats, getChatById, updateChat, deleteChat } from '../../api/chats';
+import { getCollections } from '../../api/collections';
 
 type Chat = {
   id: string;
   publicName: string;
+  defaultCollectionId?: string;
+  [key: string]: any;
+};
+
+type Collection = {
+  id: string;
+  name: string;
   [key: string]: any;
 };
 
@@ -18,6 +27,7 @@ export function Chats() {
   const [chatDetails, setChatDetails] = useState<Chat | null>(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
 
   // Form fields
   const [publicName, setPublicName] = useState('');
@@ -31,6 +41,16 @@ export function Chats() {
   const [defaultExtractorPrompt, setDefaultExtractorPrompt] = useState('');
   const [overrideSystemMessage, setOverrideSystemMessage] = useState(false);
   const [overrideAssistantMessage, setOverrideAssistantMessage] = useState(false);
+  const [defaultCollectionId, setDefaultCollectionId] = useState<string>('');
+  // Fetch collections on mount
+  useEffect(() => {
+    getCollections()
+      .then((res) => {
+        const data = (res as any).data as Collection[];
+        setCollections(data);
+      })
+      .catch(() => {});
+  }, []);
 
 
   useEffect(() => {
@@ -63,6 +83,7 @@ export function Chats() {
           setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
           setOverrideSystemMessage(!!data.overrideSystemMessage);
           setOverrideAssistantMessage(!!data.overrideAssistantMessage);
+          setDefaultCollectionId(data.defaultCollectionId || '');
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -79,6 +100,7 @@ export function Chats() {
       setDefaultExtractorPrompt('');
       setOverrideSystemMessage(false);
       setOverrideAssistantMessage(false);
+      setDefaultCollectionId('');
     }
   }, [selectedChatId]);
 
@@ -99,6 +121,7 @@ export function Chats() {
       defaultExtractorPrompt,
       overrideSystemMessage,
       overrideAssistantMessage,
+      defaultCollectionId,
     };
     updateChat(selectedChatId, updatedChat)
       .then(() => {
@@ -189,6 +212,22 @@ export function Chats() {
           placeholder="Default Language"
           editable={!!chatDetails}
         />
+
+        <Text style={styles.label}>Default Collection</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={defaultCollectionId}
+            onValueChange={(itemValue) => chatDetails && setDefaultCollectionId(itemValue)}
+            enabled={!!chatDetails}
+            style={styles.picker}
+          >
+            <Picker.Item label="Select a collection..." value="" />
+            {collections.map((col) => (
+              <Picker.Item key={col.id} label={col.name} value={col.id} />
+            ))}
+          </Picker>
+        </View>
+
         <Text style={styles.label}>Default System Prompt</Text>
         <TextInput
           style={[styles.input, styles.textarea]}
@@ -293,9 +332,6 @@ const styles = StyleSheet.create({
     borderRightColor: '#ddd',
     marginRight: 16,
   },
-  form: {
-    flex: 1
-  },
   sidebarContent: {
     paddingVertical: 8,
   },
@@ -343,5 +379,16 @@ const styles = StyleSheet.create({
   textarea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    marginVertical: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    width: '100%',
+    minHeight: 40,
   },
 });
