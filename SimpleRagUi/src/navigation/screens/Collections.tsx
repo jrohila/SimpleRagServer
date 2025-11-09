@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
 import { getCollections, getCollectionById, updateCollection, deleteCollection } from '../../api/collections';
+import { getDocuments } from '../../api/documents';
 
 type Collection = {
   id: string;
@@ -15,8 +16,20 @@ type Collection = {
   [key: string]: any;
 };
 
+type DocumentEntity = {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  contentLen: number;
+  createdTime: string;
+  updatedTime: string;
+  state: string;
+};
+
 export function Collections() {
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [documents, setDocuments] = useState<DocumentEntity[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,10 +60,22 @@ export function Collections() {
           setLoading(false);
         })
         .catch(() => setLoading(false));
+      // Load documents for this collection
+      setDocumentsLoading(true);
+      getDocuments(selectedId)
+        .then((res) => {
+          setDocuments((res as any).data || []);
+          setDocumentsLoading(false);
+        })
+        .catch(() => {
+          setDocuments([]);
+          setDocumentsLoading(false);
+        });
     } else {
       setCollection(null);
       setName('');
       setDescription('');
+      setDocuments([]);
     }
   }, [selectedId]);
 
@@ -145,6 +170,41 @@ export function Collections() {
                 <View style={styles.buttonWrapper}>
                   <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !collection} />
                 </View>
+              </View>
+              {/* Documents Table - Always Visible */}
+              <View style={{ marginTop: 24, paddingVertical: 8 }}>
+                <Text style={[styles.label, { fontSize: 16, marginBottom: 12 }]}>Documents</Text>
+                {documentsLoading ? (
+                  <ActivityIndicator />
+                ) : (
+                  <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 4, marginTop: 8 }}>
+                    <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', padding: 8 }}>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Filename</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>Type</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>Size</Text>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Created</Text>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Updated</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>State</Text>
+                    </View>
+                    <FlatList
+                      data={documents}
+                      keyExtractor={(item) => item.id}
+                      scrollEnabled={false}
+                      initialNumToRender={Math.min(documents.length || 0, 20)}
+                      renderItem={({ item }) => (
+                        <View style={{ flexDirection: 'row', padding: 8, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                          <Text style={{ flex: 2 }}>{item.originalFilename}</Text>
+                          <Text style={{ flex: 1 }}>{item.mimeType}</Text>
+                          <Text style={{ flex: 1 }}>{item.contentLen}</Text>
+                          <Text style={{ flex: 2 }}>{item.createdTime}</Text>
+                          <Text style={{ flex: 2 }}>{item.updatedTime}</Text>
+                          <Text style={{ flex: 1 }}>{item.state}</Text>
+                        </View>
+                      )}
+                      ListEmptyComponent={<Text style={{ padding: 8, color: '#888' }}>No documents found.</Text>}
+                    />
+                  </View>
+                )}
               </View>
             </View>
           </View>
