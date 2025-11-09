@@ -1,7 +1,8 @@
 
 
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator } from 'react-native';
+import SidebarPicker from '../../components/SidebarPicker';
 import styles from '../../styles/ChatsStyles';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -169,17 +170,20 @@ export function Chats() {
     <Window>
       {loading && <ActivityIndicator />}
       <View style={styles.row}>
-        <ScrollView style={styles.sidebar} contentContainerStyle={styles.sidebarContent}>
-          {chats.map((chat) => (
-            <TouchableOpacity
-              key={chat.id}
-              style={[styles.chatItem, selectedChatId === chat.id && styles.chatItemSelected]}
-              onPress={() => setSelectedChatId(chat.id)}
-            >
-              <Text style={styles.chatItemText}>{chat.publicName || chat.id}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          <View style={styles.sidebar}>
+            <SidebarPicker
+              items={chats}
+              getItemLabel={(chat) => chat.publicName || chat.id}
+              getItemKey={(chat) => chat.id}
+              selectedItem={chats.find((c) => c.id === selectedChatId) || null}
+              onSelect={(chat) => setSelectedChatId(chat.id)}
+              containerStyle={styles.sidebarContent}
+              itemStyle={styles.chatItem}
+              selectedItemStyle={styles.chatItemSelected}
+              textStyle={styles.chatItemText}
+              selectedTextStyle={styles.chatItemText}
+            />
+          </View>
         <View style={styles.form}>
         <Text style={styles.label}>Public Name</Text>
         <TextInput

@@ -43,6 +43,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 8,
     marginVertical: 8,
+    width: '100%',
   },
   label: {
     alignSelf: 'flex-start',

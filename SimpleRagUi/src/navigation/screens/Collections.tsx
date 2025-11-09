@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList } from 'react-native';
+import SidebarPicker from '../../components/SidebarPicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
@@ -127,20 +127,18 @@ export function Collections() {
           {loading && <ActivityIndicator />}
           <View style={styles.row}>
             <View style={styles.sidebar}>
-              <ScrollView contentContainerStyle={styles.sidebarContent}>
-                {collections.map((col) => (
-                  <TouchableOpacity
-                    key={col.id}
-                    style={[
-                      styles.chatItem,
-                      selectedId === col.id && styles.chatItemSelected
-                    ]}
-                    onPress={() => setSelectedId(col.id)}
-                  >
-                    <Text style={styles.chatItemText}>{col.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                <SidebarPicker
+                  items={collections}
+                  getItemLabel={(col) => col.name}
+                  getItemKey={(col) => col.id}
+                  selectedItem={collections.find((c) => c.id === selectedId) || null}
+                  onSelect={(col) => setSelectedId(col.id)}
+                  containerStyle={styles.sidebarContent}
+                  itemStyle={styles.chatItem}
+                  selectedItemStyle={styles.chatItemSelected}
+                  textStyle={styles.chatItemText}
+                  selectedTextStyle={styles.chatItemText}
+                />
             </View>
             <View style={styles.form}>
               <Text style={styles.label}>Name</Text>
