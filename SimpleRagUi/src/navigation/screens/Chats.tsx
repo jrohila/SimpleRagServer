@@ -1,8 +1,8 @@
 
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import { getChats, getChatById, updateChat, deleteChat } from '../../api/chats';
 
@@ -140,20 +140,23 @@ export function Chats() {
   };
 
   return (
+      <SafeAreaView style={{ flex: 1 }}>
+              <ScrollView>
     <Window>
-      <Text style={styles.title}>Chats</Text>
       {loading && <ActivityIndicator />}
-      <Picker
-        selectedValue={selectedChatId}
-        onValueChange={setSelectedChatId}
-        style={styles.picker}
-      >
-        <Picker.Item label="Select a chat..." value="" />
-        {chats.map((chat) => (
-          <Picker.Item key={chat.id} label={chat.publicName || chat.id} value={chat.id} />
-        ))}
-      </Picker>
-      <View style={styles.form}>
+      <View style={styles.row}>
+        <ScrollView style={styles.sidebar} contentContainerStyle={styles.sidebarContent}>
+          {chats.map((chat) => (
+            <TouchableOpacity
+              key={chat.id}
+              style={[styles.chatItem, selectedChatId === chat.id && styles.chatItemSelected]}
+              onPress={() => setSelectedChatId(chat.id)}
+            >
+              <Text style={styles.chatItemText}>{chat.publicName || chat.id}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={styles.form}>
         <Text style={styles.label}>Public Name</Text>
         <TextInput
           style={styles.input}
@@ -260,7 +263,11 @@ export function Chats() {
         <View style={{ height: 10 }} />
         <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
       </View>
+      </View>
     </Window>
+      </ScrollView>
+
+    </SafeAreaView>
   );
 }
 
@@ -271,11 +278,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  picker: {
-    marginVertical: 12,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  sidebar: {
+    width: '20%',
+    minWidth: 120,
+    maxWidth: 260,
+    height: '100%',
+    backgroundColor: '#f5f5f5',
+    borderRightWidth: 1,
+    borderRightColor: '#ddd',
+    marginRight: 16,
   },
   form: {
-    marginTop: 20,
+    flex: 1
+  },
+  sidebarContent: {
+    paddingVertical: 8,
+  },
+  chatItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: 'transparent',
+  },
+  chatItemSelected: {
+    backgroundColor: '#e0eaff',
+  },
+  chatItemText: {
+    fontSize: 16,
+  },
+  form: {
+    flex: 1,
+    width: '100%',
   },
   input: {
     borderWidth: 1,
