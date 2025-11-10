@@ -23,3 +23,9 @@
 hs_err_pid*
 replay_pid*
 /Simple-rag-nlp/target/
+/simple-rag-ui/.expo
+/simple-rag-ui/dist
+/simple-rag-ui/nbproject
+/simple-rag-ui/node
+/simple-rag-ui/node_modules
+/simple-rag-ui/target
