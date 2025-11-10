@@ -1,9 +1,12 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const HomeStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  chatContainer: {
+    flex: 1,
   },
   messagesContainer: {
     paddingHorizontal: 12,
@@ -47,4 +50,141 @@ export const HomeStyles = StyleSheet.create({
     color: '#000',
     backgroundColor: '#fff',
   },
+  usernameContainer: {
+    marginBottom: 4,
+    marginLeft: 10,
+  },
+  usernameText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingBarsContainer: {
+    marginLeft: 8,
+  },
+  loadingBar1: {
+    width: 40,
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  loadingBar2: {
+    width: 60,
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+  },
+  messageTextContainer: {
+    padding: 8,
+  },
 });
+
+export const bubbleStyles = {
+  wrapperStyle: {
+    left: {
+      backgroundColor: '#e3f2fd',
+      borderWidth: 1,
+      borderColor: '#2196f3',
+    },
+    right: {
+      backgroundColor: '#007aff',
+    },
+  },
+  textStyle: {
+    left: { color: '#222' },
+    right: { color: '#fff' },
+  },
+  containerToNextStyle: {
+    left: { marginBottom: 20 },
+    right: { marginBottom: 20 },
+  },
+  containerToPreviousStyle: {
+    left: { marginBottom: 20 },
+    right: { marginBottom: 20 },
+  },
+};
+
+export const userBubbleStyles = {
+  wrapperStyle: {
+    left: {
+      backgroundColor: '#fff',
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
+    right: {
+      backgroundColor: '#007aff',
+    },
+  },
+  textStyle: {
+    left: { color: '#222' },
+    right: { color: '#fff' },
+  },
+  containerToNextStyle: {
+    left: { marginBottom: 20 },
+    right: { marginBottom: 20 },
+  },
+  containerToPreviousStyle: {
+    left: { marginBottom: 20 },
+    right: { marginBottom: 20 },
+  },
+};
+
+export const markdownStyles = {
+  assistant: {
+    body: { color: '#222', fontSize: 16 },
+    code_inline: {
+      backgroundColor: '#f0f0f0',
+      color: '#d63384',
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 3,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    code_block: {
+      backgroundColor: '#f6f8fa',
+      color: '#24292e',
+      padding: 10,
+      borderRadius: 6,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    fence: {
+      backgroundColor: '#f6f8fa',
+      color: '#24292e',
+      padding: 10,
+      borderRadius: 6,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    strong: { fontWeight: 'bold' as const },
+    em: { fontStyle: 'italic' as const },
+    link: { color: '#0366d6', textDecorationLine: 'underline' as const },
+    blockquote: {
+      backgroundColor: '#f6f8fa',
+      borderLeftColor: '#dfe2e5',
+      borderLeftWidth: 4,
+      paddingLeft: 10,
+      marginLeft: 0,
+    },
+    list_item: { flexDirection: 'row' as const, marginBottom: 4 },
+    bullet_list: { marginBottom: 8 },
+    ordered_list: { marginBottom: 8 },
+    heading1: { fontSize: 24, fontWeight: 'bold' as const, marginBottom: 8 },
+    heading2: { fontSize: 20, fontWeight: 'bold' as const, marginBottom: 6 },
+    heading3: { fontSize: 18, fontWeight: 'bold' as const, marginBottom: 4 },
+  },
+  user: {
+    body: { color: '#222', fontSize: 16 },
+    code_inline: {
+      backgroundColor: '#f0f0f0',
+      color: '#d63384',
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 3,
+    },
+  },
+};

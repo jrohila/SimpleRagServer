@@ -1,9 +1,9 @@
 import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, TextInput, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, TextInput, Platform, ActivityIndicator, Alert, Text, SafeAreaView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Markdown from 'react-native-markdown-display';
-import { HomeStyles } from '../../styles/HomeStyles';
+import { HomeStyles, bubbleStyles, userBubbleStyles, markdownStyles } from '../../styles/HomeStyles';
 import { getChats } from '../../api/chats';
 import { sendConversation } from '../../api/openAI';
 
@@ -60,6 +60,7 @@ export function Home() {
       };
       
       assistantMessageRef.current = assistantMessage;
+      // Use GiftedChat.append which adds to beginning (for inverted list)
       setMessages((prev) => GiftedChat.append(prev, [assistantMessage]));
 
       // Make the API call with streaming enabled
@@ -196,13 +197,10 @@ export function Home() {
     setText('');
     setIsGenerating(true);
 
-    // Convert GiftedChat messages to OpenAI format
-    // GiftedChat stores messages in reverse chronological order (newest first)
-    // Combine current messages with the new user message
-    const allMessages = GiftedChat.append(messages, newMessages);
-    
-    // Reverse to get chronological order (oldest first) for the API
-    const conversationMessages = allMessages
+    // Convert messages to OpenAI format
+    // GiftedChat stores newest-first, so reverse for chronological order
+    const conversationMessages = GiftedChat.append(messages, newMessages)
+      .slice()
       .reverse()
       .map(msg => ({
         role: msg.user._id === 1 ? 'user' : 'assistant',
@@ -214,7 +212,7 @@ export function Home() {
   }, [selectedChat, messages, isGenerating]);
 
   return (
-  <View style={HomeStyles.container}>
+  <SafeAreaView style={HomeStyles.container}>
       {/* Chat Selection Dropdown */}
       <View style={HomeStyles.dropdownContainer}>
         {loadingChats ? (
@@ -236,16 +234,30 @@ export function Home() {
         )}
       </View>
 
-      <GiftedChat
-        messages={messages}
-        onSend={onSend}
-        user={{ _id: 1 }}
-        placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-        showUserAvatar
-        alwaysShowSend
-  messagesContainerStyle={HomeStyles.messagesContainer}
-        text={text}
-        onInputTextChanged={setText}
+      <View style={HomeStyles.chatContainer}>
+        <GiftedChat
+          messages={messages}
+          onSend={onSend}
+          user={{ _id: 1 }}
+          placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
+          showUserAvatar={false}
+          alwaysShowSend
+          messagesContainerStyle={HomeStyles.messagesContainer}
+          text={text}
+          onInputTextChanged={setText}
+          renderUsernameOnMessage={true}
+          renderAvatar={() => null}
+        renderUsername={(user) => {
+          if (!user || !user._id) return null;
+          const isUser = user._id === 1;
+          return (
+            <View style={HomeStyles.usernameContainer}>
+              <Text style={HomeStyles.usernameText}>
+                {isUser ? 'You' : 'Assistant'}
+              </Text>
+            </View>
+          );
+        }}
         renderComposer={props => (
           <TextInput
             {...props.textInputProps}
@@ -273,23 +285,18 @@ export function Home() {
             returnKeyType="send"
           />
         )}
-        renderBubble={props => (
-          <Bubble
-            {...props}
-            wrapperStyle={{
-              left: {
-                backgroundColor: '#fff', // Assistant bubble (host)
-              },
-              right: {
-                backgroundColor: '#007aff', // User bubble
-              },
-            }}
-            textStyle={{
-              left: { color: '#222' },
-              right: { color: '#fff' },
-            }}
-          />
-        )}
+        renderBubble={props => {
+          const isUser = props.currentMessage?.user._id === 1;
+          return (
+            <Bubble
+              {...props}
+              wrapperStyle={isUser ? userBubbleStyles.wrapperStyle : bubbleStyles.wrapperStyle}
+              textStyle={isUser ? userBubbleStyles.textStyle : bubbleStyles.textStyle}
+              containerToNextStyle={isUser ? userBubbleStyles.containerToNextStyle : bubbleStyles.containerToNextStyle}
+              containerToPreviousStyle={isUser ? userBubbleStyles.containerToPreviousStyle : bubbleStyles.containerToPreviousStyle}
+            />
+          );
+        }}
         renderMessageText={props => {
           const isAssistant = props.currentMessage?.user._id === 2;
           const isLoading = (props.currentMessage as any)?.isLoading;
@@ -297,22 +304,11 @@ export function Home() {
           // Show loading animation for assistant messages before content arrives
           if (isAssistant && isLoading && !props.currentMessage?.text) {
             return (
-              <View style={{ padding: 8, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={HomeStyles.loadingContainer}>
                 <ActivityIndicator size="small" color="#666" />
-                <View style={{ marginLeft: 8 }}>
-                  <View style={{ 
-                    width: 40, 
-                    height: 8, 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: 4,
-                    marginBottom: 4 
-                  }} />
-                  <View style={{ 
-                    width: 60, 
-                    height: 8, 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: 4 
-                  }} />
+                <View style={HomeStyles.loadingBarsContainer}>
+                  <View style={HomeStyles.loadingBar1} />
+                  <View style={HomeStyles.loadingBar2} />
                 </View>
               </View>
             );
@@ -321,50 +317,8 @@ export function Home() {
           // Render markdown for assistant messages, plain text for user messages
           if (isAssistant) {
             return (
-              <View style={{ padding: 8 }}>
-                <Markdown
-                  style={{
-                    body: { color: '#222', fontSize: 16 },
-                    code_inline: { 
-                      backgroundColor: '#f0f0f0', 
-                      color: '#d63384',
-                      paddingHorizontal: 4,
-                      paddingVertical: 2,
-                      borderRadius: 3,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                    },
-                    code_block: { 
-                      backgroundColor: '#f6f8fa', 
-                      color: '#24292e',
-                      padding: 10,
-                      borderRadius: 6,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                    },
-                    fence: { 
-                      backgroundColor: '#f6f8fa', 
-                      color: '#24292e',
-                      padding: 10,
-                      borderRadius: 6,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                    },
-                    strong: { fontWeight: 'bold' },
-                    em: { fontStyle: 'italic' },
-                    link: { color: '#0366d6', textDecorationLine: 'underline' },
-                    blockquote: { 
-                      backgroundColor: '#f6f8fa',
-                      borderLeftColor: '#dfe2e5',
-                      borderLeftWidth: 4,
-                      paddingLeft: 10,
-                      marginLeft: 0,
-                    },
-                    list_item: { flexDirection: 'row', marginBottom: 4 },
-                    bullet_list: { marginBottom: 8 },
-                    ordered_list: { marginBottom: 8 },
-                    heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
-                    heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6 },
-                    heading3: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-                  }}
-                >
+              <View style={HomeStyles.messageTextContainer}>
+                <Markdown style={markdownStyles.assistant}>
                   {props.currentMessage?.text || ''}
                 </Markdown>
               </View>
@@ -373,19 +327,8 @@ export function Home() {
           
           // Default rendering for user messages
           return (
-            <View style={{ padding: 8 }}>
-              <Markdown
-                style={{
-                  body: { color: '#fff', fontSize: 16 },
-                  code_inline: { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    color: '#fff',
-                    paddingHorizontal: 4,
-                    paddingVertical: 2,
-                    borderRadius: 3,
-                  },
-                }}
-              >
+            <View style={HomeStyles.messageTextContainer}>
+              <Markdown style={markdownStyles.user}>
                 {props.currentMessage?.text || ''}
               </Markdown>
             </View>
@@ -399,7 +342,8 @@ export function Home() {
         renderDay={() => null}
         renderTime={() => null}
       />
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
