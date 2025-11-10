@@ -30,3 +30,4 @@ replay_pid*
 /simple-rag-ui/target
 /simple-rag-ui/nbproject/private/
 /simple-rag-nlp/target
+.vscode/settings.json
