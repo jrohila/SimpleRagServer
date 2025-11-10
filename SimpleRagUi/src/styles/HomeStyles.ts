@@ -27,4 +27,22 @@ export const HomeStyles = StyleSheet.create({
     marginRight: 8,
     height: undefined,
   },
+  dropdownContainer: {
+    backgroundColor: '#111',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  pickerWrapper: {
+    backgroundColor: '#222',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+    overflow: 'hidden',
+  },
+  picker: {
+    color: '#fff',
+    backgroundColor: '#222',
+  },
 });

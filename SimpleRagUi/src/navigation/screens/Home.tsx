@@ -1,7 +1,14 @@
 import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
-import React, { useCallback, useState } from 'react';
-import { View, TextInput, Platform } from 'react-native';
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, TextInput, Platform, ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { HomeStyles } from '../../styles/HomeStyles';
+import { getChats } from '../../api/chats';
+
+type Chat = {
+  id: string;
+  publicName: string;
+};
 
 export function Home() {
   const [messages, setMessages] = useState<IMessage[]>([{
@@ -14,6 +21,20 @@ export function Home() {
     },
   }]);
   const [text, setText] = useState('');
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState('');
+  const [loadingChats, setLoadingChats] = useState(false);
+
+  useEffect(() => {
+    setLoadingChats(true);
+    getChats()
+      .then((res) => {
+        const data = (res as any).data as Chat[];
+        setChats(data);
+        setLoadingChats(false);
+      })
+      .catch(() => setLoadingChats(false));
+  }, []);
 
   const onSend = useCallback((newMessages: IMessage[] = []) => {
     setMessages((previousMessages) => GiftedChat.append(previousMessages, newMessages));
@@ -23,6 +44,27 @@ export function Home() {
 
   return (
   <View style={HomeStyles.container}>
+      {/* Chat Selection Dropdown */}
+      <View style={HomeStyles.dropdownContainer}>
+        {loadingChats ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <View style={HomeStyles.pickerWrapper}>
+            <Picker
+              selectedValue={selectedChatId}
+              onValueChange={(value) => setSelectedChatId(value)}
+              style={HomeStyles.picker}
+              dropdownIconColor="#fff"
+            >
+              <Picker.Item label="Select a chat..." value="" />
+              {chats.map((chat) => (
+                <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
+              ))}
+            </Picker>
+          </View>
+        )}
+      </View>
+
       <GiftedChat
         messages={messages}
         onSend={onSend}
