@@ -12,6 +12,7 @@ interface SidebarPickerProps<T> {
   selectedItemStyle?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   selectedTextStyle?: StyleProp<TextStyle>;
+  emptyMessage?: string;
 }
 
 function SidebarPicker<T>({
@@ -25,24 +26,33 @@ function SidebarPicker<T>({
   selectedItemStyle,
   textStyle,
   selectedTextStyle,
+  emptyMessage,
 }: SidebarPickerProps<T>) {
   return (
     <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 6, overflow: 'hidden', flex: 1, height: '100%' }}>
       <ScrollView style={[{ flex: 1 }, containerStyle]} contentContainerStyle={{ flexGrow: 1 }}>
-        {items.map((item) => {
-          const isSelected = selectedItem && getItemKey(item) === getItemKey(selectedItem);
-          return (
-            <TouchableOpacity
-              key={getItemKey(item)}
-              style={[itemStyle, isSelected && selectedItemStyle]}
-              onPress={() => onSelect(item)}
-            >
-              <Text style={[textStyle, isSelected && selectedTextStyle]}>
-                {getItemLabel(item)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        {items.length === 0 ? (
+          <View style={{ padding: 8, justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+            <Text style={{ color: '#888', textAlign: 'center' }}>
+              {emptyMessage || 'No items found.'}
+            </Text>
+          </View>
+        ) : (
+          items.map((item) => {
+            const isSelected = selectedItem && getItemKey(item) === getItemKey(selectedItem);
+            return (
+              <TouchableOpacity
+                key={getItemKey(item)}
+                style={[itemStyle, isSelected && selectedItemStyle]}
+                onPress={() => onSelect(item)}
+              >
+                <Text style={[textStyle, isSelected && selectedTextStyle]}>
+                  {getItemLabel(item)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );

@@ -138,6 +138,7 @@ export function Collections() {
                   selectedItemStyle={styles.chatItemSelected}
                   textStyle={styles.chatItemText}
                   selectedTextStyle={styles.chatItemText}
+                  emptyMessage="No collections found."
                 />
             </View>
             <View style={styles.form}>

@@ -182,6 +182,7 @@ export function Chats() {
               selectedItemStyle={styles.chatItemSelected}
               textStyle={styles.chatItemText}
               selectedTextStyle={styles.chatItemText}
+              emptyMessage="No chats found."
             />
           </View>
         <View style={styles.form}>

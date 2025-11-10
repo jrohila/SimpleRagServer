@@ -107,8 +107,6 @@ export function Documents() {
               <View style={styles.sidebar}>
                 {loading ? (
                   <ActivityIndicator />
-                ) : collections.length === 0 ? (
-                  <Text style={{ padding: 8, color: '#888' }}>No collections found.</Text>
                 ) : (
                   <SidebarPicker
                     items={collections}
@@ -121,6 +119,7 @@ export function Documents() {
                     selectedItemStyle={styles.chatItemSelected}
                     textStyle={styles.chatItemText}
                     selectedTextStyle={styles.chatItemText}
+                    emptyMessage="No collections found."
                   />
                 )}
               </View>
@@ -128,8 +127,6 @@ export function Documents() {
               <View style={styles.sidebar}>
                 {docLoading ? (
                   <ActivityIndicator />
-                ) : documents.length === 0 ? (
-                  <Text style={{ padding: 8, color: '#888' }}>No documents found.</Text>
                 ) : (
                   <SidebarPicker
                     items={documents}
@@ -142,6 +139,7 @@ export function Documents() {
                     selectedItemStyle={styles.chatItemSelected}
                     textStyle={styles.chatItemText}
                     selectedTextStyle={styles.chatItemText}
+                    emptyMessage="No documents found."
                   />
                 )}
               </View>
