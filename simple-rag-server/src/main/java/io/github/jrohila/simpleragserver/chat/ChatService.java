@@ -28,15 +28,21 @@ import java.util.Optional; // added
 // Add detector import
 import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
 import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
+import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe.OperationResult;
 import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.chat.util.GraniteHelper;
 import io.github.jrohila.simpleragserver.service.ChatResponsePostProcessor;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.lang.reflect.InvocationTargetException;
+import org.apache.commons.lang3.tuple.Pair;
 
 @Service
 public class ChatService {
+
+    public static enum ChatProcessResult {
+        MESSAGES_HANDLED, PROMPT_OUT_OF_SCOPE
+    }
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
@@ -66,11 +72,9 @@ public class ChatService {
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request, ChatEntity chatEntity) {
-        return chat(request, true, chatEntity);
-    }
+    private Pair<ChatProcessResult, List<Message>> handleMessage(OpenAiChatRequest request, ChatEntity chatEntity) {
+        ChatProcessResult result = ChatProcessResult.MESSAGES_HANDLED;
 
-    private List<Message> handleMessage(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
         String firstUserContent = null;
         if (request.getMessages() != null) {
             for (OpenAiChatRequest.Message m : request.getMessages()) {
@@ -102,8 +106,13 @@ public class ChatService {
 
             springMessages = this.messageListPreProcessPipe.transform(request);
             springMessages = this.messageListPreProcessPipe.process(springMessages, chatEntity);
-            springMessages = this.contextAdditionPipe.process(springMessages, chatEntity);
-            springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
+            Pair<OperationResult, List<Message>> contextResult = this.contextAdditionPipe.process(springMessages, chatEntity);
+            if (OperationResult.CONTEXT_ADDED.equals(contextResult.getKey())) {
+                springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
+            } else {
+                springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
+                result = ChatProcessResult.PROMPT_OUT_OF_SCOPE;
+            }
 
             // DEBUG: log exactly what will be sent to the LLM (streaming)
             if (log.isDebugEnabled()) {
@@ -114,182 +123,223 @@ public class ChatService {
                 }
             }
         }
-        return springMessages;
+        return Pair.of(result, springMessages);
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
+    public OpenAiChatResponse chat(OpenAiChatRequest request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        List<Message> springMessages = this.handleMessage(request, useRag, chatEntity);
+        Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
+        if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
+            String outOfScopeMsg = chatEntity.getDefaultOutOfScopeMessage();
+            log.info("[ChatService] Prompt out of scope. Returning default out-of-scope message: {}", outOfScopeMsg);
+            OpenAiChatResponse out = new OpenAiChatResponse();
+            out.setId("chatcmpl-" + java.util.UUID.randomUUID());
+            out.setModel(request.getModel());
+            OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
+            choice.setIndex(0);
+            choice.setFinishReason("stop");
+            choice.setMessage(new OpenAiChatRequest.Message("assistant", outOfScopeMsg));
+            out.setChoices(java.util.List.of(choice));
+            OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
+            usage.setPromptTokens(0);
+            usage.setCompletionTokens(outOfScopeMsg != null ? outOfScopeMsg.length() : 0);
+            usage.setTotalTokens(usage.getPromptTokens() + usage.getCompletionTokens());
+            out.setUsage(usage);
+            return out;
+        } else {
+            List<Message> springMessages = processResult.getValue();
 
-        Prompt prompt = GraniteHelper.toGranitePrompt(springMessages);
-        // Log prompt token length using jtokkit
-        try {
-            int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
-            log.info("[ChatService] Tokens (prompt via jtokkit/CL100K): {} tokens across {} messages", promptTokens, springMessages.size());
-        } catch (Exception e) {
-            log.debug("[ChatService] Token count (prompt) failed: {}", e.getMessage());
-        }
+            Prompt prompt = GraniteHelper.toGranitePrompt(springMessages);
+            // Log prompt token length using jtokkit
+            try {
+                int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
+                log.info("[ChatService] Tokens (prompt via jtokkit/CL100K): {} tokens across {} messages", promptTokens, springMessages.size());
+            } catch (Exception e) {
+                log.debug("[ChatService] Token count (prompt) failed: {}", e.getMessage());
+            }
 
-        ChatResponse resp = chatModel.call(prompt);
-        String assistantContent = "";
-        if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
-            var outMsg = resp.getResults().get(0).getOutput();
-            if (outMsg instanceof AssistantMessage am) {
-                assistantContent = am.getText();
-            } else if (outMsg != null) {
-                // fallback: attempt reflective text/content retrieval, else toString
-                try {
-                    var mText = outMsg.getClass().getMethod("getText");
-                    Object v = mText.invoke(outMsg);
-                    assistantContent = v != null ? v.toString() : "";
-                } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e1) {
+            ChatResponse resp = chatModel.call(prompt);
+
+            String assistantContent = "";
+            if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
+                var outMsg = resp.getResults().get(0).getOutput();
+                if (outMsg instanceof AssistantMessage am) {
+                    assistantContent = am.getText();
+                } else if (outMsg != null) {
+                    // fallback: attempt reflective text/content retrieval, else toString
                     try {
-                        var mContent = outMsg.getClass().getMethod("getContent");
-                        Object v2 = mContent.invoke(outMsg);
-                        assistantContent = v2 != null ? v2.toString() : "";
-                    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e2) {
-                        assistantContent = outMsg.toString();
+                        var mText = outMsg.getClass().getMethod("getText");
+                        Object v = mText.invoke(outMsg);
+                        assistantContent = v != null ? v.toString() : "";
+                    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e1) {
+                        try {
+                            var mContent = outMsg.getClass().getMethod("getContent");
+                            Object v2 = mContent.invoke(outMsg);
+                            assistantContent = v2 != null ? v2.toString() : "";
+                        } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e2) {
+                            assistantContent = outMsg.toString();
+                        }
                     }
                 }
             }
+
+            // Log completion token length using jtokkit
+            int completionTokensCount = 0;
+            try {
+                completionTokensCount = this.chatHelper.countTokens(assistantContent);
+                log.info("[ChatService] Tokens (completion via jtokkit/CL100K): {} tokens", completionTokensCount);
+            } catch (Exception e) {
+                log.debug("[ChatService] Token count (completion) failed: {}", e.getMessage());
+            }
+
+            OpenAiChatResponse out = new OpenAiChatResponse();
+            out.setId("chatcmpl-" + UUID.randomUUID());
+            out.setModel(request.getModel());
+
+            OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
+            choice.setIndex(0);
+            choice.setFinishReason("stop");
+            choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
+            out.setChoices(List.of(choice));
+
+            // Usage counts using jtokkit
+            OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
+            int promptTokens = 0;
+            try {
+                promptTokens = this.chatHelper.countTokensForMessages(springMessages);
+            } catch (Exception ignore) {
+            }
+            usage.setPromptTokens(promptTokens);
+            usage.setCompletionTokens(completionTokensCount);
+            usage.setTotalTokens(promptTokens + completionTokensCount);
+            out.setUsage(usage);
+            return out;
         }
-
-        // Log completion token length using jtokkit
-        int completionTokensCount = 0;
-        try {
-            completionTokensCount = this.chatHelper.countTokens(assistantContent);
-            log.info("[ChatService] Tokens (completion via jtokkit/CL100K): {} tokens", completionTokensCount);
-        } catch (Exception e) {
-            log.debug("[ChatService] Token count (completion) failed: {}", e.getMessage());
-        }
-
-        OpenAiChatResponse out = new OpenAiChatResponse();
-        out.setId("chatcmpl-" + UUID.randomUUID());
-        out.setModel(request.getModel());
-
-        OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
-        choice.setIndex(0);
-        choice.setFinishReason("stop");
-        choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
-        out.setChoices(List.of(choice));
-
-        // Usage counts using jtokkit
-        OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
-        int promptTokens = 0;
-        try {
-            promptTokens = this.chatHelper.countTokensForMessages(springMessages);
-        } catch (Exception ignore) {
-        }
-        usage.setPromptTokens(promptTokens);
-        usage.setCompletionTokens(completionTokensCount);
-        usage.setTotalTokens(promptTokens + completionTokensCount);
-        out.setUsage(usage);
-        return out;
     }
 
     /**
      * Streaming version returning a Flux of OpenAI-compatible streaming chunks.
      */
-    public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, boolean useRag, ChatEntity chatEntity) {
+    public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        List<Message> springMessages = this.handleMessage(request, useRag, chatEntity);
+        Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
+        if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
+            String outOfScopeMsg = chatEntity.getDefaultOutOfScopeMessage();
+            log.info("[ChatService] Prompt out of scope (stream). Returning default out-of-scope message: {}", outOfScopeMsg);
+            String id = "chatcmpl-" + java.util.UUID.randomUUID();
+            String model = request.getModel();
+            OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
+            chunk.setId(id);
+            chunk.setModel(model);
+            OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+            choice.setIndex(0);
+            choice.setFinishReason("stop");
+            OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+            delta.setRole("assistant");
+            delta.setContent(outOfScopeMsg);
+            choice.setDelta(delta);
+            chunk.setChoices(java.util.List.of(choice));
+            return Flux.just(chunk);
+        } else {
+            List<Message> springMessages = processResult.getValue();
 
-        // Compute and log rolling tokens (based on newest-first last up to 5 USER messages only)
-        List<Integer> rollingTokens = new ArrayList<>();
-        try {
-            rollingTokens = TokenGenerator.createTokens(springMessages);
-            log.info("[ChatService] Rolling tokens (user-only, newest-first, streaming, size={}): {}", rollingTokens.size(), rollingTokens);
-        } catch (Exception e) {
-            log.debug("[ChatService] Rolling token computation (streaming) failed: {}", e.getMessage());
-        }
+            // Compute and log rolling tokens (based on newest-first last up to 5 USER messages only)
+            List<Integer> rollingTokens = new ArrayList<>();
+            try {
+                rollingTokens = TokenGenerator.createTokens(springMessages);
+                log.info("[ChatService] Rolling tokens (user-only, newest-first, streaming, size={}): {}", rollingTokens.size(), rollingTokens);
+            } catch (Exception e) {
+                log.debug("[ChatService] Rolling token computation (streaming) failed: {}", e.getMessage());
+            }
 
-        String id = "chatcmpl-" + UUID.randomUUID();
+            String id = "chatcmpl-" + UUID.randomUUID();
 
-        postProcessor.addContext(id, springMessages, rollingTokens);
+            postProcessor.addContext(id, springMessages, rollingTokens);
 
-        // Log prompt token length using jtokkit
-        try {
-            int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
-            log.info("[ChatService] Tokens (prompt via jtokkit/CL100K, streaming): {} tokens across {} messages", promptTokens, springMessages.size());
-        } catch (Exception e) {
-            log.debug("[ChatService] Token count (prompt, streaming) failed: {}", e.getMessage());
-        }
-        String model = request.getModel();
-        AtomicBoolean first = new AtomicBoolean(true);
-        StringBuilder cumulative = new StringBuilder();
-        AtomicInteger index = new AtomicInteger(0);
+            // Log prompt token length using jtokkit
+            try {
+                int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
+                log.info("[ChatService] Tokens (prompt via jtokkit/CL100K, streaming): {} tokens across {} messages", promptTokens, springMessages.size());
+            } catch (Exception e) {
+                log.debug("[ChatService] Token count (prompt, streaming) failed: {}", e.getMessage());
+            }
+            String model = request.getModel();
+            AtomicBoolean first = new AtomicBoolean(true);
+            StringBuilder cumulative = new StringBuilder();
+            AtomicInteger index = new AtomicInteger(0);
 
-        Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages);
-        return chatModel.stream(granitePrompt)
-                .flatMap(resp -> Flux.fromIterable(resp.getResults()))
-                .map(result -> {
-                    String assistantContent = "";
-                    var outMsg = result.getOutput();
-                    if (outMsg instanceof AssistantMessage am) {
-                        try {
-                            assistantContent = am.getText();
-                        } catch (Exception ignored) {
-                            assistantContent = am.toString();
+            Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages);
+            return chatModel.stream(granitePrompt)
+                    .flatMap(resp -> Flux.fromIterable(resp.getResults()))
+                    .map(result -> {
+                        String assistantContent = "";
+                        var outMsg = result.getOutput();
+                        if (outMsg instanceof AssistantMessage am) {
+                            try {
+                                assistantContent = am.getText();
+                            } catch (Exception ignored) {
+                                assistantContent = am.toString();
+                            }
                         }
-                    }
-                    // Determine delta vs previous cumulative
-                    String newDelta;
-                    if (assistantContent.startsWith(cumulative.toString())) {
-                        newDelta = assistantContent.substring(cumulative.length());
-                    } else {
-                        // fallback (model may already send only delta)
-                        newDelta = assistantContent;
-                    }
-                    if (!newDelta.isEmpty()) {
-                        cumulative.append(newDelta);
-                        // Optional capture of per-delta content
+                        // Determine delta vs previous cumulative
+                        String newDelta;
+                        if (assistantContent.startsWith(cumulative.toString())) {
+                            newDelta = assistantContent.substring(cumulative.length());
+                        } else {
+                            // fallback (model may already send only delta)
+                            newDelta = assistantContent;
+                        }
+                        if (!newDelta.isEmpty()) {
+                            cumulative.append(newDelta);
+                            // Optional capture of per-delta content
+                            try {
+                                if (streamConsumer != null) {
+                                    streamConsumer.onDelta(id, newDelta);
+                                }
+                            } catch (Exception ignore) {
+                            }
+                        }
+                        OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
+                        chunk.setId(id);
+                        chunk.setModel(model);
+                        OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+                        choice.setIndex(index.get());
+                        OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+                        if (first.getAndSet(false)) {
+                            delta.setRole("assistant");
+                        }
+                        delta.setContent(newDelta);
+                        choice.setDelta(delta);
+                        chunk.setChoices(List.of(choice));
+                        return chunk;
+                    })
+                    .concatWith(Mono.fromSupplier(() -> {
+                        // On stream completion, log completion tokens using accumulated content
+                        try {
+                            int completionTokens = this.chatHelper.countTokens(cumulative.toString());
+                            log.info("[ChatService] Tokens (completion via jtokkit/CL100K, streaming): {} tokens", completionTokens);
+                        } catch (Exception e) {
+                            log.debug("[ChatService] Token count (completion, streaming) failed: {}", e.getMessage());
+                        }
+                        // Optional capture of full response
                         try {
                             if (streamConsumer != null) {
-                                streamConsumer.onDelta(id, newDelta);
+                                streamConsumer.onComplete(id, cumulative.toString());
                             }
                         } catch (Exception ignore) {
                         }
-                    }
-                    OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
-                    chunk.setId(id);
-                    chunk.setModel(model);
-                    OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
-                    choice.setIndex(index.get());
-                    OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
-                    if (first.getAndSet(false)) {
-                        delta.setRole("assistant");
-                    }
-                    delta.setContent(newDelta);
-                    choice.setDelta(delta);
-                    chunk.setChoices(List.of(choice));
-                    return chunk;
-                })
-                .concatWith(Mono.fromSupplier(() -> {
-                    // On stream completion, log completion tokens using accumulated content
-                    try {
-                        int completionTokens = this.chatHelper.countTokens(cumulative.toString());
-                        log.info("[ChatService] Tokens (completion via jtokkit/CL100K, streaming): {} tokens", completionTokens);
-                    } catch (Exception e) {
-                        log.debug("[ChatService] Token count (completion, streaming) failed: {}", e.getMessage());
-                    }
-                    // Optional capture of full response
-                    try {
-                        if (streamConsumer != null) {
-                            streamConsumer.onComplete(id, cumulative.toString());
-                        }
-                    } catch (Exception ignore) {
-                    }
-                    OpenAiChatStreamChunk done = new OpenAiChatStreamChunk();
-                    done.setId(id);
-                    done.setModel(model);
-                    OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
-                    choice.setIndex(index.get());
-                    choice.setFinishReason("stop");
-                    OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
-                    delta.setContent("");
-                    choice.setDelta(delta);
-                    done.setChoices(List.of(choice));
-                    return done;
-                }));
+                        OpenAiChatStreamChunk done = new OpenAiChatStreamChunk();
+                        done.setId(id);
+                        done.setModel(model);
+                        OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+                        choice.setIndex(index.get());
+                        choice.setFinishReason("stop");
+                        OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+                        delta.setContent("");
+                        choice.setDelta(delta);
+                        done.setChoices(List.of(choice));
+                        return done;
+                    }));
+        }
     }
 }

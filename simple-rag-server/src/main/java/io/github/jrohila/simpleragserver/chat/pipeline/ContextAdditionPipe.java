@@ -15,12 +15,16 @@ import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.UserFactsService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
+import io.github.jrohila.simpleragserver.util.CosineSimilarityCalculator;
+import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,6 +35,10 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ContextAdditionPipe {
+
+    public static enum OperationResult {
+        CONTEXT_ADDED, PROMPT_OUT_OF_CONTEXT
+    }
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
@@ -77,7 +85,7 @@ public class ContextAdditionPipe {
         return springMessages;
     }
 
-    public List<Message> process(List<Message> springMessages, ChatEntity chatEntity) {
+    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity) {
         String userPrompt = null;
         if (springMessages != null) {
             for (Message m : springMessages) {
@@ -88,6 +96,9 @@ public class ContextAdditionPipe {
         }
 
         String context = "";
+        String prefix = (chatEntity.getDefaultContextPrompt() != null ? chatEntity.getDefaultContextPrompt().trim() : "");
+        boolean promptOutOfScope = false;
+
         if (userPrompt != null && !userPrompt.isBlank()) {
             try {
                 // Use boosted hybrid search with knn; dynamically sized
@@ -100,42 +111,55 @@ public class ContextAdditionPipe {
 
                 log.info(terms.toString());
 
-                List<SearchResult<ChunkEntity>> results = chunkSearchService.hybridSearch(chatEntity.getDefaultCollectionId(), userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
+                Pair<List<SearchResult<ChunkEntity>>, List<Float>> resultsWithEmbedding = chunkSearchService.hybridSearchWithEmbedding(chatEntity.getDefaultCollectionId(), userPrompt, ChunkSearchService.MatchType.MATCH, terms, size, true, null);
+                List<SearchResult<ChunkEntity>> results = resultsWithEmbedding.getKey();
 
-                if (results != null && !results.isEmpty()) {
-                    // Compute token budget based on current messages (without context yet)
-                    int currentTokens = 0;
-                    try {
-                        currentTokens = this.chatHelper.countTokensForMessages(springMessages);
-                    } catch (Exception ignore) {
+                List<List<Float>> searchResults = new ArrayList<>();
+                for (SearchResult<ChunkEntity> r : results) {
+                    searchResults.add(r.getContent().getEmbedding());
+                    if (searchResults.size() > 25) {
+                        break;
                     }
-                    String prefix = (chatEntity.getDefaultContextPrompt() != null ? chatEntity.getDefaultContextPrompt().trim() : "");
-                    int prefixTokens = this.chatHelper.countTokens(prefix);
-                    int budget = Math.max(0, maxContextTokens - currentTokens - prefixTokens - reserveCompletionTokens - reserveHeadroomTokens);
-                    if (budget <= 0) {
-                        log.info("[ChatService] Context budget is 0 or negative (currentTokens={}, prefixTokens={}). Skipping RAG context.", currentTokens, prefixTokens);
-                    } else {
-                        StringBuilder sb = new StringBuilder();
-                        int used = 0;
-                        int added = 0;
+                }
 
-                        for (SearchResult<ChunkEntity> r : results) {
-                            String t = r.getContent().getText();
-                            if (t == null || t.isBlank()) {
-                                continue;
-                            }
-                            String normalized = t.trim();
-                            int tokens = this.chatHelper.countTokens(normalized) + 1; // +1 for newline separator
-                            if (used + tokens > budget) {
-                                break;
-                            }
-                            sb.append(normalized).append('\n');
-                            used += tokens;
-                            added++;
+                if (springMessages.size() > 4) {
+                    promptOutOfScope = !CosineSimilarityCalculator.isSimilar(resultsWithEmbedding.getValue(), searchResults, 0.5);
+                }
+
+                if (!promptOutOfScope) {
+                    if (results != null && !results.isEmpty()) {
+                        // Compute token budget based on current messages (without context yet)
+                        int currentTokens = 0;
+                        try {
+                            currentTokens = this.chatHelper.countTokensForMessages(springMessages);
+                        } catch (Exception ignore) {
                         }
-                        context = sb.toString();
-                        log.info("[ChatService] RAG packing: results={} addedChunks={} contextTokensUsed={} budget={} currentTokens={} prefixTokens={} reserve={} headroom={} ",
-                                (results == null ? 0 : results.size()), added, used, budget, currentTokens, prefixTokens, reserveCompletionTokens, reserveHeadroomTokens);
+                        int prefixTokens = this.chatHelper.countTokens(prefix);
+                        int budget = Math.max(0, maxContextTokens - currentTokens - prefixTokens - reserveCompletionTokens - reserveHeadroomTokens);
+                        if (budget <= 0) {
+                            log.info("[ChatService] Context budget is 0 or negative (currentTokens={}, prefixTokens={}). Skipping RAG context.", currentTokens, prefixTokens);
+                        } else {
+                            StringBuilder sb = new StringBuilder();
+                            int used = 0;
+                            int added = 0;
+
+                            for (SearchResult<ChunkEntity> r : results) {
+                                String t = r.getContent().getText();
+                                if (t == null || t.isBlank()) {
+                                    continue;
+                                }
+                                String normalized = t.trim();
+                                int tokens = this.chatHelper.countTokens(normalized) + 1; // +1 for newline separator
+                                if (used + tokens > budget) {
+                                    break;
+                                }
+                                sb.append(normalized).append('\n');
+                                used += tokens;
+                                added++;
+                            }
+                            context = sb.toString();
+                            log.info("[ChatService] RAG packing: results={} addedChunks={} contextTokensUsed={} budget={} currentTokens={} prefixTokens={} reserve={} headroom={} ", (results == null ? 0 : results.size()), added, used, budget, currentTokens, prefixTokens, reserveCompletionTokens, reserveHeadroomTokens);
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -146,7 +170,6 @@ public class ContextAdditionPipe {
 
         // Add context as a system message if found
         if (!context.isBlank()) {
-            String prefix = (chatEntity.getDefaultContextPrompt() != null ? chatEntity.getDefaultContextPrompt().trim() : "");
             if (!prefix.isEmpty()) {
                 springMessages.add(0, new SystemMessage(prefix + "\n" + context));
             } else {
@@ -155,7 +178,12 @@ public class ContextAdditionPipe {
         } else if (context.isBlank()) {
             log.info("[ChatService] No context found for prompt: '{}'. RAG enabled but no relevant chunks found.", userPrompt);
         }
-        return springMessages;
+
+        if (promptOutOfScope) {
+            return Pair.of(OperationResult.PROMPT_OUT_OF_CONTEXT, springMessages);
+        } else {
+            return Pair.of(OperationResult.CONTEXT_ADDED, springMessages);
+        }
     }
 
 }

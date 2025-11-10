@@ -44,4 +44,6 @@ public class ChatEntity {
     private boolean overrideSystemMessage;
     private boolean overrideAssistantMessage;
 
+    private String defaultOutOfScopeMessage;
+
 }

@@ -1,3 +1,4 @@
+// ...existing code...
 package io.github.jrohila.simpleragserver.config;
 
 import io.swagger.v3.oas.models.Components;
@@ -10,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfiguration {
+    @Value("${processing.chat.out-of-scope-message}")
+    private String outOfScopeMessage;
 
     @Value("${processing.chat.system.prompt}")
     private String systemPrompt;
@@ -24,6 +27,9 @@ public class OpenApiConfiguration {
 
     @Value("${processing.post.chat.fact.extractor.append}")
     private String extractorPrompt;
+
+    @Value("${processing.chat.rag.out-of-scope-prompt}")
+    private String outOfScopePrompt;
 
     @Bean
     public OpenApiCustomizer onboardingDtoExampleCustomizer() {
@@ -41,6 +47,8 @@ public class OpenApiConfiguration {
                     onboardingSchema.getProperties().put("defaultContextPrompt", new StringSchema().example(contextPrompt));
                     onboardingSchema.getProperties().put("defaultMemoryPrompt", new StringSchema().example(memoryPrompt));
                     onboardingSchema.getProperties().put("defaultExtractorPrompt", new StringSchema().example(extractorPrompt));
+                    onboardingSchema.getProperties().put("defaultOutOfScopeContext", new StringSchema().example(outOfScopePrompt));
+                    onboardingSchema.getProperties().put("defaultOutOfScopeMessage", new StringSchema().example(outOfScopeMessage));
                     onboardingSchema.getProperties().put("collectionName", new StringSchema().example("Onboarding Collection"));
                     onboardingSchema.getProperties().put("collectionDescription", new StringSchema().example("A collection for onboarding documents."));
                     onboardingSchema.getProperties().put("overrideSystemMessage", new Schema<Boolean>().type("boolean").example(true));
@@ -78,6 +86,12 @@ public class OpenApiConfiguration {
                                     }
                                     if (param.getName().equals("defaultExtractorPrompt")) {
                                         param.setExample(extractorPrompt);
+                                    }
+                                    if (param.getName().equals("defaultOutOfScopeContext")) {
+                                        param.setExample(outOfScopePrompt);
+                                    }
+                                    if (param.getName().equals("defaultOutOfScopeMessage")) {
+                                        param.setExample(outOfScopeMessage);
                                     }
                                     if (param.getName().equals("collectionName")) {
                                         param.setExample("Onboarding Collection");

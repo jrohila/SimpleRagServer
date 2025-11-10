@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.List;
+import org.apache.commons.lang3.tuple.Pair;
 
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.core.SearchRequest;
@@ -50,7 +51,7 @@ public class ChunkSearchService {
 
     @Autowired
     private IndicesManager indicesManager;
-    
+
     // Limit the number of boosted terms added to the query
     private static final int MAX_TERMS = 12;
 
@@ -108,7 +109,7 @@ public class ChunkSearchService {
             ));
 
             String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
-            
+
             SearchRequest searchRequest = SearchRequest.of(b -> b
                     .index(indexName)
                     .size(size)
@@ -143,6 +144,10 @@ public class ChunkSearchService {
      * field; others are unchanged.
      */
     public List<SearchResult<ChunkEntity>> hybridSearch(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
+        return this.hybridSearchWithEmbedding(collectionId, query, matchType, terms, size, enableFuzziness, language).getKey();
+    }
+
+    public Pair<List<SearchResult<ChunkEntity>>, List<Float>> hybridSearchWithEmbedding(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
             // Build embedding for kNN
             List<Float> embedding = embedClient.getEmbeddingAsList(query);
@@ -227,7 +232,7 @@ public class ChunkSearchService {
             List<Query> filterQueries = new ArrayList<>(mandatoryFilterQueries);
 
             String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
-            
+
             SearchRequest searchRequest = SearchRequest.of(b -> b
                     .index(indexName)
                     .pipeline("rrf-pipeline")
@@ -248,7 +253,7 @@ public class ChunkSearchService {
             }
             log.info("OpenSearch hybrid response: total hits = {}", totalHits);
 
-            return this.processSearchResponse(resp);
+            return Pair.of(this.processSearchResponse(resp), embedding);
         } catch (Exception e) {
             throw new RuntimeException("Failed to execute hybrid search (OpenSearch client)", e);
         }
@@ -340,7 +345,7 @@ public class ChunkSearchService {
             ));
 
             String indexName = this.indicesManager.createIfNotExist(collectionId, ChunkEntity.class);
-            
+
             SearchRequest searchRequest = SearchRequest.of(b -> b
                     .index(indexName)
                     .size(size)

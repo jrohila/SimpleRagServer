@@ -34,33 +34,36 @@ public class OnboardingController {
 
     @PostMapping(value = "/createNewChat", consumes = "multipart/form-data")
     public ResponseEntity<OnboardingResponse> createNewChat(
-        @RequestParam String publicName,
-        @RequestParam String internalName,
-        @RequestParam String internalDescription,
-        @RequestParam String defaultLanguage,
-        @RequestParam String defaultSystemPrompt,
-        @RequestParam String defaultSystemPromptAppend,
-        @RequestParam String defaultContextPrompt,
-        @RequestParam String defaultMemoryPrompt,
-        @RequestParam String defaultExtractorPrompt,
-        @RequestParam String collectionName,
-        @RequestParam String collectionDescription,
-        @RequestParam(defaultValue = "true") boolean overrideSystemMessage,
-        @RequestParam(defaultValue = "true") boolean overrideAssistantMessage,
-        @RequestParam(value = "file", required = false) List<MultipartFile> files) {
-    // Map RequestParams to ChatEntity
-    ChatEntity chat = new ChatEntity();
-    chat.setPublicName(publicName);
-    chat.setInternalName(internalName);
-    chat.setInternalDescription(internalDescription);
-    chat.setDefaultLanguage(defaultLanguage);
-    chat.setDefaultSystemPrompt(defaultSystemPrompt);
-    chat.setDefaultSystemPromptAppend(defaultSystemPromptAppend);
-    chat.setDefaultContextPrompt(defaultContextPrompt);
-    chat.setDefaultMemoryPrompt(defaultMemoryPrompt);
-    chat.setDefaultExtractorPrompt(defaultExtractorPrompt);
-    chat.setOverrideSystemMessage(overrideSystemMessage);
-    chat.setOverrideAssistantMessage(overrideAssistantMessage);
+            @RequestParam String publicName,
+            @RequestParam String internalName,
+            @RequestParam String internalDescription,
+            @RequestParam String defaultLanguage,
+            @RequestParam String defaultSystemPrompt,
+            @RequestParam String defaultSystemPromptAppend,
+            @RequestParam String defaultContextPrompt,
+            @RequestParam String defaultMemoryPrompt,
+            @RequestParam String defaultExtractorPrompt,
+            @RequestParam String defaultOutOfScopeContext,
+            @RequestParam String defaultOutOfScopeMessage,
+            @RequestParam String collectionName,
+            @RequestParam String collectionDescription,
+            @RequestParam(defaultValue = "true") boolean overrideSystemMessage,
+            @RequestParam(defaultValue = "true") boolean overrideAssistantMessage,
+            @RequestParam(value = "file", required = false) List<MultipartFile> files) {
+        // Map RequestParams to ChatEntity
+        ChatEntity chat = new ChatEntity();
+        chat.setPublicName(publicName);
+        chat.setInternalName(internalName);
+        chat.setInternalDescription(internalDescription);
+        chat.setDefaultLanguage(defaultLanguage);
+        chat.setDefaultSystemPrompt(defaultSystemPrompt);
+        chat.setDefaultSystemPromptAppend(defaultSystemPromptAppend);
+        chat.setDefaultContextPrompt(defaultContextPrompt);
+        chat.setDefaultMemoryPrompt(defaultMemoryPrompt);
+        chat.setDefaultExtractorPrompt(defaultExtractorPrompt);
+        chat.setOverrideSystemMessage(overrideSystemMessage);
+        chat.setOverrideAssistantMessage(overrideAssistantMessage);
+        chat.setDefaultOutOfScopeMessage(defaultOutOfScopeMessage);
 
         // Map RequestParams to CollectionEntity
         CollectionEntity collection = new CollectionEntity();
