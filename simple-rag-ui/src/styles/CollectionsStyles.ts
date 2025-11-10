@@ -1,0 +1,95 @@
+import { StyleSheet } from 'react-native';
+
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  dropdownContainer: {
+    marginBottom: 16,
+    flex: 1,
+    minWidth: 250,
+  },
+  dropdownLabel: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+    color: '#666',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  picker: {
+    height: 40,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  sidebar: {
+    width: 200,
+    minWidth: 120,
+    maxWidth: 260,
+    height: '100%',
+    marginRight: 16,
+  },
+  sidebarContent: {
+    paddingVertical: 8,
+  },
+  chatItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: 'transparent',
+  },
+  chatItemSelected: {
+    backgroundColor: '#e0eaff',
+  },
+  chatItemText: {
+    fontSize: 16,
+  },
+  form: {
+    width: '100%',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 8,
+    marginVertical: 8,
+    width: '100%',
+  },
+  label: {
+    alignSelf: 'flex-start',
+    fontWeight: 'bold',
+    marginBottom: 2,
+    marginTop: 6,
+  },
+  dateField: {
+    marginVertical: 8,
+    color: '#888',
+  },
+  buttonCol: {
+    flexDirection: 'column',
+    gap: 12,
+    marginTop: 16,
+  },
+  buttonWrapper: {
+    width: '100%',
+    marginBottom: 8,
+  },
+});
+
+export default styles;
