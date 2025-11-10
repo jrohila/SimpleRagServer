@@ -29,3 +29,4 @@ replay_pid*
 /simple-rag-ui/node_modules
 /simple-rag-ui/target
 /simple-rag-ui/nbproject/private/
+/simple-rag-nlp/target
