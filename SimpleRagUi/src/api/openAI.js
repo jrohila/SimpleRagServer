@@ -1,4 +1,12 @@
-import apiClient from './apiClient';
+import axios from 'axios';
+
+// Create a separate axios instance for OpenAI endpoints (without /api prefix)
+const openAIClient = axios.create({
+  baseURL: process.env.EXPO_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:8080',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 /**
  * OpenAI-compatible chat completions endpoint
@@ -19,7 +27,25 @@ export function createChatCompletion({ publicName, request, useRag = false } = {
     params.useRag = useRag;
   }
 
-  return apiClient.post(`/${publicName}/v1/chat/completions`, request, { params });
+  // For streaming requests, we need to use fetch instead of axios
+  // because axios doesn't handle streaming responses well in React Native
+  if (request.stream) {
+    const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:8080';
+    const url = new URL(`/${publicName}/v1/chat/completions`, baseURL);
+    if (useRag !== undefined) {
+      url.searchParams.set('useRag', useRag.toString());
+    }
+    
+    return fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+  }
+
+  return openAIClient.post(`/${publicName}/v1/chat/completions`, request, { params });
 }
 
 /**
