@@ -6,7 +6,7 @@ interface SidebarPickerProps<T> {
   getItemLabel: (item: T) => string;
   getItemKey: (item: T) => string | number;
   selectedItem: T | null;
-  onSelect: (item: T) => void;
+  onSelect: (item: T | null) => void;
   containerStyle?: StyleProp<ViewStyle>;
   itemStyle?: StyleProp<ViewStyle>;
   selectedItemStyle?: StyleProp<ViewStyle>;
@@ -44,7 +44,10 @@ function SidebarPicker<T>({
               <TouchableOpacity
                 key={getItemKey(item)}
                 style={[itemStyle, isSelected && selectedItemStyle]}
-                onPress={() => onSelect(item)}
+                onPress={() => {
+                  // If already selected, deselect by passing null; otherwise select the item
+                  onSelect(isSelected ? null : item);
+                }}
               >
                 <Text style={[textStyle, isSelected && selectedTextStyle]}>
                   {getItemLabel(item)}

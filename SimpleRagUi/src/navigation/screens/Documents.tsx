@@ -113,7 +113,7 @@ export function Documents() {
                     getItemLabel={(col) => col.name}
                     getItemKey={(col) => col.id}
                     selectedItem={collections.find((c) => c.id === selectedCollectionId) || null}
-                    onSelect={(col) => setSelectedCollectionId(col.id)}
+                    onSelect={(col) => setSelectedCollectionId(col?.id || '')}
                     containerStyle={styles.sidebarContent}
                     itemStyle={styles.chatItem}
                     selectedItemStyle={styles.chatItemSelected}
@@ -133,7 +133,7 @@ export function Documents() {
                     getItemLabel={(doc) => doc.originalFilename}
                     getItemKey={(doc) => doc.id}
                     selectedItem={documents.find((d) => d.id === selectedDocumentId) || null}
-                    onSelect={(doc) => setSelectedDocumentId(doc.id)}
+                    onSelect={(doc) => setSelectedDocumentId(doc?.id || '')}
                     containerStyle={styles.sidebarContent}
                     itemStyle={styles.chatItem}
                     selectedItemStyle={styles.chatItemSelected}

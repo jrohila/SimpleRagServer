@@ -3,9 +3,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, SafeAreaView, ScrollView, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Window } from '../../components/Window';
-import SidebarPicker from '../../components/SidebarPicker';
-import styles from '../../styles/CollectionsStyles';
+import styles from '../../styles/ChunksStyles';
 import { getCollections } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 import { getChunks, updateChunk, deleteChunk } from '../../api/chunks';
@@ -68,10 +68,21 @@ export function Chunks() {
   };
 
   useEffect(() => {
-    if (selectedCollectionId && selectedDocumentId) {
-      console.log('Fetching chunks for:', { collectionId: selectedCollectionId, documentId: selectedDocumentId, page: currentPage, size: pageSize });
+    if (selectedCollectionId) {
+      const params: any = { 
+        collectionId: selectedCollectionId, 
+        page: currentPage, 
+        size: pageSize 
+      };
+      
+      // Add documentId to params only if a document is selected
+      if (selectedDocumentId) {
+        params.documentId = selectedDocumentId;
+      }
+      
+      console.log('Fetching chunks for:', params);
       setLoadingChunks(true);
-      getChunks({ collectionId: selectedCollectionId, documentId: selectedDocumentId, page: currentPage, size: pageSize })
+      getChunks(params)
         .then((res) => {
           console.log('Chunks response:', res.data);
           const data = res.data;
@@ -122,107 +133,94 @@ export function Chunks() {
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView>
         <Window>
-          <View style={styles.row}>
-            {/* Collections Sidebar */}
-            <View style={styles.sidebar}>
-              {loadingCollections ? (
-                <ActivityIndicator />
-              ) : collections.length === 0 ? (
-                <Text style={{ padding: 8, color: '#888' }}>No collections found.</Text>
-              ) : (
-                <SidebarPicker
-                  items={collections}
-                  getItemLabel={(col) => col.name}
-                  getItemKey={(col) => col.id}
-                  selectedItem={collections.find((c) => c.id === selectedCollectionId) || null}
-                  onSelect={(col) => setSelectedCollectionId(col.id)}
-                  containerStyle={styles.sidebarContent}
-                  itemStyle={styles.chatItem}
-                  selectedItemStyle={styles.chatItemSelected}
-                  textStyle={styles.chatItemText}
-                  selectedTextStyle={styles.chatItemText}
-                  emptyMessage="No collections found."
-                />
-              )}
-            </View>
-            {/* Documents Sidebar */}
-            <View style={styles.sidebar}>
-              {loadingDocuments ? (
-                <View style={styles.sidebarContent}>
+          <View style={styles.container}>
+            {/* Dropdowns for Collections and Documents */}
+            <View style={styles.filtersContainer}>
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Collection:</Text>
+                {loadingCollections ? (
                   <ActivityIndicator />
-                </View>
-              ) : (
-                <SidebarPicker
-                  items={documents}
-                  getItemLabel={(doc) => doc.originalFilename}
-                  getItemKey={(doc) => doc.id}
-                  selectedItem={documents.find((d) => d.id === selectedDocumentId) || null}
-                  onSelect={(doc) => setSelectedDocumentId(doc.id)}
-                  containerStyle={styles.sidebarContent}
-                  itemStyle={styles.chatItem}
-                  selectedItemStyle={styles.chatItemSelected}
-                  textStyle={styles.chatItemText}
-                  selectedTextStyle={styles.chatItemText}
-                  emptyMessage={!selectedCollectionId ? 'Select a collection first.' : 'No documents found.'}
-                />
-              )}
+                ) : (
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={selectedCollectionId}
+                      onValueChange={(value) => setSelectedCollectionId(value)}
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="Select a collection..." value="" />
+                      {collections.map((col) => (
+                        <Picker.Item key={col.id} label={col.name} value={col.id} />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Document:</Text>
+                {loadingDocuments ? (
+                  <ActivityIndicator />
+                ) : (
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={selectedDocumentId}
+                      onValueChange={(value) => setSelectedDocumentId(value)}
+                      style={styles.picker}
+                      enabled={!!selectedCollectionId && documents.length > 0}
+                    >
+                      <Picker.Item 
+                        label={!selectedCollectionId ? "Select a collection first..." : documents.length === 0 ? "No documents found" : "All documents"} 
+                        value="" 
+                      />
+                      {documents.map((doc) => (
+                        <Picker.Item key={doc.id} label={doc.originalFilename} value={doc.id} />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
+              </View>
             </View>
+
             {/* Chunks Table */}
-            <View style={{ flex: 1, padding: 16 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>Chunks</Text>
+            <View style={styles.chunksSection}>
+              <View style={styles.header}>
                 {/* Pagination controls */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.paginationContainer}>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 0}
-                    style={{
-                      backgroundColor: currentPage === 0 ? '#ccc' : '#007bff',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 4,
-                      opacity: currentPage === 0 ? 0.5 : 1,
-                    }}
+                    style={[
+                      styles.paginationButton,
+                      currentPage === 0 ? styles.paginationButtonDisabled : styles.paginationButtonActive,
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>← Back</Text>
+                    <Text style={styles.paginationButtonText}>← Back</Text>
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 12, color: '#666' }}>Page {currentPage + 1}</Text>
+                  <Text style={styles.paginationText}>Page {currentPage + 1}</Text>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage + 1)}
                     disabled={!hasMorePages}
-                    style={{
-                      backgroundColor: !hasMorePages ? '#ccc' : '#007bff',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 4,
-                      opacity: !hasMorePages ? 0.5 : 1,
-                    }}
+                    style={[
+                      styles.paginationButton,
+                      !hasMorePages ? styles.paginationButtonDisabled : styles.paginationButtonActive,
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Next →</Text>
+                    <Text style={styles.paginationButtonText}>Next →</Text>
                   </TouchableOpacity>
                 </View>
               </View>
               {loadingChunks ? (
                 <ActivityIndicator />
               ) : (
-                <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 6, overflow: 'hidden' }}>
+                <View style={styles.chunksContainer}>
                   {chunks.length === 0 ? (
                     // Empty disabled row when no chunks
-                    <View style={{ opacity: 0.5 }}>
+                    <View style={styles.disabledRow}>
                       {/* First row: Text in textarea */}
-                      <View style={{ padding: 8, backgroundColor: '#fafafa' }}>
-                        <Text style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 12, color: '#666' }}>Text:</Text>
-                        <View
-                          style={{
-                            borderWidth: 1,
-                            borderColor: '#ddd',
-                            borderRadius: 4,
-                            padding: 8,
-                            minHeight: 80,
-                            backgroundColor: '#f5f5f5',
-                          }}
-                        >
-                          <Text style={{ fontFamily: 'monospace', fontSize: 12, color: '#999' }}>
+                      <View style={styles.chunkTextRow}>
+                        <Text style={styles.chunkTextLabel}>Text:</Text>
+                        <View style={[styles.chunkTextArea, styles.chunkTextAreaDisabled]}>
+                          <Text style={[styles.chunkText, styles.chunkTextDisabled]}>
                             {!selectedCollectionId ? 'Select a collection and document to view chunks' : 
                              !selectedDocumentId ? 'Select a document to view chunks' : 
                              'No chunks found'}
@@ -230,138 +228,109 @@ export function Chunks() {
                         </View>
                       </View>
                       {/* Second row: All other fields */}
-                      <View style={{ flexDirection: 'row', padding: 8, backgroundColor: '#f9f9f9', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1 }}>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Type: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                      <View style={styles.chunkMetadataRow}>
+                        <View style={styles.chunkMetadataContainer}>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Type: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Section: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Section: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Page: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Page: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Language: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Language: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Document: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Document: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Created: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Created: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#999' }}>Modified: </Text>
-                            <Text style={{ fontSize: 11, color: '#999' }}>-</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Modified: </Text>
+                            <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                         </View>
                         {/* Action buttons - disabled */}
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <View style={styles.chunkActionsContainer}>
                           <TouchableOpacity
                             disabled
-                            style={{
-                              backgroundColor: '#ccc',
-                              paddingHorizontal: 12,
-                              paddingVertical: 6,
-                              borderRadius: 4,
-                            }}
+                            style={[styles.chunkUpdateButton, styles.chunkButtonDisabled]}
                           >
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>Update</Text>
+                            <Text style={styles.chunkButtonText}>Update</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             disabled
-                            style={{
-                              backgroundColor: '#ccc',
-                              paddingHorizontal: 12,
-                              paddingVertical: 6,
-                              borderRadius: 4,
-                            }}
+                            style={[styles.chunkDeleteButton, styles.chunkButtonDisabled]}
                           >
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>Delete</Text>
+                            <Text style={styles.chunkButtonText}>Delete</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
                     </View>
                   ) : (
                     chunks.map((chunk, index) => (
-                    <View key={chunk.id} style={{ borderBottomWidth: index < chunks.length - 1 ? 1 : 0, borderBottomColor: '#ddd' }}>
+                    <View key={chunk.id} style={[styles.chunkRow, index === chunks.length - 1 && styles.chunkRowLast]}>
                       {/* First row: Text in textarea */}
-                      <View style={{ padding: 8, backgroundColor: '#fafafa' }}>
-                        <Text style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 12, color: '#666' }}>Text:</Text>
-                        <View
-                          style={{
-                            borderWidth: 1,
-                            borderColor: '#ddd',
-                            borderRadius: 4,
-                            padding: 8,
-                            minHeight: 80,
-                            backgroundColor: '#fff',
-                          }}
-                        >
-                          <Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{chunk.text}</Text>
+                      <View style={styles.chunkTextRow}>
+                        <Text style={styles.chunkTextLabel}>Text:</Text>
+                        <View style={styles.chunkTextArea}>
+                          <Text style={styles.chunkText}>{chunk.text}</Text>
                         </View>
                       </View>
                       {/* Second row: All other fields */}
-                      <View style={{ flexDirection: 'row', padding: 8, backgroundColor: '#f9f9f9', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1 }}>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Type: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.type}</Text>
+                      <View style={styles.chunkMetadataRow}>
+                        <View style={styles.chunkMetadataContainer}>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Type: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.type}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Section: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.sectionTitle}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Section: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.sectionTitle}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Page: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.pageNumber}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Page: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.pageNumber}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Language: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.language}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Language: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.language}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Document: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.documentName}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Document: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.documentName}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Created: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.created}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Created: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.created}</Text>
                           </View>
-                          <View style={{ flexDirection: 'row', marginRight: 16, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 11, color: '#666' }}>Modified: </Text>
-                            <Text style={{ fontSize: 11 }}>{chunk.modified}</Text>
+                          <View style={styles.chunkMetadataField}>
+                            <Text style={styles.chunkMetadataLabel}>Modified: </Text>
+                            <Text style={styles.chunkMetadataValue}>{chunk.modified}</Text>
                           </View>
                         </View>
                         {/* Action buttons */}
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <View style={styles.chunkActionsContainer}>
                           <TouchableOpacity
                             onPress={() => handleUpdateChunk(chunk)}
-                            style={{
-                              backgroundColor: '#007bff',
-                              paddingHorizontal: 12,
-                              paddingVertical: 6,
-                              borderRadius: 4,
-                            }}
+                            style={styles.chunkUpdateButton}
                           >
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>Update</Text>
+                            <Text style={styles.chunkButtonText}>Update</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => handleDeleteChunk(chunk)}
-                            style={{
-                              backgroundColor: '#dc3545',
-                              paddingHorizontal: 12,
-                              paddingVertical: 6,
-                              borderRadius: 4,
-                            }}
+                            style={styles.chunkDeleteButton}
                           >
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>Delete</Text>
+                            <Text style={styles.chunkButtonText}>Delete</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -372,33 +341,27 @@ export function Chunks() {
               )}
               {/* Pagination controls at bottom */}
               {!loadingChunks && chunks.length > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
+                <View style={styles.bottomPaginationContainer}>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 0}
-                    style={{
-                      backgroundColor: currentPage === 0 ? '#ccc' : '#007bff',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 4,
-                      opacity: currentPage === 0 ? 0.5 : 1,
-                    }}
+                    style={[
+                      styles.paginationButton,
+                      currentPage === 0 ? styles.paginationButtonDisabled : styles.paginationButtonActive
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>← Back</Text>
+                    <Text style={styles.paginationButtonText}>← Back</Text>
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 12, color: '#666' }}>Page {currentPage + 1}</Text>
+                  <Text style={styles.paginationText}>Page {currentPage + 1}</Text>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage + 1)}
                     disabled={!hasMorePages}
-                    style={{
-                      backgroundColor: !hasMorePages ? '#ccc' : '#007bff',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 4,
-                      opacity: !hasMorePages ? 0.5 : 1,
-                    }}
+                    style={[
+                      styles.paginationButton,
+                      !hasMorePages ? styles.paginationButtonDisabled : styles.paginationButtonActive
+                    ]}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Next →</Text>
+                    <Text style={styles.paginationButtonText}>Next →</Text>
                   </TouchableOpacity>
                 </View>
               )}

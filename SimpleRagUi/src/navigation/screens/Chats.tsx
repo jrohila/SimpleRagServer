@@ -176,7 +176,7 @@ export function Chats() {
               getItemLabel={(chat) => chat.publicName || chat.id}
               getItemKey={(chat) => chat.id}
               selectedItem={chats.find((c) => c.id === selectedChatId) || null}
-              onSelect={(chat) => setSelectedChatId(chat.id)}
+              onSelect={(chat) => setSelectedChatId(chat?.id || '')}
               containerStyle={styles.sidebarContent}
               itemStyle={styles.chatItem}
               selectedItemStyle={styles.chatItemSelected}

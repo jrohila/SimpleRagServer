@@ -132,7 +132,7 @@ export function Collections() {
                   getItemLabel={(col) => col.name}
                   getItemKey={(col) => col.id}
                   selectedItem={collections.find((c) => c.id === selectedId) || null}
-                  onSelect={(col) => setSelectedId(col.id)}
+                  onSelect={(col) => setSelectedId(col?.id || '')}
                   containerStyle={styles.sidebarContent}
                   itemStyle={styles.chatItem}
                   selectedItemStyle={styles.chatItemSelected}
