@@ -2,6 +2,36 @@ import { StyleSheet } from 'react-native';
 
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  dropdownContainer: {
+    marginBottom: 16,
+    flex: 1,
+    minWidth: 250,
+  },
+  dropdownLabel: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+    color: '#666',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  picker: {
+    height: 40,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -31,7 +61,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   form: {
-    flex: 1,
     width: '100%',
   },
   input: {

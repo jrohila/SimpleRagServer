@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, ActivityIndicator, ScrollView, TextInput } from 'react-native';
-import SidebarPicker from '../../components/SidebarPicker';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
@@ -102,47 +102,54 @@ export function Documents() {
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView>
         <Window>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%', minHeight: 400 }}>
-            {/* Collections Sidebar */}
-              <View style={styles.sidebar}>
+          <View style={styles.container}>
+            {/* Dropdowns for Collections and Documents */}
+            <View style={styles.filtersContainer}>
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Collection:</Text>
                 {loading ? (
                   <ActivityIndicator />
                 ) : (
-                  <SidebarPicker
-                    items={collections}
-                    getItemLabel={(col) => col.name}
-                    getItemKey={(col) => col.id}
-                    selectedItem={collections.find((c) => c.id === selectedCollectionId) || null}
-                    onSelect={(col) => setSelectedCollectionId(col?.id || '')}
-                    containerStyle={styles.sidebarContent}
-                    itemStyle={styles.chatItem}
-                    selectedItemStyle={styles.chatItemSelected}
-                    textStyle={styles.chatItemText}
-                    selectedTextStyle={styles.chatItemText}
-                    emptyMessage="No collections found."
-                  />
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={selectedCollectionId}
+                      onValueChange={(value) => setSelectedCollectionId(value)}
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="Select a collection..." value="" />
+                      {collections.map((col) => (
+                        <Picker.Item key={col.id} label={col.name} value={col.id} />
+                      ))}
+                    </Picker>
+                  </View>
                 )}
               </View>
-            {/* Documents Sidebar */}
-              <View style={styles.sidebar}>
+
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Document:</Text>
                 {docLoading ? (
                   <ActivityIndicator />
                 ) : (
-                  <SidebarPicker
-                    items={documents}
-                    getItemLabel={(doc) => doc.originalFilename}
-                    getItemKey={(doc) => doc.id}
-                    selectedItem={documents.find((d) => d.id === selectedDocumentId) || null}
-                    onSelect={(doc) => setSelectedDocumentId(doc?.id || '')}
-                    containerStyle={styles.sidebarContent}
-                    itemStyle={styles.chatItem}
-                    selectedItemStyle={styles.chatItemSelected}
-                    textStyle={styles.chatItemText}
-                    selectedTextStyle={styles.chatItemText}
-                    emptyMessage="No documents found."
-                  />
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={selectedDocumentId}
+                      onValueChange={(value) => setSelectedDocumentId(value)}
+                      style={styles.picker}
+                      enabled={!!selectedCollectionId && documents.length > 0}
+                    >
+                      <Picker.Item 
+                        label={!selectedCollectionId ? "Select a collection first..." : documents.length === 0 ? "No documents found" : "Select a document..."} 
+                        value="" 
+                      />
+                      {documents.map((doc) => (
+                        <Picker.Item key={doc.id} label={doc.originalFilename} value={doc.id} />
+                      ))}
+                    </Picker>
+                  </View>
                 )}
               </View>
+            </View>
+
             {/* Document Form */}
             <View style={[styles.form, { flex: 1, justifyContent: 'space-between' }]}> 
               <View style={{ flexDirection: 'column', width: '100%' }}>

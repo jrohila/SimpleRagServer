@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator } from 'react-native';
-import SidebarPicker from '../../components/SidebarPicker';
 import styles from '../../styles/ChatsStyles';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -169,21 +168,22 @@ export function Chats() {
               <ScrollView>
     <Window>
       {loading && <ActivityIndicator />}
-      <View style={styles.row}>
-          <View style={styles.sidebar}>
-            <SidebarPicker
-              items={chats}
-              getItemLabel={(chat) => chat.publicName || chat.id}
-              getItemKey={(chat) => chat.id}
-              selectedItem={chats.find((c) => c.id === selectedChatId) || null}
-              onSelect={(chat) => setSelectedChatId(chat?.id || '')}
-              containerStyle={styles.sidebarContent}
-              itemStyle={styles.chatItem}
-              selectedItemStyle={styles.chatItemSelected}
-              textStyle={styles.chatItemText}
-              selectedTextStyle={styles.chatItemText}
-              emptyMessage="No chats found."
-            />
+      <View style={styles.container}>
+          {/* Chat Dropdown */}
+          <View style={styles.dropdownContainer}>
+            <Text style={styles.dropdownLabel}>Chat:</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedChatId}
+                onValueChange={(value) => setSelectedChatId(value)}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select a chat..." value="" />
+                {chats.map((chat) => (
+                  <Picker.Item key={chat.id} label={chat.publicName || chat.id} value={chat.id} />
+                ))}
+              </Picker>
+            </View>
           </View>
         <View style={styles.form}>
         <Text style={styles.label}>Public Name</Text>

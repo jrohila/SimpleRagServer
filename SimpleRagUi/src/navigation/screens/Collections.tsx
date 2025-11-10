@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList } from 'react-native';
-import SidebarPicker from '../../components/SidebarPicker';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
@@ -125,22 +125,24 @@ export function Collections() {
       <ScrollView>
         <Window>
           {loading && <ActivityIndicator />}
-          <View style={styles.row}>
-            <View style={styles.sidebar}>
-                <SidebarPicker
-                  items={collections}
-                  getItemLabel={(col) => col.name}
-                  getItemKey={(col) => col.id}
-                  selectedItem={collections.find((c) => c.id === selectedId) || null}
-                  onSelect={(col) => setSelectedId(col?.id || '')}
-                  containerStyle={styles.sidebarContent}
-                  itemStyle={styles.chatItem}
-                  selectedItemStyle={styles.chatItemSelected}
-                  textStyle={styles.chatItemText}
-                  selectedTextStyle={styles.chatItemText}
-                  emptyMessage="No collections found."
-                />
+          <View style={styles.container}>
+            {/* Collection Dropdown */}
+            <View style={styles.dropdownContainer}>
+              <Text style={styles.dropdownLabel}>Collection:</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={selectedId}
+                  onValueChange={(value) => setSelectedId(value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Select a collection..." value="" />
+                  {collections.map((col) => (
+                    <Picker.Item key={col.id} label={col.name} value={col.id} />
+                  ))}
+                </Picker>
+              </View>
             </View>
+            
             <View style={styles.form}>
               <Text style={styles.label}>Name</Text>
               <TextInput
