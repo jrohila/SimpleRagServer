@@ -3,16 +3,16 @@ import { StyleSheet } from 'react-native';
 export const HomeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#f5f5f5',
   },
   messagesContainer: {
     paddingHorizontal: 12,
     paddingBottom: 12,
-    backgroundColor: '#000',
+    backgroundColor: '#f5f5f5',
   },
   input: {
-    color: '#fff',
-    backgroundColor: '#222',
+    color: '#000',
+    backgroundColor: '#fff',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -20,6 +20,8 @@ export const HomeStyles = StyleSheet.create({
     fontSize: 16,
     width: '100%',
     boxSizing: 'border-box',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   sendContainer: {
     flexDirection: 'row',
@@ -28,21 +30,21 @@ export const HomeStyles = StyleSheet.create({
     height: undefined,
   },
   dropdownContainer: {
-    backgroundColor: '#111',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: '#e0e0e0',
   },
   pickerWrapper: {
-    backgroundColor: '#222',
+    backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: '#ddd',
     overflow: 'hidden',
   },
   picker: {
-    color: '#fff',
-    backgroundColor: '#222',
+    color: '#000',
+    backgroundColor: '#fff',
   },
 });

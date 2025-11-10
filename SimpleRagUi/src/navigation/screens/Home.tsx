@@ -218,14 +218,14 @@ export function Home() {
       {/* Chat Selection Dropdown */}
       <View style={HomeStyles.dropdownContainer}>
         {loadingChats ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="#666" />
         ) : (
           <View style={HomeStyles.pickerWrapper}>
             <Picker
               selectedValue={selectedChatId}
               onValueChange={(value) => setSelectedChatId(value)}
               style={HomeStyles.picker}
-              dropdownIconColor="#fff"
+              dropdownIconColor="#666"
             >
               <Picker.Item label="Select a chat..." value="" />
               {chats.map((chat) => (
@@ -253,7 +253,7 @@ export function Home() {
             value={text}
             onChangeText={setText}
             placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-            placeholderTextColor="#888"
+            placeholderTextColor="#999"
             multiline={false}
             autoComplete="off"
             autoCorrect={false}
