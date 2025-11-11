@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, SafeAreaView, ScrollView, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, SafeAreaView, ScrollView, ActivityIndicator, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Window } from '../../components/Window';
 import styles from '../../styles/ChunksStyles';
@@ -7,6 +7,7 @@ import { getCollections } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 import { getChunks, updateChunk, deleteChunk } from '../../api/chunks';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
+import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 
 type Chunk = {
   id: string;
@@ -37,11 +38,97 @@ export function Chunks() {
   const [deleting, setDeleting] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [chunkToDelete, setChunkToDelete] = useState<Chunk | null>(null);
+  const [editedChunkTexts, setEditedChunkTexts] = useState<{ [id: string]: string }>({});
+  
+  // Update modal state
+  const [updateConfirmVisible, setUpdateConfirmVisible] = useState(false);
+  const [updateResultVisible, setUpdateResultVisible] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
+  const [chunkToUpdate, setChunkToUpdate] = useState<Chunk | null>(null);
+
+  const handleChunkTextChange = (chunkId: string, newText: string) => {
+    setEditedChunkTexts((prev) => ({ ...prev, [chunkId]: newText }));
+  };
+
+  const isChunkTextChanged = (chunk: Chunk) => {
+    return (
+      editedChunkTexts[chunk.id] !== undefined &&
+      editedChunkTexts[chunk.id] !== chunk.text
+    );
+  };
 
   const handleUpdateChunk = (chunk: Chunk) => {
-    // For now, just log - you can add an edit modal later
-    console.log('Update chunk:', chunk);
-    Alert.alert('Update Chunk', `Update functionality for chunk ${chunk.id} - implement edit form here`);
+    if (!isChunkTextChanged(chunk)) return;
+    setChunkToUpdate(chunk);
+    setUpdateConfirmVisible(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!chunkToUpdate) return;
+    const newText = editedChunkTexts[chunkToUpdate.id];
+    setUpdateConfirmVisible(false);
+    setUpdateResultVisible(true);
+    setUpdating(true);
+    
+    // Call updateChunk API
+    updateChunk(selectedCollectionId, chunkToUpdate.id, { ...chunkToUpdate, text: newText })
+      .then(() => {
+        setUpdating(false);
+        setUpdateResult({
+          success: true,
+          message: 'Chunk updated successfully',
+        });
+      })
+      .catch((err) => {
+        setUpdating(false);
+        setUpdateResult({
+          success: false,
+          message: err.message || 'Failed to update chunk',
+        });
+      });
+  };
+
+  const handleCancelUpdate = () => {
+    setUpdateConfirmVisible(false);
+    setChunkToUpdate(null);
+  };
+
+  const handleCloseUpdateModal = () => {
+    setUpdateResultVisible(false);
+    const wasSuccessful = updateResult?.success;
+    if (wasSuccessful) {
+      // Reload the chunks list for the current page and filters
+      const params: any = {
+        collectionId: selectedCollectionId,
+        page: currentPage,
+        size: pageSize,
+      };
+      if (selectedDocumentId) {
+        params.documentId = selectedDocumentId;
+      }
+      setLoadingChunks(true);
+      getChunks(params)
+        .then((res) => {
+          const data = res.data;
+          const chunksArray = Array.isArray(data) ? data : [];
+          setChunks(chunksArray);
+          setHasMorePages(chunksArray.length === pageSize);
+          setLoadingChunks(false);
+        })
+        .catch((err) => {
+          setChunks([]);
+          setHasMorePages(false);
+          setLoadingChunks(false);
+        });
+      setEditedChunkTexts((prev) => {
+        const updated = { ...prev };
+        delete updated[chunkToUpdate!.id];
+        return updated;
+      });
+    }
+    setUpdateResult(null);
+    setChunkToUpdate(null);
   };
 
   const handleDeleteChunk = (chunk: Chunk) => {
@@ -52,26 +139,6 @@ export function Chunks() {
   const handleConfirmDelete = () => {
     if (!chunkToDelete) return;
     setConfirmModalVisible(false);
-    setDeleting(true);
-    setDeleteModalVisible(true);
-    setDeleteResult(null);
-    // Use the correct endpoint: /chunks/delete/{id}
-    deleteChunk(selectedCollectionId, chunkToDelete.id)
-      .then(() => {
-        setDeleteResult({
-          success: true,
-          message: `Chunk deleted successfully.`
-        });
-        setDeleting(false);
-      })
-      .catch((error) => {
-        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
-        setDeleteResult({
-          success: false,
-          message: `Failed to delete chunk: ${errorMessage}`
-        });
-        setDeleting(false);
-      });
   };
 
   const handleCancelDelete = () => {
@@ -329,7 +396,17 @@ export function Chunks() {
                       <View style={styles.chunkTextRow}>
                         <Text style={styles.chunkTextLabel}>Text:</Text>
                         <View style={styles.chunkTextArea}>
-                          <Text style={styles.chunkText}>{chunk.text}</Text>
+                          <TextInput
+                            style={styles.chunkText}
+                            multiline
+                            numberOfLines={5}
+                            value={
+                              editedChunkTexts[chunk.id] !== undefined
+                                ? editedChunkTexts[chunk.id]
+                                : chunk.text
+                            }
+                            onChangeText={(text) => handleChunkTextChange(chunk.id, text)}
+                          />
                         </View>
                       </View>
                       {/* Second row: All other fields */}
@@ -368,7 +445,11 @@ export function Chunks() {
                         <View style={styles.chunkActionsContainer}>
                           <TouchableOpacity
                             onPress={() => handleUpdateChunk(chunk)}
-                            style={styles.chunkUpdateButton}
+                            style={[
+                              styles.chunkUpdateButton,
+                              !isChunkTextChanged(chunk) && styles.chunkButtonDisabled,
+                            ]}
+                            disabled={!isChunkTextChanged(chunk)}
                           >
                             <Text style={styles.chunkButtonText}>Update</Text>
                           </TouchableOpacity>
@@ -426,6 +507,18 @@ export function Chunks() {
         onClose={handleCloseDeleteModal}
         confirmMessage={`Are you sure you want to delete this chunk?`}
         deletingMessage="Deleting chunk..."
+      />
+      <UpdateModal
+        confirmVisible={updateConfirmVisible}
+        itemName={chunkToUpdate?.id || ''}
+        onConfirm={handleConfirmUpdate}
+        onCancel={handleCancelUpdate}
+        resultVisible={updateResultVisible}
+        updating={updating}
+        updateResult={updateResult}
+        onClose={handleCloseUpdateModal}
+        confirmMessage={`Are you sure you want to update this chunk?`}
+        updatingMessage="Updating chunk..."
       />
     </SafeAreaView>
   );

@@ -1,5 +1,6 @@
 package io.github.jrohila.simpleragserver.repository;
 
+import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 // Removed ChunkRepository import
 import org.apache.commons.codec.digest.DigestUtils;
@@ -27,6 +28,9 @@ public class ChunkService {
         this.embeddingDim = embeddingDim;
     }
 
+    @Autowired
+    private EmbedClient embedService;
+    
     public ChunkEntity create(String collectionId, ChunkEntity chunk) {
         String now = java.time.Instant.now().toString();
         // Compute hash from text + sectionTitle
@@ -116,6 +120,7 @@ public class ChunkService {
         }
         chunk.setId(id);
         chunk.setHash(newHash);
+        chunk.setEmbedding(this.embedService.getEmbeddingAsList(chunk.getText()));
         if (chunk.getCreated() == null) {
             chunk.setCreated(now);
         }
