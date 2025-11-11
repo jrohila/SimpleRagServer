@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, Modal, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
@@ -36,6 +36,10 @@ export function Collections() {
   const [updating, setUpdating] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -95,29 +99,79 @@ export function Collections() {
   };
 
   const handleDelete = () => {
-    if (!selectedId) return;
-    Alert.alert('Confirm', 'Delete this collection?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: () => {
-          setUpdating(true);
-          deleteCollection(selectedId)
-            .then(() => {
-              Alert.alert('Deleted', 'Collection deleted');
-              setSelectedId('');
-              setUpdating(false);
-              getCollections().then((res) => {
-                const data = (res as any).data as Collection[];
-                setCollections(data);
-              });
-            })
-            .catch(() => {
-              Alert.alert('Error', 'Failed to delete collection');
-              setUpdating(false);
-            });
-        }
-      }
-    ]);
+    console.log('handleDelete called, selectedId:', selectedId, 'collection:', collection);
+    if (!selectedId) {
+      console.log('No collection selected');
+      return;
+    }
+    
+    // Show confirmation modal
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    console.log('Delete confirmed, starting operation...');
+    setConfirmModalVisible(false);
+    setDeleting(true);
+    setDeleteModalVisible(true);
+    setDeleteResult(null);
+    
+    deleteCollection(selectedId)
+      .then(() => {
+        console.log('Delete successful');
+        setDeleteResult({
+          success: true,
+          message: `Collection "${name}" has been successfully deleted.`
+        });
+        setDeleting(false);
+        
+        // Refresh collections list
+        console.log('Refreshing collections list...');
+        getCollections().then((res) => {
+          const data = (res as any).data as Collection[];
+          setCollections(data);
+          console.log('Collections list refreshed, count:', data.length);
+        });
+      })
+      .catch((error) => {
+        console.error('Delete failed:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
+        setDeleteResult({
+          success: false,
+          message: `Failed to delete collection: ${errorMessage}`
+        });
+        setDeleting(false);
+      });
+  };
+
+  const handleCancelDelete = () => {
+    console.log('Delete cancelled by user');
+    setConfirmModalVisible(false);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalVisible(false);
+    const wasSuccessful = deleteResult?.success;
+    setDeleteResult(null);
+    
+    if (wasSuccessful) {
+      console.log('Delete was successful, reloading collections and clearing selection...');
+      // Clear selection after successful delete
+      setSelectedId('');
+      setCollection(null);
+      setName('');
+      setDescription('');
+      setDocuments([]);
+      
+      // Reload collections list
+      getCollections().then((res) => {
+        const data = (res as any).data as Collection[];
+        setCollections(data);
+        console.log('Collections reloaded after modal close, count:', data.length);
+      }).catch((error) => {
+        console.error('Failed to reload collections:', error);
+      });
+    }
   };
 
   return (
@@ -169,7 +223,15 @@ export function Collections() {
                   <Button title="Update" onPress={handleUpdate} disabled={updating || !collection} />
                 </View>
                 <View style={styles.buttonWrapper}>
-                  <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !collection} />
+                  <Button 
+                    title="Delete" 
+                    onPress={() => {
+                      console.log('Delete button pressed');
+                      handleDelete();
+                    }} 
+                    color="red" 
+                    disabled={updating || deleting || !collection} 
+                  />
                 </View>
               </View>
               {/* Documents Table - Always Visible */}
@@ -211,6 +273,87 @@ export function Collections() {
           </View>
         </Window>
       </ScrollView>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={confirmModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirm Delete</Text>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.modalMessage}>
+                Are you sure you want to delete the collection "{name}"?
+              </Text>
+              <Text style={[styles.modalMessage, { marginTop: 8, fontSize: 14, color: '#dc3545' }]}>
+                This action cannot be undone.
+              </Text>
+            </View>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonDanger]}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.modalButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Result Modal */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseDeleteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {deleting ? 'Deleting Collection...' : 'Delete Result'}
+            </Text>
+            
+            {deleting ? (
+              <View style={styles.modalBody}>
+                <ActivityIndicator size="large" color="#007bff" />
+                <Text style={styles.modalMessage}>Please wait...</Text>
+              </View>
+            ) : deleteResult ? (
+              <View style={styles.modalBody}>
+                <Text style={[
+                  styles.modalMessage,
+                  { color: deleteResult.success ? '#28a745' : '#dc3545' }
+                ]}>
+                  {deleteResult.success ? '✓' : '✗'} {deleteResult.message}
+                </Text>
+              </View>
+            ) : null}
+            
+            {!deleting && deleteResult && (
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.modalButtonPrimary]}
+                  onPress={handleCloseDeleteModal}
+                >
+                  <Text style={styles.modalButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
