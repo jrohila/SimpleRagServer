@@ -6,6 +6,7 @@ import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
 import { getCollections } from '../../api/collections';
 import { getDocuments, getDocument, updateDocument, deleteDocument } from '../../api/documents';
+import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 
 type Collection = {
   id: string;
@@ -31,6 +32,10 @@ export function Documents() {
   const [docLoading, setDocLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -81,16 +86,46 @@ export function Documents() {
 
   const handleDelete = () => {
     if (!selectedCollectionId || !selectedDocumentId) return;
-    setUpdating(true);
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setConfirmModalVisible(false);
+    setDeleting(true);
+    setDeleteModalVisible(true);
+    setDeleteResult(null);
     deleteDocument(selectedCollectionId, selectedDocumentId)
       .then(() => {
+        setDeleteResult({
+          success: true,
+          message: `Document deleted successfully.`
+        });
+        setDeleting(false);
         setSelectedDocumentId('');
         setDocument(null);
-        setUpdating(false);
-        // Optionally reload documents
-        getDocuments(selectedCollectionId).then((res) => setDocuments(res.data || []));
       })
-      .catch(() => setUpdating(false));
+      .catch((error) => {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
+        setDeleteResult({
+          success: false,
+          message: `Failed to delete document: ${errorMessage}`
+        });
+        setDeleting(false);
+      });
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmModalVisible(false);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalVisible(false);
+    const wasSuccessful = deleteResult?.success;
+    setDeleteResult(null);
+    if (wasSuccessful && selectedCollectionId) {
+      // Reload documents after successful delete
+      getDocuments(selectedCollectionId).then((res) => setDocuments(res.data || []));
+    }
   };
 
   // File picker placeholder (replace with real file picker in production)
@@ -182,6 +217,18 @@ export function Documents() {
                 </View>
               </View>
             </View>
+            <DeleteModal
+              confirmVisible={confirmModalVisible}
+              itemName={document?.originalFilename || ''}
+              onConfirm={handleConfirmDelete}
+              onCancel={handleCancelDelete}
+              resultVisible={deleteModalVisible}
+              deleting={deleting}
+              deleteResult={deleteResult}
+              onClose={handleCloseDeleteModal}
+              confirmMessage={`Are you sure you want to delete the document \"${document?.originalFilename || ''}\"?`}
+              deletingMessage="Deleting document..."
+            />
           </View>
         </Window>
       </ScrollView>
