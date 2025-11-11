@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
+import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 import styles from '../../styles/CollectionsStyles';
 import { getCollections, getCollectionById, updateCollection, deleteCollection } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
@@ -41,6 +42,11 @@ export function Collections() {
   const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  
+  // Update modal state
+  const [updateConfirmVisible, setUpdateConfirmVisible] = useState(false);
+  const [updateResultVisible, setUpdateResultVisible] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -84,19 +90,77 @@ export function Collections() {
     }
   }, [selectedId]);
 
+  // Check if name or description has changed
+  const hasChanges = () => {
+    if (!collection) return false;
+    return (
+      name !== (collection.name || '') ||
+      description !== (collection.description || '')
+    );
+  };
+
   const handleUpdate = () => {
+    if (!selectedId || !collection || !hasChanges()) return;
+    setUpdateConfirmVisible(true);
+  };
+
+  const handleConfirmUpdate = () => {
     if (!selectedId || !collection) return;
+    setUpdateConfirmVisible(false);
+    setUpdateResultVisible(true);
     setUpdating(true);
+    setUpdateResult(null);
+    
     const updated = { ...collection, name, description };
     updateCollection(selectedId, updated)
       .then(() => {
-        Alert.alert('Success', 'Collection updated');
         setUpdating(false);
+        setUpdateResult({
+          success: true,
+          message: 'Collection updated successfully',
+        });
       })
-      .catch(() => {
-        Alert.alert('Error', 'Failed to update collection');
+      .catch((error) => {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setUpdating(false);
+        setUpdateResult({
+          success: false,
+          message: `Failed to update collection: ${errorMessage}`,
+        });
       });
+  };
+
+  const handleCancelUpdate = () => {
+    setUpdateConfirmVisible(false);
+  };
+
+  const handleCloseUpdateModal = () => {
+    setUpdateResultVisible(false);
+    const wasSuccessful = updateResult?.success;
+    if (wasSuccessful && selectedId) {
+      // Reload the collections dropdown list
+      getCollections()
+        .then((res) => {
+          const data = (res as any).data as Collection[];
+          setCollections(data);
+        })
+        .catch(() => {
+          console.error('Failed to reload collections list');
+        });
+      
+      // Reload the collection after successful update
+      getCollectionById(selectedId)
+        .then((res) => {
+          const data = res.data as Collection;
+          setCollection(data);
+          setName(data.name || '');
+          setDescription(data.description || '');
+        })
+        .catch(() => {
+          console.error('Failed to reload collection');
+        });
+    }
+    setUpdateResult(null);
   };
 
   const handleDelete = () => {
@@ -221,7 +285,7 @@ export function Collections() {
               <Text style={styles.dateField}>{collection?.modified || ''}</Text>
               <View style={styles.buttonCol}>
                 <View style={styles.buttonWrapper}>
-                  <Button title="Update" onPress={handleUpdate} disabled={updating || !collection} />
+                  <Button title="Update" onPress={handleUpdate} disabled={updating || !collection || !hasChanges()} />
                 </View>
                 <View style={styles.buttonWrapper}>
                   <Button 
@@ -287,6 +351,20 @@ export function Collections() {
         onClose={handleCloseDeleteModal}
         confirmMessage={`Are you sure you want to delete the collection "${name}"?`}
         deletingMessage="Deleting collection..."
+      />
+      
+      {/* Use the reusable UpdateModal component */}
+      <UpdateModal
+        confirmVisible={updateConfirmVisible}
+        itemName={name}
+        onConfirm={handleConfirmUpdate}
+        onCancel={handleCancelUpdate}
+        resultVisible={updateResultVisible}
+        updating={updating}
+        updateResult={updateResult}
+        onClose={handleCloseUpdateModal}
+        confirmMessage={`Are you sure you want to update the collection "${name}"?`}
+        updatingMessage="Updating collection..."
       />
     </SafeAreaView>
   );
