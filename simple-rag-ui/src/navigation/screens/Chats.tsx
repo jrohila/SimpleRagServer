@@ -7,6 +7,7 @@ import { Window } from '../../components/Window';
 import { getChats, getChatById, updateChat, deleteChat } from '../../api/chats';
 import { getCollections } from '../../api/collections';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
+import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 
 type Chat = {
   id: string;
@@ -32,6 +33,11 @@ export function Chats() {
   const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  
+  // Update modal state
+  const [updateConfirmVisible, setUpdateConfirmVisible] = useState(false);
+  const [updateResultVisible, setUpdateResultVisible] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
 
   // Form fields
   const [publicName, setPublicName] = useState('');
@@ -108,10 +114,37 @@ export function Chats() {
     }
   }, [selectedChatId]);
 
+  // Check if any field has changed
+  const hasChanges = () => {
+    if (!chatDetails) return false;
+    return (
+      publicName !== (chatDetails.publicName || '') ||
+      internalName !== (chatDetails.internalName || '') ||
+      internalDescription !== (chatDetails.internalDescription || '') ||
+      defaultLanguage !== (chatDetails.defaultLanguage || '') ||
+      defaultSystemPrompt !== (chatDetails.defaultSystemPrompt || '') ||
+      defaultSystemPromptAppend !== (chatDetails.defaultSystemPromptAppend || '') ||
+      defaultContextPrompt !== (chatDetails.defaultContextPrompt || '') ||
+      defaultMemoryPrompt !== (chatDetails.defaultMemoryPrompt || '') ||
+      defaultExtractorPrompt !== (chatDetails.defaultExtractorPrompt || '') ||
+      overrideSystemMessage !== (chatDetails.overrideSystemMessage || false) ||
+      overrideAssistantMessage !== (chatDetails.overrideAssistantMessage || false) ||
+      defaultCollectionId !== (chatDetails.defaultCollectionId || '')
+    );
+  };
 
   const handleUpdate = () => {
+    if (!selectedChatId || !chatDetails || !hasChanges()) return;
+    setUpdateConfirmVisible(true);
+  };
+
+  const handleConfirmUpdate = () => {
     if (!selectedChatId || !chatDetails) return;
+    setUpdateConfirmVisible(false);
+    setUpdateResultVisible(true);
     setUpdating(true);
+    setUpdateResult(null);
+    
     const updatedChat: Chat = {
       ...chatDetails,
       publicName,
@@ -129,13 +162,63 @@ export function Chats() {
     };
     updateChat(selectedChatId, updatedChat)
       .then(() => {
-        Alert.alert('Success', 'Chat updated');
         setUpdating(false);
+        setUpdateResult({
+          success: true,
+          message: 'Chat updated successfully',
+        });
       })
-      .catch(() => {
-        Alert.alert('Error', 'Failed to update chat');
+      .catch((error) => {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setUpdating(false);
+        setUpdateResult({
+          success: false,
+          message: `Failed to update chat: ${errorMessage}`,
+        });
       });
+  };
+
+  const handleCancelUpdate = () => {
+    setUpdateConfirmVisible(false);
+  };
+
+  const handleCloseUpdateModal = () => {
+    setUpdateResultVisible(false);
+    const wasSuccessful = updateResult?.success;
+    if (wasSuccessful && selectedChatId) {
+      // Reload the chats dropdown list
+      getChats()
+        .then((res) => {
+          const data = (res as any).data as Chat[];
+          setChats(data);
+        })
+        .catch(() => {
+          console.error('Failed to reload chats list');
+        });
+      
+      // Reload the chat details after successful update
+      getChatById(selectedChatId)
+        .then((res) => {
+          const data = (res as any).data as Chat;
+          setChatDetails(data);
+          setPublicName(data.publicName || '');
+          setInternalName(data.internalName || '');
+          setInternalDescription(data.internalDescription || '');
+          setDefaultLanguage(data.defaultLanguage || '');
+          setDefaultSystemPrompt(data.defaultSystemPrompt || '');
+          setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
+          setDefaultContextPrompt(data.defaultContextPrompt || '');
+          setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
+          setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
+          setOverrideSystemMessage(data.overrideSystemMessage || false);
+          setOverrideAssistantMessage(data.overrideAssistantMessage || false);
+          setDefaultCollectionId(data.defaultCollectionId || '');
+        })
+        .catch(() => {
+          console.error('Failed to reload chat');
+        });
+    }
+    setUpdateResult(null);
   };
 
 
@@ -332,7 +415,7 @@ export function Chats() {
             disabled={!chatDetails}
           />
         </View>
-        <Button title="Update" onPress={handleUpdate} disabled={updating || !chatDetails} />
+        <Button title="Update" onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
         <View style={{ height: 10 }} />
         <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
       </View>
@@ -351,6 +434,19 @@ export function Chats() {
         onClose={handleCloseDeleteModal}
         confirmMessage={`Are you sure you want to delete the chat \"${publicName}\"?`}
         deletingMessage="Deleting chat..."
+      />
+      
+      <UpdateModal
+        confirmVisible={updateConfirmVisible}
+        itemName={publicName}
+        onConfirm={handleConfirmUpdate}
+        onCancel={handleCancelUpdate}
+        resultVisible={updateResultVisible}
+        updating={updating}
+        updateResult={updateResult}
+        onClose={handleCloseUpdateModal}
+        confirmMessage={`Are you sure you want to update the chat \"${publicName}\"?`}
+        updatingMessage="Updating chat..."
       />
     </SafeAreaView>
   );
