@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, Modal, TouchableOpacity } from 'react-native';
+import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
+import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import styles from '../../styles/CollectionsStyles';
 import { getCollections, getCollectionById, updateCollection, deleteCollection } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
@@ -37,7 +38,7 @@ export function Collections() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [deleteResult, setDeleteResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
@@ -274,86 +275,19 @@ export function Collections() {
         </Window>
       </ScrollView>
 
-      {/* Confirmation Modal */}
-      <Modal
-        visible={confirmModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleCancelDelete}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Delete</Text>
-            
-            <View style={styles.modalBody}>
-              <Text style={styles.modalMessage}>
-                Are you sure you want to delete the collection "{name}"?
-              </Text>
-              <Text style={[styles.modalMessage, { marginTop: 8, fontSize: 14, color: '#dc3545' }]}>
-                This action cannot be undone.
-              </Text>
-            </View>
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handleCancelDelete}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.modalButtonDanger]}
-                onPress={handleConfirmDelete}
-              >
-                <Text style={styles.modalButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delete Result Modal */}
-      <Modal
-        visible={deleteModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleCloseDeleteModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {deleting ? 'Deleting Collection...' : 'Delete Result'}
-            </Text>
-            
-            {deleting ? (
-              <View style={styles.modalBody}>
-                <ActivityIndicator size="large" color="#007bff" />
-                <Text style={styles.modalMessage}>Please wait...</Text>
-              </View>
-            ) : deleteResult ? (
-              <View style={styles.modalBody}>
-                <Text style={[
-                  styles.modalMessage,
-                  { color: deleteResult.success ? '#28a745' : '#dc3545' }
-                ]}>
-                  {deleteResult.success ? '✓' : '✗'} {deleteResult.message}
-                </Text>
-              </View>
-            ) : null}
-            
-            {!deleting && deleteResult && (
-              <View style={styles.modalActions}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.modalButtonPrimary]}
-                  onPress={handleCloseDeleteModal}
-                >
-                  <Text style={styles.modalButtonText}>OK</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+      {/* Use the reusable DeleteModal component */}
+      <DeleteModal
+        confirmVisible={confirmModalVisible}
+        itemName={name}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        resultVisible={deleteModalVisible}
+        deleting={deleting}
+        deleteResult={deleteResult}
+        onClose={handleCloseDeleteModal}
+        confirmMessage={`Are you sure you want to delete the collection "${name}"?`}
+        deletingMessage="Deleting collection..."
+      />
     </SafeAreaView>
   );
 }
