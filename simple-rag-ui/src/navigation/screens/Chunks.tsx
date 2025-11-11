@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState } from 'react';
 import { View, SafeAreaView, ScrollView, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -9,6 +6,7 @@ import styles from '../../styles/ChunksStyles';
 import { getCollections } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 import { getChunks, updateChunk, deleteChunk } from '../../api/chunks';
+import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 
 type Chunk = {
   id: string;
@@ -34,6 +32,11 @@ export function Chunks() {
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(20);
   const [hasMorePages, setHasMorePages] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [chunkToDelete, setChunkToDelete] = useState<Chunk | null>(null);
 
   const handleUpdateChunk = (chunk: Chunk) => {
     // For now, just log - you can add an edit modal later
@@ -42,29 +45,70 @@ export function Chunks() {
   };
 
   const handleDeleteChunk = (chunk: Chunk) => {
-    Alert.alert(
-      'Delete Chunk',
-      'Are you sure you want to delete this chunk?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteChunk(selectedCollectionId, chunk.id)
-              .then(() => {
-                // Refresh chunks list
-                setChunks(chunks.filter((c) => c.id !== chunk.id));
-                Alert.alert('Success', 'Chunk deleted successfully');
-              })
-              .catch((err) => {
-                console.error('Error deleting chunk:', err);
-                Alert.alert('Error', 'Failed to delete chunk');
-              });
-          },
-        },
-      ]
-    );
+    setChunkToDelete(chunk);
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!chunkToDelete) return;
+    setConfirmModalVisible(false);
+    setDeleting(true);
+    setDeleteModalVisible(true);
+    setDeleteResult(null);
+    // Use the correct endpoint: /chunks/delete/{id}
+    deleteChunk(selectedCollectionId, chunkToDelete.id)
+      .then(() => {
+        setDeleteResult({
+          success: true,
+          message: `Chunk deleted successfully.`
+        });
+        setDeleting(false);
+      })
+      .catch((error) => {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
+        setDeleteResult({
+          success: false,
+          message: `Failed to delete chunk: ${errorMessage}`
+        });
+        setDeleting(false);
+      });
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmModalVisible(false);
+    setChunkToDelete(null);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalVisible(false);
+    const wasSuccessful = deleteResult?.success;
+    if (wasSuccessful) {
+      // Reload chunks for the current page and filters
+      const params: any = {
+        collectionId: selectedCollectionId,
+        page: currentPage,
+        size: pageSize,
+      };
+      if (selectedDocumentId) {
+        params.documentId = selectedDocumentId;
+      }
+      setLoadingChunks(true);
+      getChunks(params)
+        .then((res) => {
+          const data = res.data;
+          const chunksArray = Array.isArray(data) ? data : [];
+          setChunks(chunksArray);
+          setHasMorePages(chunksArray.length === pageSize);
+          setLoadingChunks(false);
+        })
+        .catch((err) => {
+          setChunks([]);
+          setHasMorePages(false);
+          setLoadingChunks(false);
+        });
+    }
+    setDeleteResult(null);
+    setChunkToDelete(null);
   };
 
   useEffect(() => {
@@ -129,7 +173,9 @@ export function Chunks() {
     }
     // Reset page when collection changes
     setCurrentPage(0);
-  }, [selectedCollectionId]);  return (
+  }, [selectedCollectionId]);
+
+  return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView>
         <Window>
@@ -369,6 +415,18 @@ export function Chunks() {
           </View>
         </Window>
       </ScrollView>
+      <DeleteModal
+        confirmVisible={confirmModalVisible}
+        itemName={chunkToDelete?.id || ''}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        resultVisible={deleteModalVisible}
+        deleting={deleting}
+        deleteResult={deleteResult}
+        onClose={handleCloseDeleteModal}
+        confirmMessage={`Are you sure you want to delete this chunk?`}
+        deletingMessage="Deleting chunk..."
+      />
     </SafeAreaView>
   );
 }
