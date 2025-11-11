@@ -204,7 +204,7 @@ export function Documents() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>Select File</Text>
                   <View style={{ flex: 1 }}>
-                    <Button title={file ? 'File Selected' : 'Choose File'} onPress={handleFileSelect} />
+                    <Button title={file ? 'File Selected' : 'Choose File'} onPress={handleFileSelect} disabled={!selectedDocumentId} />
                   </View>
                 </View>
               </View>
