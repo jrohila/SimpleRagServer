@@ -1,9 +1,18 @@
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
 import { Window } from '../../components/Window';
 import { GlobalStyles } from '../../styles/GlobalStyles';
+
+interface SelectedFile {
+  uri: string;
+  name: string;
+  size?: number;
+  mimeType?: string;
+  file?: File; // For web compatibility
+}
 
 export function Onboarding() {
   // Example values from Swagger for /api/onboarding/createNewChat
@@ -22,6 +31,9 @@ export function Onboarding() {
     overrideSystemMessage: true,
     overrideAssistantMessage: true,
   });
+
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleChange = (name: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -43,11 +55,97 @@ export function Onboarding() {
       overrideSystemMessage: true,
       overrideAssistantMessage: true,
     });
+    setSelectedFiles([]);
   };
 
-  const handleCreate = () => {
-    // TODO: Implement API call to /api/onboarding/createNewChat
-    Alert.alert('Create', 'Form submitted! (API call not implemented)');
+  const handlePickFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newFiles: SelectedFile[] = result.assets.map((asset) => ({
+          uri: asset.uri,
+          name: asset.name,
+          size: asset.size,
+          mimeType: asset.mimeType || undefined,
+          file: (asset as any).file, // Keep raw File object for web
+        }));
+        setSelectedFiles((prev) => [...prev, ...newFiles]);
+        console.log('Files selected:', newFiles.map(f => f.name).join(', '));
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick files');
+      console.error('File picker error:', error);
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCreate = async () => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      
+      // Append all form fields
+      formData.append('publicName', form.publicName);
+      formData.append('internalName', form.internalName);
+      formData.append('internalDescription', form.internalDescription);
+      formData.append('defaultLanguage', form.defaultLanguage);
+      formData.append('defaultSystemPrompt', form.defaultSystemPrompt);
+      formData.append('defaultSystemPromptAppend', form.defaultSystemPromptAppend);
+      formData.append('defaultContextPrompt', form.defaultContextPrompt);
+      formData.append('defaultMemoryPrompt', form.defaultMemoryPrompt);
+      formData.append('defaultExtractorPrompt', form.defaultExtractorPrompt);
+      formData.append('defaultOutOfScopeContext', '');
+      formData.append('defaultOutOfScopeMessage', '');
+      formData.append('collectionName', form.collectionName);
+      formData.append('collectionDescription', form.collectionDescription);
+      formData.append('overrideSystemMessage', form.overrideSystemMessage.toString());
+      formData.append('overrideAssistantMessage', form.overrideAssistantMessage.toString());
+
+      // Append files
+      selectedFiles.forEach((file) => {
+        // For web, use the File object directly if available
+        if (file.file) {
+          formData.append('file', file.file);
+          console.log('Appending web file:', file.name, file.file.type);
+        } else {
+          // For React Native (mobile)
+          formData.append('file', {
+            uri: file.uri,
+            name: file.name,
+            type: file.mimeType || 'application/octet-stream',
+          } as any);
+          console.log('Appending native file:', file.name, file.mimeType);
+        }
+      });
+
+      console.log('Sending request with', selectedFiles.length, 'files');
+      const response = await fetch('http://localhost:8080/api/onboarding/createNewChat', {
+        method: 'POST',
+        body: formData,
+        // DO NOT set Content-Type header - let the browser set it with boundary
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      Alert.alert('Success', `Chat "${result.chat.publicName}" created successfully!`);
+      handleClear();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create chat: ' + (error as Error).message);
+      console.error('Upload error:', error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -84,9 +182,46 @@ export function Onboarding() {
             <Text>Override Assistant Message</Text>
             <Button title={form.overrideAssistantMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideAssistantMessage', !form.overrideAssistantMessage)} />
           </View>
+
+          {/* File Upload Section */}
+          <Text style={styles.label}>Upload Documents (Optional)</Text>
+          <TouchableOpacity style={styles.uploadButton} onPress={handlePickFiles} disabled={isUploading}>
+            <Text style={styles.uploadButtonText}>
+              {isUploading ? 'Uploading...' : '+ Select Files'}
+            </Text>
+          </TouchableOpacity>
+
+          {selectedFiles.length > 0 && (
+            <View style={styles.filesContainer}>
+              <Text style={styles.filesTitle}>Selected Files ({selectedFiles.length}):</Text>
+              {selectedFiles.map((file, index) => (
+                <View key={index} style={styles.fileItem}>
+                  <View style={styles.fileInfo}>
+                    <Text style={styles.fileName} numberOfLines={1}>
+                      {file.name}
+                    </Text>
+                    {file.size && (
+                      <Text style={styles.fileSize}>
+                        {(file.size / 1024).toFixed(1)} KB
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => handleRemoveFile(index)} disabled={isUploading}>
+                    <Text style={styles.removeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={styles.buttonRow}>
-            <Button title="Cancel" onPress={handleClear} color="#888" />
-            <Button title="Create" onPress={handleCreate} color="#007bff" />
+            <Button title="Cancel" onPress={handleClear} color="#888" disabled={isUploading} />
+            <Button 
+              title={isUploading ? 'Creating...' : 'Create'} 
+              onPress={handleCreate} 
+              color="#007bff" 
+              disabled={isUploading}
+            />
           </View>
         </Window>
       </ScrollView>
@@ -131,5 +266,60 @@ const styles = StyleSheet.create({
     marginTop: 20,
     width: '100%',
     gap: 8,
+  },
+  uploadButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  uploadButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  filesContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  filesTitle: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    fontSize: 14,
+  },
+  fileItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  fileInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  fileSize: {
+    fontSize: 12,
+    color: '#666',
+  },
+  removeButton: {
+    color: '#dc3545',
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
   },
 });
