@@ -1,13 +1,12 @@
-
-
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, TextInput, Button, ActivityIndicator } from 'react-native';
 import styles from '../../styles/ChatsStyles';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import { getChats, getChatById, updateChat, deleteChat } from '../../api/chats';
 import { getCollections } from '../../api/collections';
+import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 
 type Chat = {
   id: string;
@@ -29,6 +28,10 @@ export function Chats() {
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   // Form fields
   const [publicName, setPublicName] = useState('');
@@ -138,29 +141,54 @@ export function Chats() {
 
   const handleDelete = () => {
     if (!selectedChatId) return;
-    Alert.alert('Confirm', 'Delete this chat?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: () => {
-          setUpdating(true);
-          deleteChat(selectedChatId)
-            .then(() => {
-              Alert.alert('Deleted', 'Chat deleted');
-              setSelectedChatId('');
-              setUpdating(false);
-              // Refresh chat list
-              getChats().then((res) => {
-                const data = (res as any).data as Chat[];
-                setChats(data);
-              });
-            })
-            .catch(() => {
-              Alert.alert('Error', 'Failed to delete chat');
-              setUpdating(false);
-            });
-        }
-      }
-    ]);
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setConfirmModalVisible(false);
+    setDeleting(true);
+    setDeleteModalVisible(true);
+    setDeleteResult(null);
+    deleteChat(selectedChatId)
+      .then(() => {
+        setDeleteResult({
+          success: true,
+          message: `Chat "${publicName}" has been successfully deleted.`
+        });
+        setDeleting(false);
+        setSelectedChatId('');
+        setChatDetails(null);
+        // Refresh chat list
+        getChats().then((res) => {
+          const data = (res as any).data as Chat[];
+          setChats(data);
+        });
+      })
+      .catch((error) => {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
+        setDeleteResult({
+          success: false,
+          message: `Failed to delete chat: ${errorMessage}`
+        });
+        setDeleting(false);
+      });
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmModalVisible(false);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalVisible(false);
+    const wasSuccessful = deleteResult?.success;
+    setDeleteResult(null);
+    if (wasSuccessful) {
+      // Reload chat list after successful delete
+      getChats().then((res) => {
+        const data = (res as any).data as Chat[];
+        setChats(data);
+      });
+    }
   };
 
   return (
@@ -312,6 +340,18 @@ export function Chats() {
     </Window>
       </ScrollView>
 
+      <DeleteModal
+        confirmVisible={confirmModalVisible}
+        itemName={publicName}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        resultVisible={deleteModalVisible}
+        deleting={deleting}
+        deleteResult={deleteResult}
+        onClose={handleCloseDeleteModal}
+        confirmMessage={`Are you sure you want to delete the chat \"${publicName}\"?`}
+        deletingMessage="Deleting chat..."
+      />
     </SafeAreaView>
   );
 }
