@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import io.github.jrohila.simpleragserver.domain.DocumentEntity;
+import io.github.jrohila.simpleragserver.repository.DocumentService;
+
 @Service
 public class CollectionService {
 
@@ -24,6 +27,9 @@ public class CollectionService {
 
     @Autowired
     private OpenSearchClient openSearchClient;
+
+    @Autowired
+    private DocumentService documentService;
 
     public CollectionEntity create(CollectionEntity collection) {
         if (collection.getId() == null || collection.getId().isBlank()) {
@@ -97,6 +103,11 @@ public class CollectionService {
 
     public boolean deleteById(String id) {
         try {
+            // Get all documents in the collection (use a large size to get all, or implement paging if needed)
+            List<DocumentEntity> documents = documentService.listDocuments(id, 0, 10000);
+            for (DocumentEntity doc : documents) {
+                documentService.deleteDocument(id, doc.getId());
+            }
             String indexName = indicesManager.createIfNotExist(null, CollectionEntity.class);
             openSearchClient.delete(DeleteRequest.of(d -> d.index(indexName).id(id)));
             return true;
