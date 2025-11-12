@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { Window } from '../../components/Window';
 import { GlobalStyles } from '../../styles/GlobalStyles';
+import { CreateModal, CreateResult } from '../../components/CreateModal';
 
 interface SelectedFile {
   uri: string;
@@ -34,6 +35,11 @@ export function Onboarding() {
 
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Create modal state
+  const [createConfirmVisible, setCreateConfirmVisible] = useState(false);
+  const [createResultVisible, setCreateResultVisible] = useState(false);
+  const [createResult, setCreateResult] = useState<CreateResult | null>(null);
 
   const handleChange = (name: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -88,7 +94,15 @@ export function Onboarding() {
   };
 
   const handleCreate = async () => {
+    setCreateConfirmVisible(true);
+  };
+
+  const handleConfirmCreate = async () => {
+    setCreateConfirmVisible(false);
+    setCreateResultVisible(true);
     setIsUploading(true);
+    setCreateResult(null);
+    
     try {
       const formData = new FormData();
       
@@ -138,14 +152,33 @@ export function Onboarding() {
       }
 
       const result = await response.json();
-      Alert.alert('Success', `Chat "${result.chat.publicName}" created successfully!`);
-      handleClear();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create chat: ' + (error as Error).message);
-      console.error('Upload error:', error);
-    } finally {
       setIsUploading(false);
+      setCreateResult({
+        success: true,
+        message: `Chat "${result.chat.publicName}" created successfully!`,
+      });
+    } catch (error) {
+      setIsUploading(false);
+      setCreateResult({
+        success: false,
+        message: 'Failed to create chat: ' + (error as Error).message,
+      });
+      console.error('Upload error:', error);
     }
+  };
+
+  const handleCancelCreate = () => {
+    setCreateConfirmVisible(false);
+  };
+
+  const handleCloseCreateModal = () => {
+    setCreateResultVisible(false);
+    const wasSuccessful = createResult?.success;
+    if (wasSuccessful) {
+      // Clear the form after successful creation
+      handleClear();
+    }
+    setCreateResult(null);
   };
 
   return (
@@ -225,6 +258,19 @@ export function Onboarding() {
           </View>
         </Window>
       </ScrollView>
+      
+      <CreateModal
+        confirmVisible={createConfirmVisible}
+        itemName={form.publicName}
+        onConfirm={handleConfirmCreate}
+        onCancel={handleCancelCreate}
+        resultVisible={createResultVisible}
+        creating={isUploading}
+        createResult={createResult}
+        onClose={handleCloseCreateModal}
+        confirmMessage={`Are you sure you want to create the chat "${form.publicName}" with ${selectedFiles.length} file(s)?`}
+        creatingMessage="Creating chat and uploading files..."
+      />
     </SafeAreaView>
   );
 }

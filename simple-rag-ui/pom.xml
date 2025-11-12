@@ -7,7 +7,7 @@
         <artifactId>simple-rag-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>    
     </parent>
-    
+    <name>SimpleRagUi</name>
     <artifactId>simple-rag-ui</artifactId>
     <packaging>jar</packaging>
     <properties>
