@@ -35,7 +35,7 @@ export const HomeStyles = StyleSheet.create({
   dropdownContainer: {
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -45,10 +45,14 @@ export const HomeStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     overflow: 'hidden',
+    minHeight: 24,
   },
   picker: {
     color: '#000',
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    fontSize: 14,
+    height: 24,
   },
   usernameContainer: {
     marginBottom: 4,
