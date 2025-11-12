@@ -1,6 +1,6 @@
 import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, TextInput, Platform, ActivityIndicator, Alert, Text, SafeAreaView } from 'react-native';
+import { View, TextInput, Platform, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Markdown from 'react-native-markdown-display';
 import { HomeStyles, bubbleStyles, userBubbleStyles, markdownStyles } from '../../styles/HomeStyles';
@@ -13,6 +13,8 @@ type Chat = {
 };
 
 export function Home() {
+  // Store message histories for each chat
+  const [chatHistories, setChatHistories] = useState<{ [chatId: string]: IMessage[] }>({});
   const [messages, setMessages] = useState<IMessage[]>([{
     _id: 1,
     text: 'Hello! How can I help you today?',
@@ -42,6 +44,42 @@ export function Home() {
       })
       .catch(() => setLoadingChats(false));
   }, []);
+
+  // Update messages when selectedChatId changes
+  useEffect(() => {
+    if (selectedChatId) {
+      // Load chat history for the selected chat, or use default welcome message
+      if (chatHistories[selectedChatId]) {
+        setMessages(chatHistories[selectedChatId]);
+      } else {
+        // Initialize with welcome message for new chat
+        const welcomeMessage: IMessage = {
+          _id: `${selectedChatId}-welcome-${Date.now()}`,
+          text: 'Hello! How can I help you today?',
+          createdAt: new Date(),
+          user: {
+            _id: 2,
+            name: 'SimpleRagServer',
+          },
+        };
+        setMessages([welcomeMessage]);
+        setChatHistories(prev => ({
+          ...prev,
+          [selectedChatId]: [welcomeMessage]
+        }));
+      }
+    }
+  }, [selectedChatId]);
+
+  // Save messages to chat history whenever they change
+  useEffect(() => {
+    if (selectedChatId && messages.length > 0) {
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedChatId]: messages
+      }));
+    }
+  }, [messages, selectedChatId]);
 
   const selectedChat = chats.find(c => c.id === selectedChatId);
 
@@ -182,6 +220,30 @@ export function Home() {
     }
   };
 
+  const handleClearHistory = () => {
+    if (!selectedChatId) return;
+    
+    // Create a new welcome message
+    const welcomeMessage: IMessage = {
+      _id: `${selectedChatId}-welcome-${Date.now()}`,
+      text: 'Hello! How can I help you today?',
+      createdAt: new Date(),
+      user: {
+        _id: 2,
+        name: 'SimpleRagServer',
+      },
+    };
+    
+    // Reset messages to just the welcome message
+    setMessages([welcomeMessage]);
+    
+    // Update chat histories
+    setChatHistories(prev => ({
+      ...prev,
+      [selectedChatId]: [welcomeMessage]
+    }));
+  };
+
   const onSend = useCallback((newMessages: IMessage[] = []) => {
     if (!selectedChat) {
       Alert.alert('Error', 'Please select a chat first');
@@ -218,19 +280,31 @@ export function Home() {
         {loadingChats ? (
           <ActivityIndicator color="#666" />
         ) : (
-          <View style={HomeStyles.pickerWrapper}>
-            <Picker
-              selectedValue={selectedChatId}
-              onValueChange={(value) => setSelectedChatId(value)}
-              style={HomeStyles.picker}
-              dropdownIconColor="#666"
+          <>
+            <View style={HomeStyles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedChatId}
+                onValueChange={(value) => setSelectedChatId(value)}
+                style={HomeStyles.picker}
+                dropdownIconColor="#666"
+              >
+                <Picker.Item label="Select a chat..." value="" />
+                {chats.map((chat) => (
+                  <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
+                ))}
+              </Picker>
+            </View>
+            <TouchableOpacity
+              style={[
+                HomeStyles.clearButton,
+                (!selectedChatId || isGenerating) && HomeStyles.clearButtonDisabled
+              ]}
+              onPress={handleClearHistory}
+              disabled={!selectedChatId || isGenerating}
             >
-              <Picker.Item label="Select a chat..." value="" />
-              {chats.map((chat) => (
-                <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
-              ))}
-            </Picker>
-          </View>
+              <Text style={HomeStyles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
 
