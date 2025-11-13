@@ -27,5 +27,14 @@ if ! ollama list | grep -q "ibm/granite4:tiny-h"; then
     ollama pull ibm/granite4:tiny-hf
 fi
 
+echo "Pulling ibm/granite4:micro-h..."
+ollama pull ibm/granite4:micro-h || echo "Warning: ibm/granite4:micro-h not found. Trying ibm/granite4:micro-hf..."
+
+# If ibm/granite4:micro-h fails, try ibm/granite4:micro-hf
+if ! ollama list | grep -q "ibm/granite4:micro-h"; then
+    echo "Trying ibm/granite4:micro-hf as alternative..."
+    ollama pull ibm/granite4:micro-hf
+fi
+
 echo "Model setup complete!"
 ollama list
