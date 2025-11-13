@@ -104,8 +104,8 @@ public class DocumentChunkerService {
         );
         var polled = doclingAsyncClient.pollChunkUntilTerminal(
             startRes.operationId() != null ? startRes.operationId() : startRes.pollUrl(),
-            1200_000L,
-            500L
+            4800_000L,
+            60000L
         );
         if (polled.status() == null || !polled.status().isSuccess()) {
             LOGGER.warning("Async Docling chunking did not complete successfully; falling back to sync.");

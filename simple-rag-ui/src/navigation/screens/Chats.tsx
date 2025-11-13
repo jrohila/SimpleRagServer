@@ -46,6 +46,7 @@ export function Chats() {
   const [defaultLanguage, setDefaultLanguage] = useState('');
   const [defaultSystemPrompt, setDefaultSystemPrompt] = useState('');
   const [defaultSystemPromptAppend, setDefaultSystemPromptAppend] = useState('');
+  const [defaultOutOfScopeMessage, setDefaultOutOfScopeMessage] = useState('');
   const [defaultContextPrompt, setDefaultContextPrompt] = useState('');
   const [defaultMemoryPrompt, setDefaultMemoryPrompt] = useState('');
   const [defaultExtractorPrompt, setDefaultExtractorPrompt] = useState('');
@@ -88,6 +89,7 @@ export function Chats() {
           setDefaultLanguage(data.defaultLanguage || '');
           setDefaultSystemPrompt(data.defaultSystemPrompt || '');
           setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
+          setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
           setDefaultContextPrompt(data.defaultContextPrompt || '');
           setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
           setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
@@ -105,6 +107,7 @@ export function Chats() {
       setDefaultLanguage('');
       setDefaultSystemPrompt('');
       setDefaultSystemPromptAppend('');
+      setDefaultOutOfScopeMessage('');
       setDefaultContextPrompt('');
       setDefaultMemoryPrompt('');
       setDefaultExtractorPrompt('');
@@ -124,6 +127,7 @@ export function Chats() {
       defaultLanguage !== (chatDetails.defaultLanguage || '') ||
       defaultSystemPrompt !== (chatDetails.defaultSystemPrompt || '') ||
       defaultSystemPromptAppend !== (chatDetails.defaultSystemPromptAppend || '') ||
+      defaultOutOfScopeMessage !== (chatDetails.defaultOutOfScopeMessage || '') ||
       defaultContextPrompt !== (chatDetails.defaultContextPrompt || '') ||
       defaultMemoryPrompt !== (chatDetails.defaultMemoryPrompt || '') ||
       defaultExtractorPrompt !== (chatDetails.defaultExtractorPrompt || '') ||
@@ -153,6 +157,7 @@ export function Chats() {
       defaultLanguage,
       defaultSystemPrompt,
       defaultSystemPromptAppend,
+      defaultOutOfScopeMessage,
       defaultContextPrompt,
       defaultMemoryPrompt,
       defaultExtractorPrompt,
@@ -207,6 +212,7 @@ export function Chats() {
           setDefaultLanguage(data.defaultLanguage || '');
           setDefaultSystemPrompt(data.defaultSystemPrompt || '');
           setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
+          setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
           setDefaultContextPrompt(data.defaultContextPrompt || '');
           setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
           setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
@@ -361,6 +367,16 @@ export function Chats() {
           value={defaultSystemPromptAppend}
           onChangeText={setDefaultSystemPromptAppend}
           placeholder="Default System Prompt Append"
+          editable={!!chatDetails}
+          multiline
+          numberOfLines={5}
+        />
+        <Text style={styles.label}>Default Out of Scope Message</Text>
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          value={defaultOutOfScopeMessage}
+          onChangeText={setDefaultOutOfScopeMessage}
+          placeholder="Default Out of Scope Message"
           editable={!!chatDetails}
           multiline
           numberOfLines={5}
