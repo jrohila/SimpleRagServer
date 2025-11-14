@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, SafeAreaView, ScrollView, ActivityIndicator, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Window } from '../../components/Window';
 import styles from '../../styles/ChunksStyles';
@@ -216,14 +217,16 @@ export function Chunks() {
     }
   }, [selectedCollectionId, selectedDocumentId, currentPage, pageSize]);
 
-  useEffect(() => {
-    setLoadingCollections(true);
-    getCollections().then((res) => {
-      console.log('Collections response:', res.data);
-      setCollections(res.data || []);
-      setLoadingCollections(false);
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setLoadingCollections(true);
+      getCollections().then((res) => {
+        console.log('Collections response:', res.data);
+        setCollections(res.data || []);
+        setLoadingCollections(false);
+      });
+    }, [])
+  );
 
   useEffect(() => {
     if (selectedCollectionId) {

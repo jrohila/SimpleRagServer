@@ -90,6 +90,7 @@ public class IndicesManager {
                 .properties("overrideSystemMessage", p -> p.boolean_(b -> b))
                 .properties("overrideAssistantMessage", p -> p.boolean_(b -> b))
                 .properties("defaultOutOfScopeMessage", p -> p.text(t -> t))
+                .properties("welcomeMessage", p -> p.text(t -> t))
                 )
                 .build();
 

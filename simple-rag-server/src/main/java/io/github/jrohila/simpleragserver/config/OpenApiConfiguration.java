@@ -14,6 +14,9 @@ public class OpenApiConfiguration {
     @Value("${processing.chat.out-of-scope-message}")
     private String outOfScopeMessage;
 
+    @Value("${processing.chat.welcome-message}")
+    private String welcomeMessage;
+
     @Value("${processing.chat.system.prompt}")
     private String systemPrompt;
     @Value("${processing.chat.system.append}")
@@ -49,6 +52,7 @@ public class OpenApiConfiguration {
                     onboardingSchema.getProperties().put("defaultExtractorPrompt", new StringSchema().example(extractorPrompt));
                     onboardingSchema.getProperties().put("defaultOutOfScopeContext", new StringSchema().example(outOfScopePrompt));
                     onboardingSchema.getProperties().put("defaultOutOfScopeMessage", new StringSchema().example(outOfScopeMessage));
+                    onboardingSchema.getProperties().put("welcomeMessage", new StringSchema().example(welcomeMessage));
                     onboardingSchema.getProperties().put("collectionName", new StringSchema().example("Onboarding Collection"));
                     onboardingSchema.getProperties().put("collectionDescription", new StringSchema().example("A collection for onboarding documents."));
                     onboardingSchema.getProperties().put("overrideSystemMessage", new Schema<Boolean>().type("boolean").example(true));
@@ -92,6 +96,9 @@ public class OpenApiConfiguration {
                                     }
                                     if (param.getName().equals("defaultOutOfScopeMessage")) {
                                         param.setExample(outOfScopeMessage);
+                                    }
+                                    if (param.getName().equals("welcomeMessage")) {
+                                        param.setExample(welcomeMessage);
                                     }
                                     if (param.getName().equals("collectionName")) {
                                         param.setExample("Onboarding Collection");

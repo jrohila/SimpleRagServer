@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, Text, TextInput, Button, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
@@ -48,16 +49,18 @@ export function Collections() {
   const [updateResultVisible, setUpdateResultVisible] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    getCollections()
-      .then((res) => {
-        const data = (res as any).data as Collection[];
-        setCollections(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      getCollections()
+        .then((res) => {
+          const data = (res as any).data as Collection[];
+          setCollections(data);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    }, [])
+  );
 
   useEffect(() => {
     if (selectedId) {

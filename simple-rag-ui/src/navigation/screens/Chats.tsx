@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, Text, TextInput, Button, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import styles from '../../styles/ChatsStyles';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,6 +47,7 @@ export function Chats() {
   const [defaultLanguage, setDefaultLanguage] = useState('');
   const [defaultSystemPrompt, setDefaultSystemPrompt] = useState('');
   const [defaultSystemPromptAppend, setDefaultSystemPromptAppend] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
   const [defaultOutOfScopeMessage, setDefaultOutOfScopeMessage] = useState('');
   const [defaultContextPrompt, setDefaultContextPrompt] = useState('');
   const [defaultMemoryPrompt, setDefaultMemoryPrompt] = useState('');
@@ -53,27 +55,27 @@ export function Chats() {
   const [overrideSystemMessage, setOverrideSystemMessage] = useState(false);
   const [overrideAssistantMessage, setOverrideAssistantMessage] = useState(false);
   const [defaultCollectionId, setDefaultCollectionId] = useState<string>('');
-  // Fetch collections on mount
-  useEffect(() => {
-    getCollections()
-      .then((res) => {
-        const data = (res as any).data as Collection[];
-        setCollections(data);
-      })
-      .catch(() => {});
-  }, []);
-
-
-  useEffect(() => {
-    setLoading(true);
-    getChats()
-      .then((res) => {
-        const data = (res as any).data as Chat[];
-        setChats(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  
+  // Fetch collections and chats whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      getCollections()
+        .then((res) => {
+          const data = (res as any).data as Collection[];
+          setCollections(data);
+        })
+        .catch(() => {});
+      
+      setLoading(true);
+      getChats()
+        .then((res) => {
+          const data = (res as any).data as Chat[];
+          setChats(data);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    }, [])
+  );
 
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function Chats() {
           setDefaultLanguage(data.defaultLanguage || '');
           setDefaultSystemPrompt(data.defaultSystemPrompt || '');
           setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
+          setWelcomeMessage(data.welcomeMessage || '');
           setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
           setDefaultContextPrompt(data.defaultContextPrompt || '');
           setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
@@ -107,6 +110,7 @@ export function Chats() {
       setDefaultLanguage('');
       setDefaultSystemPrompt('');
       setDefaultSystemPromptAppend('');
+      setWelcomeMessage('');
       setDefaultOutOfScopeMessage('');
       setDefaultContextPrompt('');
       setDefaultMemoryPrompt('');
@@ -127,6 +131,7 @@ export function Chats() {
       defaultLanguage !== (chatDetails.defaultLanguage || '') ||
       defaultSystemPrompt !== (chatDetails.defaultSystemPrompt || '') ||
       defaultSystemPromptAppend !== (chatDetails.defaultSystemPromptAppend || '') ||
+      welcomeMessage !== (chatDetails.welcomeMessage || '') ||
       defaultOutOfScopeMessage !== (chatDetails.defaultOutOfScopeMessage || '') ||
       defaultContextPrompt !== (chatDetails.defaultContextPrompt || '') ||
       defaultMemoryPrompt !== (chatDetails.defaultMemoryPrompt || '') ||
@@ -157,6 +162,7 @@ export function Chats() {
       defaultLanguage,
       defaultSystemPrompt,
       defaultSystemPromptAppend,
+      welcomeMessage,
       defaultOutOfScopeMessage,
       defaultContextPrompt,
       defaultMemoryPrompt,
@@ -212,6 +218,7 @@ export function Chats() {
           setDefaultLanguage(data.defaultLanguage || '');
           setDefaultSystemPrompt(data.defaultSystemPrompt || '');
           setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
+          setWelcomeMessage(data.welcomeMessage || '');
           setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
           setDefaultContextPrompt(data.defaultContextPrompt || '');
           setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
@@ -367,6 +374,16 @@ export function Chats() {
           value={defaultSystemPromptAppend}
           onChangeText={setDefaultSystemPromptAppend}
           placeholder="Default System Prompt Append"
+          editable={!!chatDetails}
+          multiline
+          numberOfLines={5}
+        />
+        <Text style={styles.label}>Welcome Message</Text>
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          value={welcomeMessage}
+          onChangeText={setWelcomeMessage}
+          placeholder="Welcome Message"
           editable={!!chatDetails}
           multiline
           numberOfLines={5}

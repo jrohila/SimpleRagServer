@@ -1,6 +1,7 @@
 import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, TextInput, Platform, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import Markdown from 'react-native-markdown-display';
 import { HomeStyles, bubbleStyles, userBubbleStyles, markdownStyles } from '../../styles/HomeStyles';
@@ -10,20 +11,13 @@ import { sendConversation } from '../../api/openAI';
 type Chat = {
   id: string;
   publicName: string;
+  welcomeMessage?: string;
 };
 
 export function Home() {
   // Store message histories for each chat
   const [chatHistories, setChatHistories] = useState<{ [chatId: string]: IMessage[] }>({});
-  const [messages, setMessages] = useState<IMessage[]>([{
-    _id: 1,
-    text: 'Hello! How can I help you today?',
-    createdAt: new Date(),
-    user: {
-      _id: 2,
-      name: 'SimpleRagServer',
-    },
-  }]);
+  const [messages, setMessages] = useState<IMessage[]>([]);
   const [text, setText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
@@ -31,19 +25,21 @@ export function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const assistantMessageRef = useRef<IMessage | null>(null);
 
-  useEffect(() => {
-    setLoadingChats(true);
-    getChats()
-      .then((res) => {
-        const data = (res as any).data as Chat[];
-        setChats(data);
-        if (data.length > 0 && !selectedChatId) {
-          setSelectedChatId(data[0].id);
-        }
-        setLoadingChats(false);
-      })
-      .catch(() => setLoadingChats(false));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setLoadingChats(true);
+      getChats()
+        .then((res) => {
+          const data = (res as any).data as Chat[];
+          setChats(data);
+          if (data.length > 0 && !selectedChatId) {
+            setSelectedChatId(data[0].id);
+          }
+          setLoadingChats(false);
+        })
+        .catch(() => setLoadingChats(false));
+    }, [selectedChatId])
+  );
 
   // Update messages when selectedChatId changes
   useEffect(() => {
@@ -53,9 +49,11 @@ export function Home() {
         setMessages(chatHistories[selectedChatId]);
       } else {
         // Initialize with welcome message for new chat
+        const chat = chats.find(c => c.id === selectedChatId);
+        const welcomeText = chat?.welcomeMessage || 'Hello! How can I help you today?';
         const welcomeMessage: IMessage = {
           _id: `${selectedChatId}-welcome-${Date.now()}`,
-          text: 'Hello! How can I help you today?',
+          text: welcomeText,
           createdAt: new Date(),
           user: {
             _id: 2,
@@ -69,7 +67,7 @@ export function Home() {
         }));
       }
     }
-  }, [selectedChatId]);
+  }, [selectedChatId, chats]);
 
   // Save messages to chat history whenever they change
   useEffect(() => {
@@ -224,9 +222,10 @@ export function Home() {
     if (!selectedChatId) return;
     
     // Create a new welcome message
+    const welcomeText = selectedChat?.welcomeMessage || 'Hello! How can I help you today?';
     const welcomeMessage: IMessage = {
       _id: `${selectedChatId}-welcome-${Date.now()}`,
-      text: 'Hello! How can I help you today?',
+      text: welcomeText,
       createdAt: new Date(),
       user: {
         _id: 2,
