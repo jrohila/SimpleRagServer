@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 
 export interface Message {
@@ -26,6 +27,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
     <View style={styles.messageContainer}>
       {showUsername && (
         <View style={styles.usernameContainer}>
+          {isAssistant && (
+            <Ionicons name="sparkles" size={14} color="#007aff" style={styles.usernameIcon} />
+          )}
+          {isUser && (
+            <Ionicons name="person-circle" size={14} color="#666" style={styles.usernameIcon} />
+          )}
           <Text style={styles.usernameText}>
             {isUser ? 'You' : 'Assistant'}
           </Text>
@@ -63,6 +70,11 @@ const styles = StyleSheet.create({
   usernameContainer: {
     marginBottom: 4,
     marginLeft: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  usernameIcon: {
+    marginRight: 4,
   },
   usernameText: {
     color: '#666',

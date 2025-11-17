@@ -9,6 +9,7 @@ import {
   Platform,
   Text 
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ChatMessage, Message } from './ChatMessage';
 
 interface ChatContainerProps {
@@ -87,7 +88,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
           onPress={handleSend}
           disabled={!text?.trim() || isGenerating || disabled}
         >
-          <Text style={styles.sendButtonText}>Send</Text>
+          <Ionicons 
+            name="send" 
+            size={20} 
+            color="#fff" 
+          />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -128,9 +133,9 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: '#007aff',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },

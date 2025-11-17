@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 import { getChats } from '../../api/chats';
 import { sendConversation } from '../../api/openAI';
 import { ChatContainer } from '../../components/ChatContainer';
@@ -284,6 +285,7 @@ export function Home() {
           <ActivityIndicator color="#666" />
         ) : (
           <>
+            <Ionicons name="chatbubbles" size={24} color="#007aff" style={styles.chatIcon} />
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={selectedChatId}
@@ -305,7 +307,7 @@ export function Home() {
               onPress={handleClearHistory}
               disabled={!selectedChatId || isGenerating}
             >
-              <Text style={styles.clearButtonText}>Clear</Text>
+              <Ionicons name="trash-outline" size={20} color="#fff" />
             </TouchableOpacity>
           </>
         )}
@@ -339,6 +341,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  chatIcon: {
+    marginRight: 4,
+  },
   pickerWrapper: {
     flex: 1,
     backgroundColor: '#fff',
@@ -362,7 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 70,
+    minWidth: 48,
   },
   clearButtonDisabled: {
     backgroundColor: '#ccc',
