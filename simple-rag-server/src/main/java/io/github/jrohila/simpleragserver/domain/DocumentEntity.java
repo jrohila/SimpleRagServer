@@ -43,6 +43,8 @@ public class DocumentEntity {
     
     private String hash;
 
+    private String operationId; // Docling ID to check processing status
+    
     private String createdTime;
 
     private String updatedTime;

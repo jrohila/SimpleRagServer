@@ -2,8 +2,8 @@ package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
+import io.github.jrohila.simpleragserver.service.EventPublisherService;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,22 +21,23 @@ public class DocumentService {
 
     @Autowired
     private OpenSearchClient openSearchClient;
+    
+    @Autowired
+    private EventPublisherService eventPublisherService;
+
 
     private final DocumentContentStore contentStore;
     private final ChunkService chunkService;
-    private final ApplicationEventPublisher events;
     private final IndicesManager indicesManager;
 
     public DocumentService(
             DocumentContentStore contentStore,
             ChunkService chunkService,
-            IndicesManager indicesManager,
-            ApplicationEventPublisher events
+            IndicesManager indicesManager
     ) {
         this.contentStore = contentStore;
         this.chunkService = chunkService;
         this.indicesManager = indicesManager;
-        this.events = events;
     }
 
     public List<DocumentEntity> listDocuments(String collectionId, int page, int size) {
@@ -74,6 +75,27 @@ public class DocumentService {
         }
     }
 
+    public List<DocumentEntity> findByState(String collectionId, ProcessingState state, int page, int size) {
+        try {
+            String indiceName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
+
+            var resp = openSearchClient.search(s -> s
+                    .index(indiceName)
+                    .from(page * size)
+                    .size(size)
+                    .query(q -> q.term(t -> t.field("state").value(org.opensearch.client.opensearch._types.FieldValue.of(state.name())))),
+                    DocumentEntity.class);
+
+            List<DocumentEntity> results = new ArrayList<>();
+            for (var hit : resp.hits().hits()) {
+                results.add(hit.source());
+            }
+            return results;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find documents by state", e);
+        }
+    }
+
     public DocumentEntity uploadDocument(String collectionId, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
@@ -106,10 +128,9 @@ public class DocumentService {
         // Persist content and metadata
         contentStore.setContent(doc, file.getInputStream());
         indexDocument(collectionId, doc);
-        try {
-            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(collectionId, doc.getId()));
-        } catch (Exception ignore) {
-        }
+
+        this.eventPublisherService.publishDocumentUploadEvent(collectionId, doc.getId());
+        
         return doc;
     }
 
@@ -142,10 +163,9 @@ public class DocumentService {
         }
         doc.setUpdatedTime(now);
         indexDocument(collectionId, doc);
-        try {
-            events.publishEvent(new io.github.jrohila.simpleragserver.service.events.DocumentSavedEvent(collectionId, doc.getId()));
-        } catch (Exception ignore) {
-        }
+
+        this.eventPublisherService.publishDocumentUploadEvent(collectionId, doc.getId());
+        
         return doc;
     }
 

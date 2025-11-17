@@ -7,6 +7,7 @@ package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
+import io.github.jrohila.simpleragserver.domain.ChunkingTaskEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.startup.OpenSearchSetup;
 import java.util.HashSet;
@@ -55,6 +56,8 @@ public class IndicesManager {
                 this.createChunksIndex(collectionId);
             } else if (ChatEntity.class.equals(type)) {
                 this.createChatIndex();
+            } else if (ChunkingTaskEntity.class.equals(type)) {
+                this.createChunkingTaskIndex();
             }
         }
         return indexName;
@@ -65,7 +68,7 @@ public class IndicesManager {
 
         BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
         if (exists.value()) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
+            LOGGER.log(Level.FINEST, "OpenSearchSetup: index already exists: {0}", indexName);
             return;
         }
 
@@ -99,6 +102,37 @@ public class IndicesManager {
         LOGGER.log(Level.INFO, "OpenSearchSetup: created chat index {0}", indexName);
     }
 
+    private void createChunkingTaskIndex() throws Exception {
+        String indexName = this.getIndexName(null, ChunkingTaskEntity.class);
+
+        BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
+        if (exists.value()) {
+            LOGGER.log(Level.FINEST, "OpenSearchSetup: index already exists: {0}", indexName);
+            return;
+        }
+
+        CreateIndexRequest req = new CreateIndexRequest.Builder()
+                .index(indexName)
+                .settings(s -> s.index(i -> i
+                .numberOfShards(1)
+                .numberOfReplicas(0)
+        ))
+                .mappings(m -> m
+                .properties("id", p -> p.keyword(k -> k))
+                .properties("collectionId", p -> p.keyword(k -> k))
+                .properties("documentId", p -> p.keyword(k -> k))
+                .properties("taskId", p -> p.keyword(k -> k))
+                .properties("status", p -> p.keyword(k -> k))
+                .properties("created", p -> p.date(d -> d))
+                .properties("modified", p -> p.date(d -> d))
+                )
+                .build();
+
+        client.indices().create(req);
+        this.existingIndices.add(indexName);
+        LOGGER.log(Level.INFO, "OpenSearchSetup: created chunking task index {0}", indexName);
+    }
+
     /**
      * Creates the documents index using the mapping from DocumentEntity.
      */
@@ -107,7 +141,7 @@ public class IndicesManager {
 
         BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
         if (exists.value()) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
+            LOGGER.log(Level.FINEST, "OpenSearchSetup: index already exists: {0}", indexName);
             return;
         }
 
@@ -154,7 +188,7 @@ public class IndicesManager {
 
         BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
         if (exists.value()) {
-            LOGGER.log(Level.INFO, "OpenSearchSetup: index already exists: {0}", indexName);
+            LOGGER.log(Level.FINEST, "OpenSearchSetup: index already exists: {0}", indexName);
             return;
         }
 

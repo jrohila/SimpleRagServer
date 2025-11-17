@@ -16,7 +16,7 @@ public class ProcessingController {
 
     @Autowired
     private DocumentChunkerService documentChunker;
-
+/*
     @PostMapping("/chunk-document/{collectionId}/{documentId}")
     public ResponseEntity<Void> processDocumentSync(@PathVariable String collectionId, @PathVariable String documentId) {
         documentChunker.process(collectionId, documentId);
@@ -27,6 +27,6 @@ public class ProcessingController {
     public ResponseEntity<Void> processDocumentAsync(@PathVariable String collectionId, @PathVariable String documentId) {
         documentChunker.asyncProcess(collectionId, documentId);
         return ResponseEntity.accepted().build();
-    }
+    }*/
 
 }
