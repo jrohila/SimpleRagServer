@@ -143,20 +143,59 @@ public class ContextAdditionPipe {
                             int used = 0;
                             int added = 0;
 
+                            // Group chunks by document
+                            java.util.Map<String, List<SearchResult<ChunkEntity>>> groupedByDocument = new java.util.LinkedHashMap<>();
                             for (SearchResult<ChunkEntity> r : results) {
-                                String t = r.getContent().getText();
-                                if (t == null || t.isBlank()) {
-                                    continue;
+                                String docName = r.getContent().getDocumentName();
+                                if (docName == null || docName.isBlank()) {
+                                    docName = "Unknown";
                                 }
-                                String normalized = t.trim();
-                                int tokens = this.chatHelper.countTokens(normalized) + 1; // +1 for newline separator
-                                if (used + tokens > budget) {
+                                groupedByDocument.computeIfAbsent(docName, k -> new ArrayList<>()).add(r);
+                            }
+
+                            sb.append("<documents>\n");
+                            int documentsTagTokens = this.chatHelper.countTokens("<documents>\n</documents>\n");
+                            used += documentsTagTokens;
+
+                            for (java.util.Map.Entry<String, List<SearchResult<ChunkEntity>>> entry : groupedByDocument.entrySet()) {
+                                String docName = entry.getKey();
+                                List<SearchResult<ChunkEntity>> chunks = entry.getValue();
+
+                                String docOpenTag = "  <document name=\"" + docName + "\">\n";
+                                String docCloseTag = "  </document>\n";
+                                int docTagsTokens = this.chatHelper.countTokens(docOpenTag + docCloseTag);
+
+                                if (used + docTagsTokens > budget) {
                                     break;
                                 }
-                                sb.append(normalized).append('\n');
-                                used += tokens;
-                                added++;
+
+                                sb.append(docOpenTag);
+                                used += docTagsTokens;
+
+                                for (SearchResult<ChunkEntity> r : chunks) {
+                                    String t = r.getContent().getText();
+                                    if (t == null || t.isBlank()) {
+                                        continue;
+                                    }
+                                    String normalized = t.trim();
+                                    int pageNum = r.getContent().getPageNumber();
+                                    String chunkOpenTag = "    <chunk page=\"" + pageNum + "\">";
+                                    String chunkCloseTag = "</chunk>\n";
+                                    int chunkTokens = this.chatHelper.countTokens(chunkOpenTag + normalized + chunkCloseTag);
+
+                                    if (used + chunkTokens > budget) {
+                                        break;
+                                    }
+
+                                    sb.append(chunkOpenTag).append(normalized).append(chunkCloseTag);
+                                    used += chunkTokens;
+                                    added++;
+                                }
+
+                                sb.append(docCloseTag);
                             }
+
+                            sb.append("</documents>\n");
                             context = sb.toString();
                             log.info("[ChatService] RAG packing: results={} addedChunks={} contextTokensUsed={} budget={} currentTokens={} prefixTokens={} reserve={} headroom={} ", (results == null ? 0 : results.size()), added, used, budget, currentTokens, prefixTokens, reserveCompletionTokens, reserveHeadroomTokens);
                         }
