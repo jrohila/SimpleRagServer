@@ -171,7 +171,15 @@ public class DocumentChunkerService {
         var polled = this.doclingAsyncClient.pollChunkUntilTerminal(pollUrlOrId, 60000, 1000);
         if (polled != null && polled.status().isSuccess()) {
             DoclingChunkResponse resp = polled.response();
+            if (resp == null) {
+                LOGGER.log(Level.WARNING, "DocumentChunker: Docling returned null response for documentId={0}", documentId);
+                throw new Exception("DocumentChunker: Docling returned null response for documentId=" + documentId);
+            }
             List<DoclingChunkResponse.Chunk> doclingChunks = resp.getChunks();
+            if (doclingChunks == null || doclingChunks.isEmpty()) {
+                LOGGER.log(Level.WARNING, "DocumentChunker: Docling returned no chunks for documentId={0}", documentId);
+                return;
+            }
             LOGGER.log(Level.INFO, "DocumentChunker: Received {0} chunks from Docling for documentId={1}", new Object[]{doclingChunks.size(), documentId});
 
             List<ChunkEntity> chunks = new java.util.ArrayList<>();
@@ -225,7 +233,11 @@ public class DocumentChunkerService {
                     LOGGER.log(Level.FINE, "Skipping chunk that failed quality gate. docId={0}", documentId);
                     continue;
                 }
-
+                
+                chunk.setType(chunk.getType());
+                chunk.setPageNumber(chunk.getPageNumber());
+                chunk.setSectionTitle(chunk.getSectionTitle());
+                
                 chunk.setEmbedding(embedService.getEmbeddingAsList(embedInput));
 
                 // Persist via service; on validation failure, skip and continue

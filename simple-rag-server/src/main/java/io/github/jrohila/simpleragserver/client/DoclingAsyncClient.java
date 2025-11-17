@@ -597,7 +597,9 @@ public class DoclingAsyncClient {
                 if (status.raw.has("result")) resultNode = status.raw.get("result");
                 else if (status.raw.has("data")) resultNode = status.raw.get("data");
                 if (resultNode != null && !resultNode.isNull()) {
+                    logger.info("DoclingAsyncClient: Raw result JSON from inline status: {}", resultNode.toString());
                     DoclingChunkResponse r = objectMapper.treeToValue(resultNode, DoclingChunkResponse.class);
+                    logger.info("DoclingAsyncClient: Deserialized DoclingChunkResponse: chunks={}", r != null ? (r.getChunks() != null ? r.getChunks().size() : "null") : "null response");
                     return Optional.ofNullable(r);
                 }
             }
@@ -611,20 +613,27 @@ public class DoclingAsyncClient {
                 int attempts = 3;
                 for (int i = 0; i < attempts; i++) {
                     try {
-                        ResponseEntity<DoclingChunkResponse> resp = shortTemplate.exchange(
-                                status.resultUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), DoclingChunkResponse.class);
-                        if (resp.getStatusCode().is2xxSuccessful()) {
-                            return Optional.ofNullable(resp.getBody());
+                        logger.info("DoclingAsyncClient: Fetching chunk result from URL: {}", status.resultUrl);
+                        ResponseEntity<String> rawResp = shortTemplate.exchange(
+                                status.resultUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), String.class);
+                        if (rawResp.getStatusCode().is2xxSuccessful()) {
+                            String rawBody = rawResp.getBody();
+                            logger.debug("DoclingAsyncClient: Raw response body from result URL: {}", rawBody);
+                            DoclingChunkResponse parsed = objectMapper.readValue(rawBody, DoclingChunkResponse.class);
+                            logger.debug("DoclingAsyncClient: Deserialized DoclingChunkResponse from URL: chunks={}", parsed != null ? (parsed.getChunks() != null ? parsed.getChunks().size() : "null") : "null response");
+                            return Optional.ofNullable(parsed);
                         }
                         Thread.sleep(250L);
                     } catch (Exception ex) {
+                        logger.warn("DoclingAsyncClient: Attempt {} failed to fetch result from URL: {}", i + 1, ex.getMessage());
                         try { Thread.sleep(250L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
                     }
                 }
             }
+            logger.warn("DoclingAsyncClient: No result found in status.raw or resultUrl");
             return Optional.empty();
         } catch (Exception e) {
-            logger.warn("Failed to fetch async chunk result: {}", e.getMessage());
+            logger.warn("Failed to fetch async chunk result: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }
