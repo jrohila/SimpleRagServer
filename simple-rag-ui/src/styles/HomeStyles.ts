@@ -109,6 +109,13 @@ export const HomeStyles = StyleSheet.create({
   messageTextContainer: {
     padding: 8,
   },
+  messageContainer: {
+    marginLeft: 0,
+    marginRight: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    alignItems: 'flex-start',
+  },
 });
 
 export const bubbleStyles = {
@@ -117,22 +124,32 @@ export const bubbleStyles = {
       backgroundColor: '#e3f2fd',
       borderWidth: 1,
       borderColor: '#2196f3',
+      marginLeft: 0,
+      marginRight: 0,
     },
     right: {
-      backgroundColor: '#007aff',
+      backgroundColor: '#e3f2fd',
+      borderWidth: 1,
+      borderColor: '#2196f3',
+      marginLeft: 0,
+      marginRight: 0,
     },
   },
   textStyle: {
     left: { color: '#222' },
-    right: { color: '#fff' },
+    right: { color: '#222' },
   },
   containerToNextStyle: {
-    left: { marginBottom: 20 },
-    right: { marginBottom: 20 },
+    left: { marginBottom: 20, alignSelf: 'flex-start' as const },
+    right: { marginBottom: 20, alignSelf: 'flex-start' as const },
   },
   containerToPreviousStyle: {
-    left: { marginBottom: 20 },
-    right: { marginBottom: 20 },
+    left: { marginBottom: 20, alignSelf: 'flex-start' as const },
+    right: { marginBottom: 20, alignSelf: 'flex-start' as const },
+  },
+  containerStyle: {
+    left: { marginLeft: 0, marginRight: 0, alignItems: 'flex-start' as const },
+    right: { marginLeft: 0, marginRight: 0, alignItems: 'flex-start' as const },
   },
 };
 
@@ -142,22 +159,32 @@ export const userBubbleStyles = {
       backgroundColor: '#fff',
       borderWidth: 1,
       borderColor: '#e0e0e0',
+      marginLeft: 0,
+      marginRight: 0,
     },
     right: {
-      backgroundColor: '#007aff',
+      backgroundColor: '#fff',
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+      marginLeft: 0,
+      marginRight: 0,
     },
   },
   textStyle: {
     left: { color: '#222' },
-    right: { color: '#fff' },
+    right: { color: '#222' },
   },
   containerToNextStyle: {
-    left: { marginBottom: 20 },
-    right: { marginBottom: 20 },
+    left: { marginBottom: 20, alignSelf: 'flex-start' as const },
+    right: { marginBottom: 20, alignSelf: 'flex-start' as const },
   },
   containerToPreviousStyle: {
-    left: { marginBottom: 20 },
-    right: { marginBottom: 20 },
+    left: { marginBottom: 20, alignSelf: 'flex-start' as const },
+    right: { marginBottom: 20, alignSelf: 'flex-start' as const },
+  },
+  containerStyle: {
+    left: { marginLeft: 0, marginRight: 0, alignItems: 'flex-start' as const },
+    right: { marginLeft: 0, marginRight: 0, alignItems: 'flex-start' as const },
   },
 };
 

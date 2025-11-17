@@ -1,12 +1,11 @@
-import { GiftedChat, IMessage, Bubble, Send } from 'react-native-gifted-chat';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, TextInput, Platform, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import Markdown from 'react-native-markdown-display';
-import { HomeStyles, bubbleStyles, userBubbleStyles, markdownStyles } from '../../styles/HomeStyles';
 import { getChats } from '../../api/chats';
 import { sendConversation } from '../../api/openAI';
+import { ChatContainer } from '../../components/ChatContainer';
+import { Message } from '../../components/ChatMessage';
 
 type Chat = {
   id: string;
@@ -16,14 +15,14 @@ type Chat = {
 
 export function Home() {
   // Store message histories for each chat
-  const [chatHistories, setChatHistories] = useState<{ [chatId: string]: IMessage[] }>({});
-  const [messages, setMessages] = useState<IMessage[]>([]);
+  const [chatHistories, setChatHistories] = useState<{ [chatId: string]: Message[] }>({});
+  const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
   const [loadingChats, setLoadingChats] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const assistantMessageRef = useRef<IMessage | null>(null);
+  const assistantMessageRef = useRef<Message | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +50,7 @@ export function Home() {
         // Initialize with welcome message for new chat
         const chat = chats.find(c => c.id === selectedChatId);
         const welcomeText = chat?.welcomeMessage || 'Hello! How can I help you today?';
-        const welcomeMessage: IMessage = {
+        const welcomeMessage: Message = {
           _id: `${selectedChatId}-welcome-${Date.now()}`,
           text: welcomeText,
           createdAt: new Date(),
@@ -96,8 +95,8 @@ export function Home() {
       };
       
       assistantMessageRef.current = assistantMessage;
-      // Use GiftedChat.append which adds to beginning (for inverted list)
-      setMessages((prev) => GiftedChat.append(prev, [assistantMessage]));
+      // With inverted={false}, add to the end of the array
+      setMessages((prev) => [...prev, assistantMessage]);
 
       // Make the API call with streaming enabled
       const response = await sendConversation({
@@ -223,7 +222,7 @@ export function Home() {
     
     // Create a new welcome message
     const welcomeText = selectedChat?.welcomeMessage || 'Hello! How can I help you today?';
-    const welcomeMessage: IMessage = {
+    const welcomeMessage: Message = {
       _id: `${selectedChatId}-welcome-${Date.now()}`,
       text: welcomeText,
       createdAt: new Date(),
@@ -243,26 +242,31 @@ export function Home() {
     }));
   };
 
-  const onSend = useCallback((newMessages: IMessage[] = []) => {
+  const handleSend = useCallback(() => {
     if (!selectedChat) {
       Alert.alert('Error', 'Please select a chat first');
       return;
     }
 
-    if (isGenerating) {
-      return; // Prevent sending while generating
+    if (isGenerating || !text.trim()) {
+      return; // Prevent sending while generating or if text is empty
     }
 
+    // Create user message
+    const userMessage: Message = {
+      _id: Date.now(),
+      text: text.trim(),
+      createdAt: new Date(),
+      user: { _id: 1 },
+    };
+
     // Add user message to chat
-    setMessages((previousMessages) => GiftedChat.append(previousMessages, newMessages));
+    setMessages((previousMessages) => [...previousMessages, userMessage]);
     setText('');
     setIsGenerating(true);
 
     // Convert messages to OpenAI format
-    // GiftedChat stores newest-first, so reverse for chronological order
-    const conversationMessages = GiftedChat.append(messages, newMessages)
-      .slice()
-      .reverse()
+    const conversationMessages = [...messages, userMessage]
       .map(msg => ({
         role: msg.user._id === 1 ? 'user' : 'assistant',
         content: msg.text
@@ -270,21 +274,21 @@ export function Home() {
 
     // Call the API with streaming
     handleStreamResponse(selectedChat.publicName, conversationMessages);
-  }, [selectedChat, messages, isGenerating]);
+  }, [selectedChat, messages, isGenerating, text]);
 
   return (
-  <SafeAreaView style={HomeStyles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Chat Selection Dropdown */}
-      <View style={HomeStyles.dropdownContainer}>
+      <View style={styles.dropdownContainer}>
         {loadingChats ? (
           <ActivityIndicator color="#666" />
         ) : (
           <>
-            <View style={HomeStyles.pickerWrapper}>
+            <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={selectedChatId}
                 onValueChange={(value) => setSelectedChatId(value)}
-                style={HomeStyles.picker}
+                style={styles.picker}
                 dropdownIconColor="#666"
               >
                 <Picker.Item label="Select a chat..." value="" />
@@ -295,129 +299,78 @@ export function Home() {
             </View>
             <TouchableOpacity
               style={[
-                HomeStyles.clearButton,
-                (!selectedChatId || isGenerating) && HomeStyles.clearButtonDisabled
+                styles.clearButton,
+                (!selectedChatId || isGenerating) && styles.clearButtonDisabled
               ]}
               onPress={handleClearHistory}
               disabled={!selectedChatId || isGenerating}
             >
-              <Text style={HomeStyles.clearButtonText}>Clear</Text>
+              <Text style={styles.clearButtonText}>Clear</Text>
             </TouchableOpacity>
           </>
         )}
       </View>
 
-      <View style={HomeStyles.chatContainer}>
-        <GiftedChat
-          messages={messages}
-          onSend={onSend}
-          user={{ _id: 1 }}
-          placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-          showUserAvatar={false}
-          alwaysShowSend
-          messagesContainerStyle={HomeStyles.messagesContainer}
-          text={text}
-          onInputTextChanged={setText}
-          renderUsernameOnMessage={true}
-          renderAvatar={() => null}
-        renderUsername={(user) => {
-          if (!user || !user._id) return null;
-          const isUser = user._id === 1;
-          return (
-            <View style={HomeStyles.usernameContainer}>
-              <Text style={HomeStyles.usernameText}>
-                {isUser ? 'You' : 'Assistant'}
-              </Text>
-            </View>
-          );
-        }}
-        renderComposer={props => (
-          <TextInput
-            {...props.textInputProps}
-            style={[HomeStyles.input, props.textInputStyle, !selectedChatId && { opacity: 0.5 }]}
-            value={text}
-            onChangeText={setText}
-            placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-            placeholderTextColor="#999"
-            multiline={false}
-            autoComplete="off"
-            autoCorrect={false}
-            autoCapitalize="none"
-            editable={!isGenerating && !!selectedChatId}
-            onSubmitEditing={() => {
-              if (text.trim() && !isGenerating && selectedChatId) {
-                onSend([{
-                  _id: Date.now(),
-                  text: text.trim(),
-                  createdAt: new Date(),
-                  user: { _id: 1 },
-                }]);
-              }
-            }}
-            blurOnSubmit={Platform.OS !== 'ios'}
-            returnKeyType="send"
-          />
-        )}
-        renderBubble={props => {
-          const isUser = props.currentMessage?.user._id === 1;
-          return (
-            <Bubble
-              {...props}
-              wrapperStyle={isUser ? userBubbleStyles.wrapperStyle : bubbleStyles.wrapperStyle}
-              textStyle={isUser ? userBubbleStyles.textStyle : bubbleStyles.textStyle}
-              containerToNextStyle={isUser ? userBubbleStyles.containerToNextStyle : bubbleStyles.containerToNextStyle}
-              containerToPreviousStyle={isUser ? userBubbleStyles.containerToPreviousStyle : bubbleStyles.containerToPreviousStyle}
-            />
-          );
-        }}
-        renderMessageText={props => {
-          const isAssistant = props.currentMessage?.user._id === 2;
-          const isLoading = (props.currentMessage as any)?.isLoading;
-          
-          // Show loading animation for assistant messages before content arrives
-          if (isAssistant && isLoading && !props.currentMessage?.text) {
-            return (
-              <View style={HomeStyles.loadingContainer}>
-                <ActivityIndicator size="small" color="#666" />
-                <View style={HomeStyles.loadingBarsContainer}>
-                  <View style={HomeStyles.loadingBar1} />
-                  <View style={HomeStyles.loadingBar2} />
-                </View>
-              </View>
-            );
-          }
-          
-          // Render markdown for assistant messages, plain text for user messages
-          if (isAssistant) {
-            return (
-              <View style={HomeStyles.messageTextContainer}>
-                <Markdown style={markdownStyles.assistant}>
-                  {props.currentMessage?.text || ''}
-                </Markdown>
-              </View>
-            );
-          }
-          
-          // Default rendering for user messages
-          return (
-            <View style={HomeStyles.messageTextContainer}>
-              <Markdown style={markdownStyles.user}>
-                {props.currentMessage?.text || ''}
-              </Markdown>
-            </View>
-          );
-        }}
-        renderSend={props => (
-          <Send {...props} containerStyle={HomeStyles.sendContainer} disabled={isGenerating || !text.trim() || !selectedChatId}>
-            {props.children}
-          </Send>
-        )}
-        renderDay={() => null}
-        renderTime={() => null}
+      <ChatContainer
+        messages={messages}
+        text={text}
+        onTextChange={setText}
+        onSend={handleSend}
+        placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
+        disabled={!selectedChatId}
+        isGenerating={isGenerating}
       />
-      </View>
     </SafeAreaView>
   );
 }
 
-
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pickerWrapper: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    overflow: 'hidden',
+    minHeight: 48,
+  },
+  picker: {
+    color: '#000',
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    fontSize: 16,
+    height: 48,
+  },
+  clearButton: {
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  clearButtonDisabled: {
+    backgroundColor: '#ccc',
+    opacity: 0.5,
+  },
+  clearButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
