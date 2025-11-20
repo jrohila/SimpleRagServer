@@ -16,6 +16,30 @@ export class LocalLLMService {
   private isInitialized = false;
   private isInitializing = false;
   private modelName = 'onnx-community/granite-4.0-micro-ONNX-web';
+  private downloadProgressCallback?: (progress: { loaded: number; total: number; percentage: number }) => void;
+
+  setDownloadProgressCallback(callback: (progress: { loaded: number; total: number; percentage: number }) => void) {
+    this.downloadProgressCallback = callback;
+  }
+
+  private async checkModelCache(): Promise<boolean> {
+    try {
+      // Check if model is in browser cache
+      const cacheKeys = await caches.keys();
+      const modelCacheExists = cacheKeys.some(key => key.includes('transformers') || key.includes('onnx'));
+      
+      if (modelCacheExists) {
+        console.log('Model found in browser cache');
+        return true;
+      }
+      
+      console.log('Model not found in cache, will download');
+      return false;
+    } catch (error) {
+      console.error('Error checking cache:', error);
+      return false;
+    }
+  }
 
   async initialize(): Promise<void> {
     if (!ENABLE_LOCAL_LLM) {
@@ -34,19 +58,56 @@ export class LocalLLMService {
         throw new Error('WebGPU is not supported in this browser');
       }
 
-      console.log('Initializing local LLM with WebGPU...');
+      // Check if model is already cached
+      const isCached = await this.checkModelCache();
+      if (isCached) {
+        console.log('Loading local LLM from cache...');
+      } else {
+        console.log('Downloading local LLM (this may take a few minutes on first load)...');
+      }
       
       // Dynamic import to avoid bundling issues
-      const { pipeline } = await import('@huggingface/transformers');
+      const { pipeline, env } = await import('@huggingface/transformers');
       
+      // Configure transformers.js to use browser cache
+      // @ts-ignore
+      env.useBrowserCache = true;
+      // @ts-ignore
+      env.allowLocalModels = false;
+      // @ts-ignore
+      env.allowRemoteModels = true;
+
+      // Set up progress callback if available
+      let lastProgress = 0;
+      const progressCallback = (progress: any) => {
+        if (progress.status === 'progress' && progress.file) {
+          const percentage = Math.round((progress.loaded / progress.total) * 100);
+          // Only update on significant changes (every 5%)
+          if (percentage - lastProgress >= 5) {
+            lastProgress = percentage;
+            console.log(`Downloading ${progress.file}: ${percentage}%`);
+            if (this.downloadProgressCallback) {
+              this.downloadProgressCallback({
+                loaded: progress.loaded,
+                total: progress.total,
+                percentage
+              });
+            }
+          }
+        }
+      };
+
       this.generator = await pipeline(
         'text-generation',
         this.modelName,
-        { device: 'webgpu' }
+        { 
+          device: 'webgpu',
+          progress_callback: progressCallback
+        }
       );
 
       this.isInitialized = true;
-      console.log('Local LLM initialized successfully');
+      console.log('Local LLM initialized successfully - model cached for future use');
     } catch (error) {
       console.error('Failed to initialize local LLM:', error);
       this.isInitializing = false;
@@ -113,5 +174,54 @@ export class LocalLLMService {
 
   isModelLoaded(): boolean {
     return this.isInitialized;
+  }
+
+  async clearModelCache(): Promise<void> {
+    try {
+      // Clear all transformers-related caches
+      const cacheKeys = await caches.keys();
+      for (const key of cacheKeys) {
+        if (key.includes('transformers') || key.includes('onnx') || key.includes('huggingface')) {
+          await caches.delete(key);
+          console.log(`Deleted cache: ${key}`);
+        }
+      }
+      
+      // Reset initialization state
+      this.isInitialized = false;
+      this.generator = null;
+      
+      console.log('Model cache cleared successfully');
+    } catch (error) {
+      console.error('Error clearing model cache:', error);
+      throw error;
+    }
+  }
+
+  async getModelCacheSize(): Promise<number> {
+    try {
+      let totalSize = 0;
+      const cacheKeys = await caches.keys();
+      
+      for (const key of cacheKeys) {
+        if (key.includes('transformers') || key.includes('onnx') || key.includes('huggingface')) {
+          const cache = await caches.open(key);
+          const requests = await cache.keys();
+          
+          for (const request of requests) {
+            const response = await cache.match(request);
+            if (response) {
+              const blob = await response.blob();
+              totalSize += blob.size;
+            }
+          }
+        }
+      }
+      
+      return totalSize;
+    } catch (error) {
+      console.error('Error getting cache size:', error);
+      return 0;
+    }
   }
 }

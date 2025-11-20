@@ -28,11 +28,20 @@ export function Home() {
   const [llmMode, setLlmMode] = useState<LLMMode>('remote');
   const [isLocalLLMAvailable, setIsLocalLLMAvailable] = useState(false);
   const [isInitializingLocalLLM, setIsInitializingLocalLLM] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ percentage: number; loaded: number; total: number } | null>(null);
   const assistantMessageRef = useRef<Message | null>(null);
 
   // Check WebGPU availability on mount
   useEffect(() => {
     LLMServiceFactory.checkLocalAvailability().then(setIsLocalLLMAvailable);
+    
+    // Set up download progress callback
+    const localLLM = LLMServiceFactory.getLocalLLM();
+    if (localLLM) {
+      localLLM.setDownloadProgressCallback((progress) => {
+        setDownloadProgress(progress);
+      });
+    }
   }, []);
 
   useFocusEffect(
@@ -126,6 +135,7 @@ export function Home() {
         }
       }
 
+      let isFirstContent = true;
       await service.sendMessage(
         {
           publicName: selectedChat?.publicName || '',
@@ -136,7 +146,9 @@ export function Home() {
         {
           onContent: (content: string) => {
             setIsInitializingLocalLLM(false);
-            updateAssistantMessage(content, true);
+            // Clear initialization message on first content, then append
+            updateAssistantMessage(content, !isFirstContent);
+            isFirstContent = false;
           },
           onComplete: () => {
             setIsGenerating(false);
@@ -369,6 +381,19 @@ export function Home() {
         </View>
       )}
 
+      {/* Download progress indicator */}
+      {downloadProgress && downloadProgress.percentage < 100 && (
+        <View style={styles.downloadBanner}>
+          <Ionicons name="download-outline" size={16} color="#2196F3" />
+          <Text style={styles.downloadText}>
+            Downloading AI model: {downloadProgress.percentage}% ({Math.round(downloadProgress.loaded / 1024 / 1024)}MB / {Math.round(downloadProgress.total / 1024 / 1024)}MB)
+          </Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${downloadProgress.percentage}%` }]} />
+          </View>
+        </View>
+      )}
+
       <ErrorBoundary onReset={handleErrorReset}>
         <ChatContainer
           messages={messages.filter(msg => msg != null && msg._id != null)}
@@ -471,5 +496,34 @@ const styles = StyleSheet.create({
     color: '#856404',
     fontSize: 13,
     flex: 1,
+  },
+  downloadBanner: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2196F3',
+    flexWrap: 'wrap',
+  },
+  downloadText: {
+    color: '#0d47a1',
+    fontSize: 13,
+    flex: 1,
+  },
+  progressBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#bbdefb',
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2196F3',
+    borderRadius: 2,
   },
 });

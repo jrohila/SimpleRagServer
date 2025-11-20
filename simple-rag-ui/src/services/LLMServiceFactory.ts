@@ -27,4 +27,12 @@ export class LLMServiceFactory {
   static async checkLocalAvailability(): Promise<boolean> {
     return this.localLLM.isAvailable();
   }
+
+  static async clearLocalModelCache(): Promise<void> {
+    return this.localLLM.clearModelCache();
+  }
+
+  static async getLocalModelCacheSize(): Promise<number> {
+    return this.localLLM.getModelCacheSize();
+  }
 }
