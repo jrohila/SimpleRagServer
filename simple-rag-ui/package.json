@@ -2,16 +2,21 @@
   "name": "simpleragui",
   "version": "1.0.0",
   "main": "index.tsx",
+  "type": "module",
   "scripts": {
-    "start": "expo start --dev-client",
-    "web": "expo start --web",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite",
+    "start:expo": "expo start --dev-client",
+    "web:expo": "expo start --web",
     "android": "expo run:android",
-    "ios": "expo run:ios",
-    "build": "expo export --platform web --output-dir dist"
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@flyerhq/react-native-chat-ui": "^1.4.3",
+    "@huggingface/transformers": "^3.8.0",
     "@react-native-picker/picker": "^2.11.4",
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/drawer": "^7.7.2",
@@ -39,7 +44,10 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "~19.1.10",
-    "typescript": "~5.9.2"
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "~5.9.2",
+    "vite": "^7.2.4",
+    "vite-plugin-react-native-web": "^2.4.1"
   },
   "private": true
 }

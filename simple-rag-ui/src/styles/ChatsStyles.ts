@@ -16,11 +16,13 @@ const styles = StyleSheet.create({
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    borderRadius: 6,
+    marginVertical: 8,
+    overflow: 'hidden',
   },
   picker: {
+    width: '100%',
     height: 40,
   },
   title: {
@@ -88,17 +90,6 @@ const styles = StyleSheet.create({
   textarea: {
     minHeight: 100,
     textAlignVertical: 'top',
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    marginVertical: 8,
-    overflow: 'hidden',
-  },
-  picker: {
-    width: '100%',
-    minHeight: 40,
   },
 });
 

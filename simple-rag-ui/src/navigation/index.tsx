@@ -19,7 +19,7 @@ import { Collections } from './screens/Collections';
 import { Documents } from './screens/Documents';
 import { Chunks } from './screens/Chunks';
 
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CustomDrawerContent } from './CustomDrawerContent';
 
 
@@ -30,49 +30,49 @@ const Drawer = createDrawerNavigator({
       screen: Home,
       options: {
         title: 'Home',
-        drawerIcon: ({ color, size }) => <Icon name="home-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="home-outline" size={size} color={color} />,
       },
     },
     Search: {
       screen: Search,
       options: {
         title: 'Search',
-        drawerIcon: ({ color, size }) => <Icon name="magnify" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="magnify" size={size} color={color} />,
       },
     },
     Onboarding: {
       screen: Onboarding,
       options: {
         title: 'Onboarding',
-        drawerIcon: ({ color, size }) => <Icon name="rocket-launch-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="rocket-launch-outline" size={size} color={color} />,
       },
     },
     Chats: {
       screen: Chats,
       options: {
         title: 'Chats',
-        drawerIcon: ({ color, size }) => <Icon name="chat-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="chat-outline" size={size} color={color} />,
       },
     },
     Collections: {
       screen: Collections,
       options: {
         title: 'Collections',
-        drawerIcon: ({ color, size }) => <Icon name="folder-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="folder-outline" size={size} color={color} />,
       },
     },
     Documents: {
       screen: Documents,
       options: {
         title: 'Documents',
-        drawerIcon: ({ color, size }) => <Icon name="file-document-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="file-document-outline" size={size} color={color} />,
       },
     },
     Chunks: {
       screen: Chunks,
       options: {
         title: 'Chunks',
-        drawerIcon: ({ color, size }) => <Icon name="view-list-outline" size={size} color={color} />,
+        drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="view-list-outline" size={size} color={color} />,
       },
     },
   },

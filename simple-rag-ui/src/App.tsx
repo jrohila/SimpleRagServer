@@ -6,11 +6,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
+import newspaperImage from './assets/newspaper.png';
+import bellImage from './assets/bell.png';
 
 Asset.loadAsync([
   ...NavigationAssets,
-  require('./assets/newspaper.png'),
-  require('./assets/bell.png'),
+  newspaperImage,
+  bellImage,
 ]);
 
 SplashScreen.preventAutoHideAsync();

@@ -1,12 +1,14 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { getChats } from '../../api/chats';
-import { sendConversation } from '../../api/openAI';
 import { ChatContainer } from '../../components/ChatContainer';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Message } from '../../components/ChatMessage';
+import { LLMServiceFactory, LLMMode } from '../../services/LLMServiceFactory';
+import { LLMMessage } from '../../services/RemoteLLMService';
 
 type Chat = {
   id: string;
@@ -23,7 +25,15 @@ export function Home() {
   const [selectedChatId, setSelectedChatId] = useState('');
   const [loadingChats, setLoadingChats] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [llmMode, setLlmMode] = useState<LLMMode>('remote');
+  const [isLocalLLMAvailable, setIsLocalLLMAvailable] = useState(false);
+  const [isInitializingLocalLLM, setIsInitializingLocalLLM] = useState(false);
   const assistantMessageRef = useRef<Message | null>(null);
+
+  // Check WebGPU availability on mount
+  useEffect(() => {
+    LLMServiceFactory.checkLocalAvailability().then(setIsLocalLLMAvailable);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,7 +56,9 @@ export function Home() {
     if (selectedChatId) {
       // Load chat history for the selected chat, or use default welcome message
       if (chatHistories[selectedChatId]) {
-        setMessages(chatHistories[selectedChatId]);
+        // Filter out any null/undefined messages when loading from history
+        const validMessages = chatHistories[selectedChatId].filter(msg => msg != null);
+        setMessages(validMessages);
       } else {
         // Initialize with welcome message for new chat
         const chat = chats.find(c => c.id === selectedChatId);
@@ -72,121 +84,87 @@ export function Home() {
   // Save messages to chat history whenever they change
   useEffect(() => {
     if (selectedChatId && messages.length > 0) {
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedChatId]: messages
-      }));
+      // Filter out any null/undefined messages before saving
+      const validMessages = messages.filter(msg => msg != null);
+      if (validMessages.length > 0) {
+        setChatHistories(prev => ({
+          ...prev,
+          [selectedChatId]: validMessages
+        }));
+      }
     }
   }, [messages, selectedChatId]);
 
   const selectedChat = chats.find(c => c.id === selectedChatId);
 
-  const handleStreamResponse = async (publicName: string, conversationMessages: any[]) => {
+  const handleStreamResponse = async (conversationMessages: LLMMessage[]) => {
     try {
       // Create assistant message placeholder with loading state
-      const assistantMessage: any = {
+      const assistantMessage: Message = {
         _id: Date.now() + 1,
         text: '',
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: 'SimpleRagServer',
+          name: llmMode === 'local' ? 'Local AI' : 'SimpleRagServer',
         },
-        isLoading: true, // Custom property to track loading state
+        isLoading: true,
       };
       
       assistantMessageRef.current = assistantMessage;
-      // With inverted={false}, add to the end of the array
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Make the API call with streaming enabled
-      const response = await sendConversation({
-        publicName,
-        messages: conversationMessages,
-        stream: true,
-        temperature: 0.7,
-        useRag: true
-      });
+      // Get appropriate service
+      const service = LLMServiceFactory.getService(llmMode);
 
-      // Handle streaming response from fetch API
-      if (!response.body) {
-        throw new Error('Response body is not available');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let reading = true;
-
-      while (reading) {
-        try {
-          const { done, value } = await reader.read();
-          
-          if (done) {
-            reading = false;
-            break;
-          }
-
-          // Decode the chunk and add to buffer
-          buffer += decoder.decode(value, { stream: true });
-          
-          // Split by newlines to process each SSE message
-          const lines = buffer.split('\n');
-          
-          // Keep the last incomplete line in the buffer
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            try {
-              const trimmedLine = line.trim();
-              
-              // Parse SSE format: "data: {json}"
-              if (trimmedLine.startsWith('data:')) {
-                const data = trimmedLine.slice(5).trim();
-                
-                // Check for stream end signal
-                if (data === '[DONE]') {
-                  reading = false;
-                  break;
-                }
-                
-                try {
-                  const parsed = JSON.parse(data);
-                  // Extract content from: choices[0].delta.content
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  
-                  if (content) {
-                    updateAssistantMessage(content, true);
-                  }
-                } catch (parseError) {
-                  console.error('Error parsing streaming chunk:', parseError, 'Data:', data);
-                  // Continue processing other lines
-                }
-              }
-            } catch (lineError) {
-              console.error('Error processing line:', lineError);
-              // Continue to next line
-            }
-          }
-        } catch (readError) {
-          console.error('Error reading stream:', readError);
-          // Terminate the stream gracefully on read error
-          reading = false;
-          break;
+      // For local mode, initialize if needed
+      if (llmMode === 'local') {
+        const localLLM = LLMServiceFactory.getLocalLLM();
+        if (!localLLM.isModelLoaded()) {
+          setIsInitializingLocalLLM(true);
+          updateAssistantMessage('Initializing local AI model... This may take a moment on first run.', false);
         }
       }
 
+      await service.sendMessage(
+        {
+          publicName: selectedChat?.publicName || '',
+          temperature: 0.7,
+          useRag: llmMode === 'remote', // Only use RAG for remote mode
+        },
+        conversationMessages,
+        {
+          onContent: (content: string) => {
+            setIsInitializingLocalLLM(false);
+            updateAssistantMessage(content, true);
+          },
+          onComplete: () => {
+            setIsGenerating(false);
+            setIsInitializingLocalLLM(false);
+            assistantMessageRef.current = null;
+          },
+          onError: (error: Error) => {
+            console.error('Error from LLM service:', error);
+            Alert.alert('Error', error.message || 'Failed to get response');
+            if (assistantMessageRef.current) {
+              setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
+              assistantMessageRef.current = null;
+            }
+            setIsGenerating(false);
+            setIsInitializingLocalLLM(false);
+          }
+        }
+      );
+
     } catch (error) {
-      console.error('Error calling chat API:', error);
-      Alert.alert('Error', 'Failed to get response from the server');
-      // Remove the assistant message placeholder on error
+      console.error('Error calling LLM:', error);
+      Alert.alert('Error', 'Failed to get response from the LLM');
       if (assistantMessageRef.current) {
-        setMessages((prev) => prev.filter(m => m._id !== assistantMessageRef.current!._id));
+        setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
         assistantMessageRef.current = null;
       }
-    } finally {
       setIsGenerating(false);
-      assistantMessageRef.current = null;
+      setIsInitializingLocalLLM(false);
     }
   };
 
@@ -194,28 +172,31 @@ export function Home() {
     try {
       if (assistantMessageRef.current) {
         setMessages((prev) => {
-          try {
-            const updated = prev.map(msg => {
-              if (msg && msg._id === assistantMessageRef.current!._id) {
-                return {
-                  ...msg,
-                  text: append ? (msg.text || '') + content : content,
-                  isLoading: false, // Remove loading state when content arrives
-                };
-              }
-              return msg;
-            });
-            return updated;
-          } catch (mapError) {
-            console.error('Error updating message in map:', mapError);
-            return prev; // Return unchanged state on error
-          }
+          // Safety check - ensure prev is an array and filter out any null/undefined messages immediately
+          const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
+          
+          return safeMessages.map(msg => {
+            if (msg._id === assistantMessageRef.current!._id) {
+              return {
+                ...msg,
+                text: append ? (msg.text || '') + content : content,
+                isLoading: false,
+              };
+            }
+            return msg;
+          });
         });
       }
     } catch (error) {
       console.error('Error in updateAssistantMessage:', error);
-      // Silently fail - don't crash the app
     }
+  };
+
+  const handleErrorReset = () => {
+    // Clean up any corrupted state
+    setMessages(prevMessages => prevMessages.filter(msg => msg != null && msg._id != null));
+    assistantMessageRef.current = null;
+    setIsGenerating(false);
   };
 
   const handleClearHistory = () => {
@@ -243,14 +224,33 @@ export function Home() {
     }));
   };
 
+  const handleToggleLLMMode = async () => {
+    if (isGenerating) {
+      Alert.alert('Please Wait', 'Cannot switch mode while generating a response');
+      return;
+    }
+
+    const newMode: LLMMode = llmMode === 'remote' ? 'local' : 'remote';
+    
+    if (newMode === 'local' && !isLocalLLMAvailable) {
+      Alert.alert(
+        'WebGPU Not Available',
+        'Your browser does not support WebGPU, which is required for local AI models. Please use Chrome, Edge, or another WebGPU-compatible browser.'
+      );
+      return;
+    }
+
+    setLlmMode(newMode);
+  };
+
   const handleSend = useCallback(() => {
-    if (!selectedChat) {
+    if (!selectedChat && llmMode === 'remote') {
       Alert.alert('Error', 'Please select a chat first');
       return;
     }
 
     if (isGenerating || !text.trim()) {
-      return; // Prevent sending while generating or if text is empty
+      return;
     }
 
     // Create user message
@@ -266,46 +266,92 @@ export function Home() {
     setText('');
     setIsGenerating(true);
 
-    // Convert messages to OpenAI format
-    const conversationMessages = [...messages, userMessage]
+    // Convert messages to LLM format
+    const conversationMessages: LLMMessage[] = [...messages, userMessage]
+      .filter(msg => msg != null) // Filter out any null/undefined messages
       .map(msg => ({
         role: msg.user._id === 1 ? 'user' : 'assistant',
         content: msg.text
-      }));
+      })) as LLMMessage[];
 
-    // Call the API with streaming
-    handleStreamResponse(selectedChat.publicName, conversationMessages);
-  }, [selectedChat, messages, isGenerating, text]);
+    // Add system message for local mode
+    if (llmMode === 'local') {
+      conversationMessages.unshift({
+        role: 'system',
+        content: 'You are a helpful assistant.'
+      });
+    }
+
+    handleStreamResponse(conversationMessages);
+  }, [selectedChat, messages, isGenerating, text, llmMode]);
+
+  const getPlaceholder = () => {
+    if (llmMode === 'local') {
+      if (isInitializingLocalLLM) return 'Initializing local AI...';
+      if (isGenerating) return 'Generating locally...';
+      return 'Type a message (using local AI)...';
+    }
+    if (!selectedChatId) return 'Please select a chat first...';
+    if (isGenerating) return 'Generating response...';
+    return 'Type a message...';
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Chat Selection Dropdown */}
+      {/* Chat Selection and LLM Mode Toggle */}
       <View style={styles.dropdownContainer}>
         {loadingChats ? (
           <ActivityIndicator color="#666" />
         ) : (
           <>
             <Ionicons name="chatbubbles" size={24} color="#007aff" style={styles.chatIcon} />
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={selectedChatId}
-                onValueChange={(value) => setSelectedChatId(value)}
-                style={styles.picker}
-                dropdownIconColor="#666"
-              >
-                <Picker.Item label="Select a chat..." value="" />
-                {chats.map((chat) => (
-                  <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
-                ))}
-              </Picker>
+            
+            {/* Chat Selector - Only show in remote mode */}
+            {llmMode === 'remote' && (
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={selectedChatId}
+                  onValueChange={(value) => setSelectedChatId(value)}
+                  style={styles.picker}
+                  dropdownIconColor="#666"
+                >
+                  <Picker.Item label="Select a chat..." value="" />
+                  {chats.map((chat) => (
+                    <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+
+            {/* Local AI indicator */}
+            {llmMode === 'local' && (
+              <View style={styles.localModeIndicator}>
+                <Ionicons name="hardware-chip" size={20} color="#4CAF50" />
+                <Text style={styles.localModeText}>Local AI (WebGPU)</Text>
+              </View>
+            )}
+
+            {/* LLM Mode Toggle */}
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleLabel}>
+                {llmMode === 'remote' ? 'Remote' : 'Local'}
+              </Text>
+              <Switch
+                value={llmMode === 'local'}
+                onValueChange={handleToggleLLMMode}
+                disabled={!isLocalLLMAvailable || isGenerating}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={llmMode === 'local' ? '#fff' : '#f4f3f4'}
+              />
             </View>
+
             <TouchableOpacity
               style={[
                 styles.clearButton,
-                (!selectedChatId || isGenerating) && styles.clearButtonDisabled
+                ((!selectedChatId && llmMode === 'remote') || isGenerating) && styles.clearButtonDisabled
               ]}
               onPress={handleClearHistory}
-              disabled={!selectedChatId || isGenerating}
+              disabled={(!selectedChatId && llmMode === 'remote') || isGenerating}
             >
               <Ionicons name="trash-outline" size={20} color="#fff" />
             </TouchableOpacity>
@@ -313,15 +359,27 @@ export function Home() {
         )}
       </View>
 
-      <ChatContainer
-        messages={messages}
-        text={text}
-        onTextChange={setText}
-        onSend={handleSend}
-        placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-        disabled={!selectedChatId}
-        isGenerating={isGenerating}
-      />
+      {/* Warning for WebGPU not available */}
+      {!isLocalLLMAvailable && (
+        <View style={styles.warningBanner}>
+          <Ionicons name="warning" size={16} color="#ff9800" />
+          <Text style={styles.warningText}>
+            WebGPU not available. Local AI mode disabled.
+          </Text>
+        </View>
+      )}
+
+      <ErrorBoundary onReset={handleErrorReset}>
+        <ChatContainer
+          messages={messages.filter(msg => msg != null && msg._id != null)}
+          text={text}
+          onTextChange={setText}
+          onSend={handleSend}
+          placeholder={getPlaceholder()}
+          disabled={(llmMode === 'remote' && !selectedChatId) || isInitializingLocalLLM}
+          isGenerating={isGenerating}
+        />
+      </ErrorBoundary>
     </SafeAreaView>
   );
 }
@@ -360,6 +418,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     height: 48,
   },
+  localModeIndicator: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  localModeText: {
+    color: '#2e7d32',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
   clearButton: {
     backgroundColor: '#ff6b6b',
     paddingHorizontal: 16,
@@ -373,9 +457,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
     opacity: 0.5,
   },
-  clearButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  warningBanner: {
+    backgroundColor: '#fff3cd',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffc107',
+  },
+  warningText: {
+    color: '#856404',
+    fontSize: 13,
+    flex: 1,
   },
 });
