@@ -1,6 +1,7 @@
 package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
+import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.controller.dto.MessageDto;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.repository.ChatManagerService;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WebGpuController {
 
+    private final MessageListPreProcessPipe messageListPreProcessPipe;
     private final ContextAdditionPipe contextAdditionPipe;
     private final ChatManagerService chatManagerService;
 
@@ -86,13 +88,13 @@ public class WebGpuController {
                     .collect(Collectors.toList());
 
             // Process messages through ContextAdditionPipe if chat entity exists
-            List<Message> processedMessages = springMessages;
-
+            List<Message> processedMessages = this.messageListPreProcessPipe.process(springMessages, chatEntity);
+                    
             if (chatEntity != null) {
                 try {
                     // Use ContextAdditionPipe to add RAG context with client-specified limits
                     Pair<ContextAdditionPipe.OperationResult, List<Message>> result = 
-                            contextAdditionPipe.process(springMessages, chatEntity, 
+                            contextAdditionPipe.process(processedMessages, chatEntity, 
                                     request.maxContextLength(), 
                                     request.completionLength(), 
                                     request.headroomLength());
@@ -104,21 +106,6 @@ public class WebGpuController {
                 } catch (Exception e) {
                     log.error("Failed to add RAG context, proceeding without it", e);
                 }
-            }
-
-            // Ensure system message exists at the beginning
-            String systemPrompt = chatEntity != null && chatEntity.getDefaultSystemPrompt() != null
-                    ? chatEntity.getDefaultSystemPrompt()
-                    : "You are a helpful assistant.";
-
-            boolean hasSystemMessage = processedMessages.stream()
-                    .anyMatch(msg -> msg.getMessageType() == MessageType.SYSTEM);
-
-            if (!hasSystemMessage) {
-                List<Message> withSystem = new ArrayList<>();
-                withSystem.add(new SystemMessage(systemPrompt));
-                withSystem.addAll(processedMessages);
-                processedMessages = withSystem;
             }
 
             // Convert back to DTOs
