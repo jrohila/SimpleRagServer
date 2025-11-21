@@ -24,9 +24,23 @@ export class RemoteLLMService {
     callbacks: StreamCallback
   ): Promise<void> {
     try {
+      // Limit to 10 most recent messages to avoid context overflow
+      // Backend adds system messages (RAG context, memory, etc.), so we only send conversation history
+      const MAX_MESSAGES = 10;
+      const conversationMessages = messages.filter(m => m.role !== 'system');
+      
+      let limitedMessages = conversationMessages;
+      if (conversationMessages.length > MAX_MESSAGES) {
+        // Keep only the most recent messages
+        limitedMessages = conversationMessages.slice(-MAX_MESSAGES);
+        console.log(`Limited conversation history from ${conversationMessages.length} to ${MAX_MESSAGES} messages (system messages will be added by backend)`);
+      } else {
+        console.log(`Sending ${conversationMessages.length} conversation messages (system messages will be added by backend)`);
+      }
+
       const response = await sendConversation({
         publicName: config.publicName,
-        messages,
+        messages: limitedMessages,
         stream: true,
         temperature: config.temperature || 0.7,
         useRag: config.useRag ?? true

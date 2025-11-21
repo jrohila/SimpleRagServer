@@ -38,6 +38,10 @@ public class ContextAdditionPipe {
         CONTEXT_ADDED, PROMPT_OUT_OF_CONTEXT
     }
 
+    public static enum ModifyChatHistory {
+        KEEP, DROP_ALL
+    }
+
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     @Value("${processing.chat.rag.max-results:200}")
@@ -84,10 +88,14 @@ public class ContextAdditionPipe {
     }
 
     public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity) {
-        return this.process(springMessages, chatEntity, maxContextTokens, reserveCompletionTokens, reserveHeadroomTokens);
+        return this.process(springMessages, chatEntity, maxContextTokens, reserveCompletionTokens, reserveHeadroomTokens, ModifyChatHistory.KEEP);
     }
     
-    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLenght, int completionLength, int headroomLength) {
+    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLength, int completionLength, int headroomLength) {
+        return this.process(springMessages, chatEntity, maxContextLength, completionLength, headroomLength, ModifyChatHistory.KEEP);
+    }
+
+    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLenght, int completionLength, int headroomLength, ModifyChatHistory modifyChatHistory) {
         String userPrompt = null;
         if (springMessages != null) {
             for (Message m : springMessages) {
@@ -126,6 +134,41 @@ public class ContextAdditionPipe {
 
                 if (springMessages.size() > 4) {
                     promptOutOfScope = !CosineSimilarityCalculator.isSimilar(resultsWithEmbedding.getValue(), searchResults, 0.5);
+                }
+
+                // Modify Chat History if needed, to maximise space for context
+                if (ModifyChatHistory.DROP_ALL.equals(modifyChatHistory)) {
+                    // Keep only the most recent SYSTEM message (defines the Assistant) and USER message
+                    // All other messages will be dropped to maximize space for RAG context
+                    // The new SYSTEM message with RAG context will be added later at position 0
+                    Message lastSystemMessage = null;
+                    Message lastUserMessage = null;
+                    
+                    for (int i = springMessages.size() - 1; i >= 0; i--) {
+                        Message msg = springMessages.get(i);
+                        if (MessageType.USER.equals(msg.getMessageType()) && lastUserMessage == null) {
+                            lastUserMessage = msg;
+                        } else if (MessageType.SYSTEM.equals(msg.getMessageType()) && lastSystemMessage == null) {
+                            lastSystemMessage = msg;
+                        }
+                        
+                        // Stop once we have both
+                        if (lastUserMessage != null && lastSystemMessage != null) {
+                            break;
+                        }
+                    }
+                    
+                    // Create new list with the latest SYSTEM and USER messages
+                    List<Message> filteredMessages = new ArrayList<>();
+                    if (lastSystemMessage != null) {
+                        filteredMessages.add(lastSystemMessage);
+                    }
+                    if (lastUserMessage != null) {
+                        filteredMessages.add(lastUserMessage);
+                    }
+                    
+                    springMessages = filteredMessages;
+                    log.info("[ChatService] DROP_ALL: Kept latest SYSTEM and USER messages, removed all others. Remaining messages: {}", filteredMessages.size());
                 }
 
                 if (!promptOutOfScope) {

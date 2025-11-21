@@ -143,13 +143,27 @@ export class LocalLLMService {
         await this.initialize();
       }
 
+      // Limit to 10 most recent messages to avoid context overflow
+      // Backend adds system messages (RAG context, memory, etc.), so we only send conversation history
+      const MAX_MESSAGES = 10;
+      const conversationMessages = messages.filter(m => m.role !== 'system');
+      
+      let limitedMessages = conversationMessages;
+      if (conversationMessages.length > MAX_MESSAGES) {
+        // Keep only the most recent messages
+        limitedMessages = conversationMessages.slice(-MAX_MESSAGES);
+        console.log(`Limited conversation history from ${conversationMessages.length} to ${MAX_MESSAGES} messages (system messages will be added by backend)`);
+      } else {
+        console.log(`Sending ${conversationMessages.length} conversation messages (system messages will be added by backend)`);
+      }
+
       // Process messages through backend if publicName is provided and RAG is enabled
-      let processedMessages = messages;
+      let processedMessages = limitedMessages;
       if (config.useRag && config.publicName) {
         try {
           console.log('Fetching RAG context from backend...', { 
             publicName: config.publicName, 
-            messageCount: messages.length 
+            messageCount: limitedMessages.length 
           });
           
           // WebGPU client capabilities for context sizing
@@ -159,7 +173,7 @@ export class LocalLLMService {
           
           const response = await this.webGpuMessageService.processMessagesForWebGPU(
             config.publicName,
-            messages,
+            limitedMessages,
             maxContextLength,
             completionLength,
             headroomLength
@@ -211,6 +225,36 @@ export class LocalLLMService {
       if (!processedMessages || processedMessages.length === 0) {
         throw new Error('No messages to process');
       }
+
+      // Calculate token count before sending to LLM
+      const calculateTokens = (messages: typeof processedMessages): number => {
+        let totalTokens = 0;
+        for (const msg of messages) {
+          // Rough estimation: ~4 characters per token (OpenAI-style)
+          // This is a simple heuristic; actual tokenization may vary
+          const contentTokens = Math.ceil(msg.content.length / 4);
+          // Add overhead for role and message structure (~4 tokens per message)
+          totalTokens += contentTokens + 4;
+        }
+        return totalTokens;
+      };
+
+      const inputTokens = calculateTokens(processedMessages);
+      console.log(`\n=== Token Calculation ===`);
+      console.log(`Total input tokens (estimated): ${inputTokens}`);
+      console.log(`Messages being sent: ${processedMessages.length}`);
+      
+      // Calculate per-message breakdown
+      const tokenBreakdown = processedMessages.map((msg, idx) => {
+        const msgTokens = Math.ceil(msg.content.length / 4) + 4;
+        return {
+          index: idx + 1,
+          role: msg.role,
+          tokens: msgTokens,
+          contentLength: msg.content.length
+        };
+      });
+      console.table(tokenBreakdown);
 
       console.log('\n=== Sending to LLM generator ===');
       console.log(`Message count: ${processedMessages.length}`);

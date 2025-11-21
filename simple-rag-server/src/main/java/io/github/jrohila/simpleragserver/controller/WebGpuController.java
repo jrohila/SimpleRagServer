@@ -97,7 +97,8 @@ public class WebGpuController {
                             contextAdditionPipe.process(processedMessages, chatEntity, 
                                     request.maxContextLength(), 
                                     request.completionLength(), 
-                                    request.headroomLength());
+                                    request.headroomLength(),
+                                    ContextAdditionPipe.ModifyChatHistory.DROP_ALL);
                     
                     processedMessages = result.getRight();
 
