@@ -166,6 +166,38 @@ const markdownStyles = {
     bullet_list: { marginBottom: 8 },
     ordered_list: { marginBottom: 8 },
     hr: { backgroundColor: '#e0e0e0', height: 1, marginVertical: 8 },
+    table: {
+      borderWidth: 1,
+      borderColor: '#dfe2e5',
+      borderRadius: 6,
+      marginBottom: 8,
+      overflow: 'hidden' as const,
+    },
+    thead: {
+      backgroundColor: '#0d47a1',
+    },
+    tbody: {
+      backgroundColor: '#ffffff',
+    },
+    th: {
+      backgroundColor: '#0d47a1',
+      color: '#ffffff',
+      fontWeight: 'bold' as const,
+      padding: 8,
+      borderWidth: 1,
+      borderColor: '#1565c0',
+    },
+    tr: {
+      borderBottomWidth: 1,
+      borderBottomColor: '#e0e0e0',
+    },
+    td: {
+      backgroundColor: '#ffffff',
+      color: '#222',
+      padding: 8,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
   },
   user: {
     body: { color: '#222', fontSize: 16 },
@@ -179,6 +211,38 @@ const markdownStyles = {
       paddingVertical: 2,
       borderRadius: 3,
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    table: {
+      borderWidth: 1,
+      borderColor: '#dfe2e5',
+      borderRadius: 6,
+      marginBottom: 8,
+      overflow: 'hidden' as const,
+    },
+    thead: {
+      backgroundColor: '#666666',
+    },
+    tbody: {
+      backgroundColor: '#f9f9f9',
+    },
+    th: {
+      backgroundColor: '#666666',
+      color: '#ffffff',
+      fontWeight: 'bold' as const,
+      padding: 8,
+      borderWidth: 1,
+      borderColor: '#888888',
+    },
+    tr: {
+      borderBottomWidth: 1,
+      borderBottomColor: '#e0e0e0',
+    },
+    td: {
+      backgroundColor: '#f9f9f9',
+      color: '#222',
+      padding: 8,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
     },
   },
 };
