@@ -140,7 +140,7 @@ export function Home() {
         {
           publicName: selectedChat?.publicName || '',
           temperature: 0.7,
-          useRag: llmMode === 'remote', // Only use RAG for remote mode
+          useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
         },
         conversationMessages,
         {
@@ -151,9 +151,25 @@ export function Home() {
             isFirstContent = false;
           },
           onComplete: () => {
+            // Ensure final message state is set before clearing ref
+            if (assistantMessageRef.current) {
+              setMessages((prev) => {
+                const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
+                return safeMessages.map(msg => {
+                  if (!msg || !msg._id) return msg;
+                  if (msg._id === assistantMessageRef.current!._id) {
+                    return { ...msg, isLoading: false };
+                  }
+                  return msg;
+                }).filter((msg): msg is Message => msg != null && msg._id != null);
+              });
+            }
             setIsGenerating(false);
             setIsInitializingLocalLLM(false);
-            assistantMessageRef.current = null;
+            // Defer nulling the ref to avoid race conditions
+            setTimeout(() => {
+              assistantMessageRef.current = null;
+            }, 0);
           },
           onError: (error: Error) => {
             console.error('Error from LLM service:', error);
@@ -187,7 +203,10 @@ export function Home() {
           // Safety check - ensure prev is an array and filter out any null/undefined messages immediately
           const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
           
-          return safeMessages.map(msg => {
+          const updatedMessages = safeMessages.map(msg => {
+            // Double check msg is valid before accessing properties
+            if (!msg || !msg._id) return null;
+            
             if (msg._id === assistantMessageRef.current!._id) {
               return {
                 ...msg,
@@ -197,6 +216,9 @@ export function Home() {
             }
             return msg;
           });
+          
+          // Filter out any null values that might have been created
+          return updatedMessages.filter((msg): msg is Message => msg != null && msg._id != null);
         });
       }
     } catch (error) {

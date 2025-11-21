@@ -5,7 +5,6 @@
 package io.github.jrohila.simpleragserver.chat.pipeline;
 
 import io.github.jrohila.simpleragserver.chat.ChatService;
-import io.github.jrohila.simpleragserver.chat.OpenAiChatRequest;
 import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
@@ -24,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
