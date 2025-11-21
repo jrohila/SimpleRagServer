@@ -6,6 +6,9 @@ export interface ProcessMessagesRequest {
     role: 'system' | 'user' | 'assistant';
     content: string;
   }>;
+  maxContextLength: number;
+  completionLength: number;
+  headroomLength: number;
 }
 
 export type ProcessMessagesResponse = Array<{
@@ -21,7 +24,10 @@ export class WebGpuMessageService {
    */
   async processMessagesForWebGPU(
     publicName: string,
-    messages: LLMMessage[]
+    messages: LLMMessage[],
+    maxContextLength: number = 4096,
+    completionLength: number = 1024,
+    headroomLength: number = 1024
   ): Promise<ProcessMessagesResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/process-messages`, {
@@ -34,7 +40,10 @@ export class WebGpuMessageService {
           messages: messages.map(m => ({
             role: m.role,
             content: m.content
-          }))
+          })),
+          maxContextLength,
+          completionLength,
+          headroomLength
         } as ProcessMessagesRequest),
       });
 

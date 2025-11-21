@@ -33,7 +33,10 @@ public class WebGpuController {
      */
     public record ProcessMessagesRequest(
             String publicName,
-            List<MessageDto> messages
+            List<MessageDto> messages,
+            int maxContextLength,
+            int completionLength,
+            int headroomLength
     ) {}
 
     /**
@@ -87,9 +90,12 @@ public class WebGpuController {
 
             if (chatEntity != null) {
                 try {
-                    // Use ContextAdditionPipe to add RAG context
+                    // Use ContextAdditionPipe to add RAG context with client-specified limits
                     Pair<ContextAdditionPipe.OperationResult, List<Message>> result = 
-                            contextAdditionPipe.process(springMessages, chatEntity);
+                            contextAdditionPipe.process(springMessages, chatEntity, 
+                                    request.maxContextLength(), 
+                                    request.completionLength(), 
+                                    request.headroomLength());
                     
                     processedMessages = result.getRight();
 

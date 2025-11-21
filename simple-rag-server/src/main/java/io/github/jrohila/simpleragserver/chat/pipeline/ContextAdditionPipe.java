@@ -44,11 +44,11 @@ public class ContextAdditionPipe {
     private int ragMaxResults;
     @Value("${opensearch.rrf.window-size:50}")
     private int rrfWindowSize;
-    @Value("${processing.chat.token.max-context-tokens:26000}")
+    @Value("${processing.chat.token.max-context-tokens:32000}")
     private int maxContextTokens;
     @Value("${processing.chat.token.reserve-completion:4000}")
     private int reserveCompletionTokens;
-    @Value("${processing.chat.token.reserve-headroom:2000}")
+    @Value("${processing.chat.token.reserve-headroom:4000}")
     private int reserveHeadroomTokens;
 
     @Autowired
@@ -84,6 +84,10 @@ public class ContextAdditionPipe {
     }
 
     public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity) {
+        return this.process(springMessages, chatEntity, maxContextTokens, reserveCompletionTokens, reserveHeadroomTokens);
+    }
+    
+    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLenght, int completionLength, int headroomLength) {
         String userPrompt = null;
         if (springMessages != null) {
             for (Message m : springMessages) {
@@ -133,7 +137,7 @@ public class ContextAdditionPipe {
                         } catch (Exception ignore) {
                         }
                         int prefixTokens = this.chatHelper.countTokens(prefix);
-                        int budget = Math.max(0, maxContextTokens - currentTokens - prefixTokens - reserveCompletionTokens - reserveHeadroomTokens);
+                        int budget = Math.max(0, maxContextLenght - currentTokens - prefixTokens - completionLength - headroomLength);
                         if (budget <= 0) {
                             log.info("[ChatService] Context budget is 0 or negative (currentTokens={}, prefixTokens={}). Skipping RAG context.", currentTokens, prefixTokens);
                         } else {

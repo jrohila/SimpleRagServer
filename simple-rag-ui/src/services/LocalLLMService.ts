@@ -152,9 +152,17 @@ export class LocalLLMService {
             messageCount: messages.length 
           });
           
+          // WebGPU client capabilities for context sizing
+          const maxContextLength = 4096;  // Total context window
+          const completionLength = 1024;  // Reserved for model output
+          const headroomLength = 1024;    // Safety buffer
+          
           const response = await this.webGpuMessageService.processMessagesForWebGPU(
             config.publicName,
-            messages
+            messages,
+            maxContextLength,
+            completionLength,
+            headroomLength
           );
 
           console.log('Backend response:', { 
@@ -204,52 +212,9 @@ export class LocalLLMService {
         throw new Error('No messages to process');
       }
 
-      // Truncate context if too large - reduced to 2048 tokens for WebGPU stability
-      const MAX_INPUT_TOKENS = 2048; // Reduced from 4096 to avoid WebGPU memory errors
-      let truncatedMessages = processedMessages;
-      
-      // Estimate token count (rough: ~4 chars per token)
-      const estimateTokens = (msgs: typeof processedMessages) => {
-        return msgs.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0);
-      };
-      
-      const totalTokens = estimateTokens(processedMessages);
-      
-      if (totalTokens > MAX_INPUT_TOKENS) {
-        console.log(`Context too large: ${totalTokens} tokens, truncating to ${MAX_INPUT_TOKENS} tokens`);
-        
-        // Keep system message (if any) and most recent messages
-        const systemMessages = processedMessages.filter(m => m.role === 'system');
-        const conversationMessages = processedMessages.filter(m => m.role !== 'system');
-        
-        // Start with system messages
-        truncatedMessages = [...systemMessages];
-        let currentTokens = estimateTokens(truncatedMessages);
-        const includedMessages: typeof conversationMessages = [];
-        
-        // Add messages from the end (most recent) until we hit the limit
-        for (let i = conversationMessages.length - 1; i >= 0; i--) {
-          const msgTokens = Math.ceil(conversationMessages[i].content.length / 4);
-          if (currentTokens + msgTokens > MAX_INPUT_TOKENS) {
-            console.log(`Truncated ${i + 1} older messages`);
-            break;
-          }
-          includedMessages.unshift(conversationMessages[i]);
-          currentTokens += msgTokens;
-        }
-        
-        // Combine system messages with included conversation messages
-        truncatedMessages = [...systemMessages, ...includedMessages];
-        
-        const finalTokens = estimateTokens(truncatedMessages);
-        console.log(`Final context size: ${finalTokens} tokens with ${truncatedMessages.length} messages`);
-      } else {
-        console.log(`Context size: ${totalTokens} tokens (within ${MAX_INPUT_TOKENS} limit)`);
-      }
-
       console.log('\n=== Sending to LLM generator ===');
-      console.log(`Message count: ${truncatedMessages.length}`);
-      truncatedMessages.forEach((msg, idx) => {
+      console.log(`Message count: ${processedMessages.length}`);
+      processedMessages.forEach((msg, idx) => {
         console.log(`[${idx + 1}] ${msg.role.toUpperCase()}:`);
         console.log(msg.content);
         console.log('---');
@@ -257,7 +222,7 @@ export class LocalLLMService {
       console.log('================================\n');
 
       // Generate response with configurable parameters
-      await this.generator(truncatedMessages, {
+      await this.generator(processedMessages, {
         max_new_tokens: 2048, // Increased from 512 to 2048 tokens (~1600 words)
         temperature: config.temperature || 0.7,
         do_sample: config.temperature ? config.temperature > 0 : false,
