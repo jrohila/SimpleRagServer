@@ -23,6 +23,24 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
   const isUser = message.user._id === 1;
   const isAssistant = message.user._id === 2;
 
+  // Format timestamp
+  const formatTimestamp = (date: Date): string => {
+    const messageDate = new Date(date);
+    
+    const dateStr = messageDate.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    
+    const timeStr = messageDate.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    
+    return `${dateStr}, ${timeStr}`;
+  };
+
   return (
     <View style={styles.messageContainer}>
       {showUsername && (
@@ -57,6 +75,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
           </Markdown>
         )}
       </View>
+      {!message.isLoading && message.text && (
+        <Text style={styles.timestamp}>
+          {formatTimestamp(message.createdAt)}
+        </Text>
+      )}
     </View>
   );
 };
@@ -116,6 +139,13 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: '#e0e0e0',
     borderRadius: 4,
+  },
+  timestamp: {
+    fontSize: 11,
+    color: '#000',
+    marginTop: 4,
+    marginLeft: 10,
+    alignSelf: 'flex-start',
   },
 });
 

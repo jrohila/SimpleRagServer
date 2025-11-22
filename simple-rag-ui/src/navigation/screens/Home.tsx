@@ -182,7 +182,11 @@ export function Home() {
                 return safeMessages.map(msg => {
                   if (!msg || !msg._id) return msg;
                   if (msg._id === assistantMessageRef.current!._id) {
-                    return { ...msg, isLoading: false };
+                    return { 
+                      ...msg, 
+                      isLoading: false,
+                      createdAt: new Date() // Update timestamp when response is complete
+                    };
                   }
                   return msg;
                 }).filter((msg): msg is Message => msg != null && msg._id != null);
