@@ -129,18 +129,26 @@ export class LocalLLMService {
     systemPrompt: string
   ): Promise<string> {
     try {
-      console.log('\n=== Rewriting User Prompt ===');
+      console.log('\n=== Rewriting User Prompt (Granite Tokens) ===');
       console.log('Original prompt:', userPrompt);
       console.log('Last assistant message:', lastAssistantMessage || 'None');
 
-      // Combine system prompt and user prompt into a single user message
-      const combinedPrompt = `${systemPrompt}\n\nLast assistant response: ${lastAssistantMessage || 'None'}\n\nUser's message to rewrite: ${userPrompt}`;
-      
+      // Build role-typed messages: system, assistant (if present), user
+      const roleMessages: LLMMessage[] = [];
+      if (systemPrompt) {
+        roleMessages.push({ role: 'system', content: systemPrompt });
+      }
+      if (lastAssistantMessage) {
+        roleMessages.push({ role: 'assistant', content: lastAssistantMessage });
+      }
+      roleMessages.push({ role: 'user', content: userPrompt });
+
+      // Format with Granite special tokens
+      const graniteFormatted = this.formatMessagesWithGraniteTokens(roleMessages);
+
+      // Wrap as a single user message so the generator receives the structured prompt
       const rewriteMessages: LLMMessage[] = [
-        {
-          role: 'user',
-          content: combinedPrompt
-        }
+        { role: 'user', content: graniteFormatted }
       ];
 
       // Dynamic import
@@ -158,7 +166,7 @@ export class LocalLLMService {
       await this.generator(rewriteMessages, {
         max_new_tokens: 256,  // Shorter for prompt rewriting
         temperature: 0.3,     // Lower temperature for more focused rewriting
-        do_sample: true,
+        do_sample: false,
         top_k: 50,
         top_p: 0.95,
         repetition_penalty: 1.1,
@@ -167,14 +175,31 @@ export class LocalLLMService {
       });
 
       const trimmedPrompt = rewrittenPrompt.trim();
-      console.log('Rewritten prompt:', trimmedPrompt);
+      console.log('Rewritten prompt (trimmed):', trimmedPrompt);
       console.log('=================================\n');
 
       return trimmedPrompt || userPrompt; // Fallback to original if rewriting fails
     } catch (error) {
-      console.error('Error rewriting prompt, using original:', error);
+      console.error('Error rewriting prompt (Granite flow), using original:', error);
       return userPrompt;
     }
+  }
+
+  /**
+   * Format messages with Granite special tokens
+   * Converts message array to single string with role markers:
+   * <|start_of_role|>role_name<|end_of_role|>content<|end_of_text|>
+   */
+  private formatMessagesWithGraniteTokens(messages: LLMMessage[]): string {
+    const formatted = messages.map(msg => {
+      return `<|start_of_role|>${msg.role}<|end_of_role|>${msg.content}<|end_of_text|>`;
+    }).join('\n');
+    
+    console.log('\n=== Formatted with Granite Tokens ===');
+    console.log(formatted);
+    console.log('======================================\n');
+    
+    return formatted;
   }
 
   async sendMessage(
@@ -372,8 +397,19 @@ export class LocalLLMService {
       });
       console.log('================================\n');
 
+      // Format messages with Granite special tokens
+      const graniteFormattedPrompt = this.formatMessagesWithGraniteTokens(processedMessages);
+      
+      // Create a single user message with the formatted prompt
+      const graniteMessages: LLMMessage[] = [
+        {
+          role: 'user',
+          content: graniteFormattedPrompt
+        }
+      ];
+
       // Generate response with configurable parameters
-      await this.generator(processedMessages, {
+      await this.generator(graniteMessages, {
         max_new_tokens: 2048, // Increased from 512 to 2048 tokens (~1600 words)
         temperature: config.temperature || 0.7,
         do_sample: config.temperature ? config.temperature > 0 : false,
