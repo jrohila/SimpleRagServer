@@ -94,6 +94,8 @@ public class IndicesManager {
                 .properties("overrideAssistantMessage", p -> p.boolean_(b -> b))
                 .properties("defaultOutOfScopeMessage", p -> p.text(t -> t))
                 .properties("welcomeMessage", p -> p.text(t -> t))
+                .properties("useUserPromptRewriting", p -> p.boolean_(b -> b))
+                .properties("userPromptRewritingPrompt", p -> p.text(t -> t))
                 )
                 .build();
 

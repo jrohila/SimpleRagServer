@@ -34,6 +34,12 @@ public class OpenApiConfiguration {
     @Value("${processing.chat.rag.out-of-scope-prompt}")
     private String outOfScopePrompt;
 
+    @Value("${processing.chat.user-prompt-rewriting.enabled}")
+    private Boolean useUserPromptRewriting;
+
+    @Value("${processing.chat.user-prompt-rewriting.prompt}")
+    private String userPromptRewritingPrompt;
+
     @Bean
     public OpenApiCustomizer onboardingDtoExampleCustomizer() {
         return openApi -> {
@@ -57,6 +63,8 @@ public class OpenApiConfiguration {
                     onboardingSchema.getProperties().put("collectionDescription", new StringSchema().example("A collection for onboarding documents."));
                     onboardingSchema.getProperties().put("overrideSystemMessage", new Schema<Boolean>().type("boolean").example(true));
                     onboardingSchema.getProperties().put("overrideAssistantMessage", new Schema<Boolean>().type("boolean").example(true));
+                    onboardingSchema.getProperties().put("useUserPromptRewriting", new Schema<Boolean>().type("boolean").example(useUserPromptRewriting));
+                    onboardingSchema.getProperties().put("userPromptRewritingPrompt", new StringSchema().example(userPromptRewritingPrompt));
                 }
                 // Set default values for request params in the operation parameters
                 openApi.getPaths().forEach((path, pathItem) -> {
@@ -111,6 +119,12 @@ public class OpenApiConfiguration {
                                     }
                                     if (param.getName().equals("overrideAssistantMessage")) {
                                         param.setExample(true);
+                                    }
+                                    if (param.getName().equals("useUserPromptRewriting")) {
+                                        param.setExample(useUserPromptRewriting);
+                                    }
+                                    if (param.getName().equals("userPromptRewritingPrompt")) {
+                                        param.setExample(userPromptRewritingPrompt);
                                     }
                                 });
                             }

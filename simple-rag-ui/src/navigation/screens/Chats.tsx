@@ -54,6 +54,8 @@ export function Chats() {
   const [defaultExtractorPrompt, setDefaultExtractorPrompt] = useState('');
   const [overrideSystemMessage, setOverrideSystemMessage] = useState(false);
   const [overrideAssistantMessage, setOverrideAssistantMessage] = useState(false);
+  const [useUserPromptRewriting, setUseUserPromptRewriting] = useState(false);
+  const [userPromptRewritingPrompt, setUserPromptRewritingPrompt] = useState('');
   const [defaultCollectionId, setDefaultCollectionId] = useState<string>('');
   
   // Fetch collections and chats whenever screen comes into focus
@@ -98,6 +100,8 @@ export function Chats() {
           setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
           setOverrideSystemMessage(!!data.overrideSystemMessage);
           setOverrideAssistantMessage(!!data.overrideAssistantMessage);
+          setUseUserPromptRewriting(!!data.useUserPromptRewriting);
+          setUserPromptRewritingPrompt(data.userPromptRewritingPrompt || '');
           setDefaultCollectionId(data.defaultCollectionId || '');
           setLoading(false);
         })
@@ -117,6 +121,8 @@ export function Chats() {
       setDefaultExtractorPrompt('');
       setOverrideSystemMessage(false);
       setOverrideAssistantMessage(false);
+      setUseUserPromptRewriting(false);
+      setUserPromptRewritingPrompt('');
       setDefaultCollectionId('');
     }
   }, [selectedChatId]);
@@ -138,6 +144,8 @@ export function Chats() {
       defaultExtractorPrompt !== (chatDetails.defaultExtractorPrompt || '') ||
       overrideSystemMessage !== (chatDetails.overrideSystemMessage || false) ||
       overrideAssistantMessage !== (chatDetails.overrideAssistantMessage || false) ||
+      useUserPromptRewriting !== (chatDetails.useUserPromptRewriting || false) ||
+      userPromptRewritingPrompt !== (chatDetails.userPromptRewritingPrompt || '') ||
       defaultCollectionId !== (chatDetails.defaultCollectionId || '')
     );
   };
@@ -169,6 +177,8 @@ export function Chats() {
       defaultExtractorPrompt,
       overrideSystemMessage,
       overrideAssistantMessage,
+      useUserPromptRewriting,
+      userPromptRewritingPrompt,
       defaultCollectionId,
     };
     updateChat(selectedChatId, updatedChat)
@@ -225,6 +235,8 @@ export function Chats() {
           setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
           setOverrideSystemMessage(data.overrideSystemMessage || false);
           setOverrideAssistantMessage(data.overrideAssistantMessage || false);
+          setUseUserPromptRewriting(!!data.useUserPromptRewriting);
+          setUserPromptRewritingPrompt(data.userPromptRewritingPrompt || '');
           setDefaultCollectionId(data.defaultCollectionId || '');
         })
         .catch(() => {
@@ -448,6 +460,26 @@ export function Chats() {
             disabled={!chatDetails}
           />
         </View>
+        <View style={styles.checkboxRow}>
+          <Text style={styles.label}>Use User Prompt Rewriting</Text>
+          <input
+            type="checkbox"
+            checked={useUserPromptRewriting}
+            onChange={() => !!chatDetails && setUseUserPromptRewriting(!useUserPromptRewriting)}
+            style={styles.checkbox}
+            disabled={!chatDetails}
+          />
+        </View>
+        <Text style={styles.label}>User Prompt Rewriting Prompt</Text>
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          value={userPromptRewritingPrompt}
+          onChangeText={setUserPromptRewritingPrompt}
+          placeholder="User Prompt Rewriting Prompt"
+          editable={!!chatDetails}
+          multiline
+          numberOfLines={5}
+        />
         <Button title="Update" onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
         <View style={{ height: 10 }} />
         <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !chatDetails} />

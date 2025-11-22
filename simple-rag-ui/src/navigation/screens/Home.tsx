@@ -3,7 +3,7 @@ import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, S
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
-import { getChats } from '../../api/chats';
+import { getChats, getChatById } from '../../api/chats';
 import { ChatContainer } from '../../components/ChatContainer';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Message } from '../../components/ChatMessage';
@@ -14,6 +14,8 @@ type Chat = {
   id: string;
   publicName: string;
   welcomeMessage?: string;
+  useUserPromptRewriting?: boolean;
+  userPromptRewritingPrompt?: string;
 };
 
 export function Home() {
@@ -23,6 +25,7 @@ export function Home() {
   const [text, setText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
+  const [selectedChatDetails, setSelectedChatDetails] = useState<Chat | null>(null);
   const [loadingChats, setLoadingChats] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [llmMode, setLlmMode] = useState<LLMMode>('remote');
@@ -63,6 +66,17 @@ export function Home() {
   // Update messages when selectedChatId changes
   useEffect(() => {
     if (selectedChatId) {
+      // Fetch full chat details to get prompt rewriting configuration
+      getChatById(selectedChatId)
+        .then((res) => {
+          const data = (res as any).data as Chat;
+          setSelectedChatDetails(data);
+        })
+        .catch((error) => {
+          console.warn('Failed to fetch chat details:', error);
+          setSelectedChatDetails(null);
+        });
+      
       // Load chat history for the selected chat, or use default welcome message
       if (chatHistories[selectedChatId]) {
         // Filter out any null/undefined messages when loading from history
@@ -136,12 +150,22 @@ export function Home() {
       }
 
       let isFirstContent = true;
+      
+      // Prepare config with prompt rewriting settings
+      const config: any = {
+        publicName: selectedChat?.publicName || '',
+        temperature: 0.7,
+        useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
+      };
+      
+      // Add prompt rewriting configuration if available from full chat details
+      if (selectedChatDetails) {
+        config.useUserPromptRewriting = selectedChatDetails.useUserPromptRewriting;
+        config.userPromptRewritingPrompt = selectedChatDetails.userPromptRewritingPrompt;
+      }
+      
       await service.sendMessage(
-        {
-          publicName: selectedChat?.publicName || '',
-          temperature: 0.7,
-          useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
-        },
+        config,
         conversationMessages,
         {
           onContent: (content: string) => {

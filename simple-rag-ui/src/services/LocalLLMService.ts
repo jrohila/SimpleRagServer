@@ -120,6 +120,63 @@ export class LocalLLMService {
     }
   }
 
+  /**
+   * Rewrite user prompt using the LLM if enabled in chat configuration
+   */
+  private async rewriteUserPrompt(
+    userPrompt: string,
+    lastAssistantMessage: string | null,
+    systemPrompt: string
+  ): Promise<string> {
+    try {
+      console.log('\n=== Rewriting User Prompt ===');
+      console.log('Original prompt:', userPrompt);
+      console.log('Last assistant message:', lastAssistantMessage || 'None');
+
+      // Combine system prompt and user prompt into a single user message
+      const combinedPrompt = `${systemPrompt}\n\nLast assistant response: ${lastAssistantMessage || 'None'}\n\nUser's message to rewrite: ${userPrompt}`;
+      
+      const rewriteMessages: LLMMessage[] = [
+        {
+          role: 'user',
+          content: combinedPrompt
+        }
+      ];
+
+      // Dynamic import
+      const { TextStreamer } = await import('@huggingface/transformers');
+
+      let rewrittenPrompt = '';
+      const streamer = new TextStreamer(this.generator.tokenizer, {
+        skip_prompt: true,
+        skip_special_tokens: true,
+        callback_function: (text: string) => {
+          rewrittenPrompt += text;
+        }
+      });
+
+      await this.generator(rewriteMessages, {
+        max_new_tokens: 256,  // Shorter for prompt rewriting
+        temperature: 0.3,     // Lower temperature for more focused rewriting
+        do_sample: true,
+        top_k: 50,
+        top_p: 0.95,
+        repetition_penalty: 1.1,
+        min_new_tokens: 1,
+        streamer,
+      });
+
+      const trimmedPrompt = rewrittenPrompt.trim();
+      console.log('Rewritten prompt:', trimmedPrompt);
+      console.log('=================================\n');
+
+      return trimmedPrompt || userPrompt; // Fallback to original if rewriting fails
+    } catch (error) {
+      console.error('Error rewriting prompt, using original:', error);
+      return userPrompt;
+    }
+  }
+
   async sendMessage(
     config: LLMServiceConfig,
     messages: LLMMessage[],
@@ -148,13 +205,63 @@ export class LocalLLMService {
       const MAX_MESSAGES = 10;
       const conversationMessages = messages.filter(m => m.role !== 'system');
       
-      let limitedMessages = conversationMessages;
-      if (conversationMessages.length > MAX_MESSAGES) {
+      // Check if we need to rewrite the user's prompt
+      let processedConversationMessages = conversationMessages;
+      if (config.useUserPromptRewriting && config.userPromptRewritingPrompt) {
+        // Get the last user message and last assistant message
+        const lastUserMessage = [...conversationMessages].reverse().find(m => m.role === 'user');
+        const lastAssistantMessage = [...conversationMessages].reverse().find(m => m.role === 'assistant');
+        
+        // Count user messages to determine if this is the first one
+        const userMessageCount = conversationMessages.filter(m => m.role === 'user').length;
+        
+        console.log('\n=== Prompt Rewriting Check ===');
+        console.log('Total conversation messages:', conversationMessages.length);
+        console.log('User message count:', userMessageCount);
+        console.log('Last user message found:', !!lastUserMessage);
+        console.log('Last assistant message found:', !!lastAssistantMessage);
+        console.log('Messages:', conversationMessages.map(m => ({ role: m.role, contentLength: m.content.length })));
+        
+        // Only rewrite if this is NOT the first user message (userMessageCount > 1 means we have previous user messages)
+        if (lastUserMessage && lastAssistantMessage && userMessageCount > 1) {
+          try {
+            console.log('\n========================================');
+            console.log('USER PROMPT REWRITING ENABLED');
+            console.log('========================================');
+            console.log('Original user prompt:');
+            console.log(lastUserMessage.content);
+            console.log('----------------------------------------');
+            
+            const rewrittenContent = await this.rewriteUserPrompt(
+              lastUserMessage.content,
+              lastAssistantMessage.content,
+              config.userPromptRewritingPrompt
+            );
+            
+            console.log('----------------------------------------');
+            console.log('Rewritten user prompt:');
+            console.log(rewrittenContent);
+            console.log('========================================\n');
+            
+            // Replace the last user message with the rewritten one
+            processedConversationMessages = conversationMessages.map(m => 
+              m === lastUserMessage ? { ...m, content: rewrittenContent } : m
+            );
+          } catch (error) {
+            console.warn('Failed to rewrite prompt, proceeding with original:', error);
+          }
+        } else {
+          console.log('Skipping prompt rewriting - first user message (userMessageCount:', userMessageCount, ')');
+        }
+      }
+      
+      let limitedMessages = processedConversationMessages;
+      if (processedConversationMessages.length > MAX_MESSAGES) {
         // Keep only the most recent messages
-        limitedMessages = conversationMessages.slice(-MAX_MESSAGES);
-        console.log(`Limited conversation history from ${conversationMessages.length} to ${MAX_MESSAGES} messages (system messages will be added by backend)`);
+        limitedMessages = processedConversationMessages.slice(-MAX_MESSAGES);
+        console.log(`Limited conversation history from ${processedConversationMessages.length} to ${MAX_MESSAGES} messages (system messages will be added by backend)`);
       } else {
-        console.log(`Sending ${conversationMessages.length} conversation messages (system messages will be added by backend)`);
+        console.log(`Sending ${processedConversationMessages.length} conversation messages (system messages will be added by backend)`);
       }
 
       // Process messages through backend if publicName is provided and RAG is enabled

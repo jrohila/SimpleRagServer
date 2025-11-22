@@ -9,6 +9,8 @@ export interface LLMServiceConfig {
   publicName: string;
   temperature?: number;
   useRag?: boolean;
+  useUserPromptRewriting?: boolean;
+  userPromptRewritingPrompt?: string;
 }
 
 export interface StreamCallback {

@@ -33,6 +33,8 @@ export function Onboarding() {
     collectionDescription: 'A collection for onboarding documents.',
     overrideSystemMessage: true,
     overrideAssistantMessage: true,
+    useUserPromptRewriting: true,
+    userPromptRewritingPrompt: 'You are a prompt rewriter. Given the user\'s latest message and the last assistant response, rewrite the user\'s request so it is clearer, more explicit, and unambiguous while preserving the original intent. Use the assistant\'s last response only as context for understanding what the user likely wants next. Do not add new requirements that the user did not imply. Resolve pronouns and vague references (like "this", "that", "the above") into explicit descriptions. Respond with a single rewritten prompt only, no explanations or extra text.',
   });
 
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
@@ -64,6 +66,8 @@ export function Onboarding() {
       collectionDescription: 'A collection for onboarding documents.',
       overrideSystemMessage: true,
       overrideAssistantMessage: true,
+      useUserPromptRewriting: true,
+      userPromptRewritingPrompt: 'You are a prompt rewriter. Given the user\'s latest message and the last assistant response, rewrite the user\'s request so it is clearer, more explicit, and unambiguous while preserving the original intent. Use the assistant\'s last response only as context for understanding what the user likely wants next. Do not add new requirements that the user did not imply. Resolve pronouns and vague references (like "this", "that", "the above") into explicit descriptions. Respond with a single rewritten prompt only, no explanations or extra text.',
     });
     setSelectedFiles([]);
   };
@@ -128,6 +132,8 @@ export function Onboarding() {
       formData.append('collectionDescription', form.collectionDescription);
       formData.append('overrideSystemMessage', form.overrideSystemMessage.toString());
       formData.append('overrideAssistantMessage', form.overrideAssistantMessage.toString());
+      formData.append('useUserPromptRewriting', form.useUserPromptRewriting.toString());
+      formData.append('userPromptRewritingPrompt', form.userPromptRewritingPrompt);
 
       // Append files
       selectedFiles.forEach((file) => {
@@ -225,6 +231,12 @@ export function Onboarding() {
             <Text>Override Assistant Message</Text>
             <Button title={form.overrideAssistantMessage ? 'Yes' : 'No'} onPress={() => handleChange('overrideAssistantMessage', !form.overrideAssistantMessage)} />
           </View>
+          <View style={styles.switchRow}>
+            <Text>Use User Prompt Rewriting</Text>
+            <Button title={form.useUserPromptRewriting ? 'Yes' : 'No'} onPress={() => handleChange('useUserPromptRewriting', !form.useUserPromptRewriting)} />
+          </View>
+          <Text style={styles.label}>User Prompt Rewriting Prompt</Text>
+          <TextInput style={[styles.input, styles.textarea]} placeholder="User Prompt Rewriting Prompt" value={form.userPromptRewritingPrompt} onChangeText={v => handleChange('userPromptRewritingPrompt', v)} multiline numberOfLines={5} />
 
           {/* File Upload Section */}
           <Text style={styles.label}>Upload Documents (Optional)</Text>
