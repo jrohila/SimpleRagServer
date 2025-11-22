@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet, Switch, Modal, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +32,10 @@ export function Home() {
   const [isLocalLLMAvailable, setIsLocalLLMAvailable] = useState(false);
   const [isInitializingLocalLLM, setIsInitializingLocalLLM] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ percentage: number; loaded: number; total: number } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const assistantMessageRef = useRef<Message | null>(null);
+
+  const isChromeBrowser = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent) && !/Edg\//.test(navigator.userAgent);
 
   // Check WebGPU availability on mount
   useEffect(() => {
@@ -46,6 +49,39 @@ export function Home() {
       });
     }
   }, []);
+
+  // When initializing local model, poll for completion to close the modal when ready
+  useEffect(() => {
+    if (!isInitializingLocalLLM) return;
+    const localLLM = LLMServiceFactory.getLocalLLM();
+    if (!localLLM) return;
+
+    let cancelled = false;
+    const start = Date.now();
+
+    const check = async () => {
+      try {
+        if (localLLM.isModelLoaded && localLLM.isModelLoaded()) {
+          if (!cancelled) setIsInitializingLocalLLM(false);
+          return;
+        }
+        // Poll until model is loaded or timeout (2 minutes)
+        if (Date.now() - start > 2 * 60 * 1000) {
+          console.warn('Local model init timeout');
+          if (!cancelled) setIsInitializingLocalLLM(false);
+          return;
+        }
+        setTimeout(check, 500);
+      } catch (err) {
+        console.warn('Error checking local model load state', err);
+        if (!cancelled) setIsInitializingLocalLLM(false);
+      }
+    };
+
+    check();
+
+    return () => { cancelled = true; };
+  }, [isInitializingLocalLLM]);
 
   useFocusEffect(
     useCallback(() => {
@@ -303,6 +339,28 @@ export function Home() {
     }
 
     setLlmMode(newMode);
+    // If switching to local, start model initialization in background and show progress
+    if (newMode === 'local') {
+      const localLLM = LLMServiceFactory.getLocalLLM();
+      if (localLLM) {
+        // Ensure progress callback is set (in case it wasn't already)
+        localLLM.setDownloadProgressCallback((progress) => {
+          setDownloadProgress(progress);
+        });
+
+        // If already loaded, clear initializing flag; otherwise start init
+        if (localLLM.isModelLoaded && localLLM.isModelLoaded()) {
+          setIsInitializingLocalLLM(false);
+        } else {
+          setIsInitializingLocalLLM(true);
+          localLLM.startInitialization();
+        }
+      }
+    } else {
+      // switching away from local - clear download progress
+      setDownloadProgress(null);
+      setIsInitializingLocalLLM(false);
+    }
   };
 
   const handleSend = useCallback(() => {
@@ -367,7 +425,7 @@ export function Home() {
         ) : (
           <>
             <Ionicons name="chatbubbles" size={24} color="#007aff" style={styles.chatIcon} />
-            
+
             {/* Chat Selector - Only show in remote mode */}
             {llmMode === 'remote' && (
               <View style={styles.pickerWrapper}>
@@ -390,14 +448,16 @@ export function Home() {
               <View style={styles.localModeIndicator}>
                 <Ionicons name="hardware-chip" size={20} color="#4CAF50" />
                 <Text style={styles.localModeText}>Local AI (WebGPU)</Text>
+                {isChromeBrowser && (
+                  <TouchableOpacity onPress={() => setShowUpgradeModal(true)} style={styles.upgradeButton}>
+                    <Ionicons name="rocket-outline" size={18} color="#2e7d32" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
-            {/* LLM Mode Toggle */}
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>
-                {llmMode === 'remote' ? 'Remote' : 'Local'}
-              </Text>
+              <Text style={styles.toggleLabel}>{llmMode === 'remote' ? 'Remote' : 'Local'}</Text>
               <Switch
                 value={llmMode === 'local'}
                 onValueChange={handleToggleLLMMode}
@@ -410,7 +470,7 @@ export function Home() {
             <TouchableOpacity
               style={[
                 styles.clearButton,
-                ((!selectedChatId && llmMode === 'remote') || isGenerating) && styles.clearButtonDisabled
+                ((!selectedChatId && llmMode === 'remote') || isGenerating) && styles.clearButtonDisabled,
               ]}
               onPress={handleClearHistory}
               disabled={(!selectedChatId && llmMode === 'remote') || isGenerating}
@@ -420,29 +480,6 @@ export function Home() {
           </>
         )}
       </View>
-
-      {/* Warning for WebGPU not available */}
-      {!isLocalLLMAvailable && (
-        <View style={styles.warningBanner}>
-          <Ionicons name="warning" size={16} color="#ff9800" />
-          <Text style={styles.warningText}>
-            WebGPU not available. Local AI mode disabled.
-          </Text>
-        </View>
-      )}
-
-      {/* Download progress indicator */}
-      {downloadProgress && downloadProgress.percentage < 100 && (
-        <View style={styles.downloadBanner}>
-          <Ionicons name="download-outline" size={16} color="#2196F3" />
-          <Text style={styles.downloadText}>
-            Downloading AI model: {downloadProgress.percentage}% ({Math.round(downloadProgress.loaded / 1024 / 1024)}MB / {Math.round(downloadProgress.total / 1024 / 1024)}MB)
-          </Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${downloadProgress.percentage}%` }]} />
-          </View>
-        </View>
-      )}
 
       <ErrorBoundary onReset={handleErrorReset}>
         <ChatContainer
@@ -455,6 +492,97 @@ export function Home() {
           isGenerating={isGenerating}
         />
       </ErrorBoundary>
+
+      {/* Initialization modal for local model */}
+      <Modal
+        visible={isInitializingLocalLLM}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => { /* no-op: modal is not dismissible while initializing */ }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.modalTitle}>Preparing Local AI Model</Text>
+            <Text style={styles.modalMessage}>The local model is downloading and initializing. This may take a few minutes on first run.</Text>
+
+            {downloadProgress ? (
+              <View style={{ width: '100%' }}>
+                <Text style={styles.modalProgressText}>{downloadProgress.percentage}% ({Math.round(downloadProgress.loaded / 1024 / 1024)}MB / {Math.round(downloadProgress.total / 1024 / 1024)}MB)</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, downloadProgress.percentage))}%` }]} />
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.modalProgressText}>Starting...</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Upgrade modal for Chrome users */}
+      <Modal
+        visible={showUpgradeModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowUpgradeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Upgrade Browser Settings</Text>
+            <Text style={styles.modalMessage}>To improve local model performance on Chrome, enable the following flags and ensure the high-performance GPU is selected.</Text>
+            <View style={{ width: '100%' }}>
+              <Text style={styles.modalProgressText}>1) Enable Unsafe WebGPU: open Chrome flags and enable <Text style={{ fontWeight: '700' }}>#enable-unsafe-webgpu</Text></Text>
+              <Text style={styles.modalProgressText}>2) Force high-performance GPU: enable your system/browser GPU preferences and try launching Chrome with high-performance GPU.</Text>
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={async () => {
+                  // Best-effort: try to open chrome://flags; many browsers block this from pages.
+                  // If that fails, open a helpful search page and copy the flag token to the clipboard.
+                  const flagFragment = '#enable-unsafe-webgpu';
+                  try {
+                    // Try direct open first (may be blocked)
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
+                    const opened = window.open('chrome://flags/' + flagFragment, '_blank');
+                    if (opened) return;
+                  } catch (err) {
+                    // fallthrough to fallback behavior
+                  }
+
+                  // Fallback: attempt to open a web search with instructions
+                  const searchUrl = 'https://www.google.com/search?q=enable+unsafe+webgpu+chrome';
+                  try {
+                    await Linking.openURL(searchUrl);
+                  } catch (linkErr) {
+                    // If opening the search fails (webview restrictions), copy the flag token and show instructions
+                    try {
+                      if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(flagFragment);
+                        Alert.alert('Flags', 'Could not open chrome://flags. The flag token "#enable-unsafe-webgpu" has been copied to your clipboard. Open chrome://flags/ and paste it into the search box.');
+                        return;
+                      }
+                    } catch (clipErr) {
+                      // ignore
+                    }
+
+                    Alert.alert('Open Flags', 'Please open chrome://flags/ in your Chrome address bar and search for "#enable-unsafe-webgpu" to enable Unsafe WebGPU.');
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Open Flags</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.modalButton, { minWidth: 140 }]} onPress={() => setShowUpgradeModal(false)}>
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -576,4 +704,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     borderRadius: 2,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 640,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+    color: '#0d47a1',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  modalProgressText: {
+    fontSize: 13,
+    color: '#0d47a1',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  upgradeButton: {
+    marginLeft: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  upgradeButtonText: {
+    display: 'none',
+  },
+  modalButtonsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+  },
+  modalButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  
 });

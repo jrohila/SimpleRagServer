@@ -16,6 +16,7 @@ export class LocalLLMService {
   private generator: any = null;
   private isInitialized = false;
   private isInitializing = false;
+  private initializationPromise: Promise<void> | null = null;
   private isGenerating = false;
   private modelName = 'onnx-community/granite-4.0-micro-ONNX-web';
   private downloadProgressCallback?: (progress: { loaded: number; total: number; percentage: number }) => void;
@@ -49,75 +50,100 @@ export class LocalLLMService {
       throw new Error('Local LLM is currently disabled due to bundling configuration. This feature will be available in a future update.');
     }
 
-    if (this.isInitialized || this.isInitializing) {
+    // If already initialized, resolve immediately
+    if (this.isInitialized) {
       return;
+    }
+
+    // If initialization is already running, return the promise so callers can await it
+    if (this.isInitializing && this.initializationPromise) {
+      return this.initializationPromise;
     }
 
     this.isInitializing = true;
 
-    try {
-      // Check WebGPU availability
-      if (!navigator.gpu) {
-        throw new Error('WebGPU is not supported in this browser');
-      }
+    this.initializationPromise = (async () => {
+      try {
+        // Check WebGPU availability
+        if (!navigator.gpu) {
+          throw new Error('WebGPU is not supported in this browser');
+        }
 
-      // Check if model is already cached
-      const isCached = await this.checkModelCache();
-      if (isCached) {
-        console.log('Loading local LLM from cache...');
-      } else {
-        console.log('Downloading local LLM (this may take a few minutes on first load)...');
-      }
-      
-      // Dynamic import to avoid bundling issues
-      const { pipeline, env } = await import('@huggingface/transformers');
-      
-      // Configure transformers.js to use browser cache
-      // @ts-ignore
-      env.useBrowserCache = true;
-      // @ts-ignore
-      env.allowLocalModels = false;
-      // @ts-ignore
-      env.allowRemoteModels = true;
+        // Check if model is already cached
+        const isCached = await this.checkModelCache();
+        if (isCached) {
+          console.log('Loading local LLM from cache...');
+        } else {
+          console.log('Downloading local LLM (this may take a few minutes on first load)...');
+        }
+        
+        // Dynamic import to avoid bundling issues
+        const { pipeline, env } = await import('@huggingface/transformers');
+        
+        // Configure transformers.js to use browser cache
+        // @ts-ignore
+        env.useBrowserCache = true;
+        // @ts-ignore
+        env.allowLocalModels = false;
+        // @ts-ignore
+        env.allowRemoteModels = true;
 
-      // Set up progress callback if available
-      let lastProgress = 0;
-      const progressCallback = (progress: any) => {
-        if (progress.status === 'progress' && progress.file) {
-          const percentage = Math.round((progress.loaded / progress.total) * 100);
-          // Only update on significant changes (every 5%)
-          if (percentage - lastProgress >= 5) {
-            lastProgress = percentage;
-            console.log(`Downloading ${progress.file}: ${percentage}%`);
-            if (this.downloadProgressCallback) {
-              this.downloadProgressCallback({
-                loaded: progress.loaded,
-                total: progress.total,
-                percentage
-              });
+        // Set up progress callback if available
+        let lastProgress = 0;
+        const progressCallback = (progress: any) => {
+          if (progress.status === 'progress' && progress.file) {
+            const percentage = Math.round((progress.loaded / progress.total) * 100);
+            // Only update on significant changes (every 5%)
+            if (percentage - lastProgress >= 5) {
+              lastProgress = percentage;
+              console.log(`Downloading ${progress.file}: ${percentage}%`);
+              if (this.downloadProgressCallback) {
+                this.downloadProgressCallback({
+                  loaded: progress.loaded,
+                  total: progress.total,
+                  percentage
+                });
+              }
             }
           }
-        }
-      };
+        };
 
-      this.generator = await pipeline(
-        'text-generation',
-        this.modelName,
-        { 
-          device: 'webgpu',
-          progress_callback: progressCallback
-        }
-      );
+        this.generator = await pipeline(
+          'text-generation',
+          this.modelName,
+          { 
+            device: 'webgpu',
+            progress_callback: progressCallback
+          }
+        );
 
-      this.isInitialized = true;
-      console.log('Local LLM initialized successfully - model cached for future use');
-    } catch (error) {
-      console.error('Failed to initialize local LLM:', error);
-      this.isInitializing = false;
-      throw error;
-    } finally {
-      this.isInitializing = false;
+        this.isInitialized = true;
+        console.log('Local LLM initialized successfully - model cached for future use');
+      } catch (error) {
+        console.error('Failed to initialize local LLM:', error);
+        // Rethrow so callers can observe initialization failures
+        throw error;
+      } finally {
+        this.isInitializing = false;
+        this.initializationPromise = null;
+      }
+    })();
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Start initialization in background (non-blocking).
+   * Call this from UI when user enables Local mode.
+   */
+  startInitialization(): void {
+    if (this.isInitialized || this.isInitializing) {
+      return;
     }
+    // Kick off initialization but don't await here
+    this.initialize().catch(err => {
+      console.warn('Local model preload failed:', err);
+    });
   }
 
   /**
@@ -222,7 +248,14 @@ export class LocalLLMService {
       this.isGenerating = true;
       
       if (!this.isInitialized) {
-        await this.initialize();
+        console.log('Local model not ready - waiting for initialization...');
+        try {
+          await this.initialize();
+        } catch (initError) {
+          console.error('Initialization failed while waiting in sendMessage():', initError);
+          callbacks.onError(initError as Error);
+          return;
+        }
       }
 
       // Limit to 10 most recent messages to avoid context overflow
