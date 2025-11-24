@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import reactNativeWeb from 'vite-plugin-react-native-web';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
     react(),
     reactNativeWeb(),
+    // visualizer generates an interactive `dist/stats.html` for bundle analysis
+    visualizer({ filename: 'dist/stats.html', open: false, gzipSize: true }),
   ],
   resolve: {
     alias: {
@@ -35,6 +38,39 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // disable source maps for the production visualizer run to avoid map parsing issues
+    sourcemap: false,
+    // use terser for production minification which can produce
+    // source maps more compatible with source-map-explorer
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        passes: 2,
+      },
+      format: {
+        comments: false,
+      },
+      // keep source map generation stable
+      mangle: true,
+    },
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id) return;
+          // Put heavy transformer / ONNX runtime related modules into their own chunk
+          if (id.includes('transformers.web') || id.includes('@huggingface/transformers') || id.includes('onnxruntime-web') || id.includes('onnxruntime-common')) {
+            return 'transformers';
+          }
+          // Group react and react-dom into vendor
+          if (id.includes('node_modules') && (id.includes('react') || id.includes('react-dom'))) {
+            return 'vendor-react';
+          }
+          // Group react-icons separately
+          if (id.includes('node_modules') && id.includes('react-icons')) {
+            return 'vendor-icons';
+          }
+        },
+      },
+    },
   },
 });

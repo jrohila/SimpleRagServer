@@ -1,7 +1,43 @@
 import React from 'react';
 import { Text, TextProps, StyleProp, TextStyle } from 'react-native';
-import * as IoIcons from 'react-icons/io5';
-import * as MdIcons from 'react-icons/md';
+import {
+  IoSparkles,
+  IoPersonCircle,
+  IoSend,
+  IoChatbubbles,
+  IoPerson,
+  IoChatbubble,
+} from 'react-icons/io5';
+import {
+  MdMemory,
+  MdDeveloperBoard,
+  MdRocketLaunch,
+  MdRocket,
+  MdDeleteOutline,
+  MdDelete,
+  MdHome,
+  MdHomeFilled,
+  MdSearch,
+  MdOutlineSearch,
+  MdChatBubbleOutline,
+  MdChatBubble,
+  MdFolder,
+  MdOutlineFolder,
+  MdDescription,
+  MdInsertDriveFile,
+  MdViewList,
+  MdList,
+  MdPublic,
+  MdLanguage,
+  MdKeyboardArrowUp,
+  MdArrowUpward,
+  MdKeyboardArrowDown,
+  MdArrowDownward,
+  MdInfo,
+  MdOutlineInfo,
+  MdSettings,
+  MdOutlineSettings,
+} from 'react-icons/md';
 
 type IconProps = {
   name: string;
@@ -40,29 +76,43 @@ const mdMap: Record<string, string | string[]> = {
   'file-document': ['MdDescription', 'MdInsertDriveFile'],
 };
 
-// Helper: try to resolve a component name from provided module map
-function resolveIconFromModule(module: any, candidates: string[] | string | undefined) {
-  if (!candidates) return null;
-  const list = Array.isArray(candidates) ? candidates : [candidates];
-  for (const name of list) {
-    const cleaned = name.replace(/^md:/, '');
-    if (module && (module as any)[cleaned]) return (module as any)[cleaned];
-  }
-  return null;
-}
+// Map logical icon names to specific react-icons components (named imports)
+const ICON_COMPONENTS: Record<string, any> = {
+  // Ionicons
+  sparkles: IoSparkles,
+  'person-circle': IoPersonCircle,
+  person: IoPerson,
+  send: IoSend,
+  chatbubbles: IoChatbubbles,
+  chatbubble: IoChatbubble,
+
+  // Material icons (used via md: or directly)
+  'hardware-chip': MdMemory,
+  'hardware-developer-board': MdDeveloperBoard,
+  'rocket-outline': MdRocketLaunch,
+  'rocket': MdRocket,
+  'trash-outline': MdDeleteOutline,
+  trash: MdDelete,
+  information: MdInfo,
+  cog: MdSettings,
+  'file-document': MdDescription,
+  'home-outline': MdHome,
+  magnify: MdSearch,
+  'rocket-launch-outline': MdRocketLaunch,
+  'chat-outline': MdChatBubbleOutline,
+  'folder-outline': MdFolder,
+  'file-document-outline': MdDescription,
+  'view-list-outline': MdViewList,
+  earth: MdPublic,
+  'chevron-up': MdKeyboardArrowUp,
+  'chevron-down': MdKeyboardArrowDown,
+};
 
 export const Ionicons: React.FC<IconProps> = ({ name, size = 16, color = '#000', style, ...rest }) => {
   try {
-    const candidates = ionMap[name];
-    // Try IoIcons first
-    const IoComp = resolveIconFromModule(IoIcons, candidates as any);
-    if (IoComp) return <IoComp size={size} color={color} style={style as any} {...rest} />;
-
-    // Try MdIcons (supports entries prefixed with `md:` or fallbacks)
-    const MdComp = resolveIconFromModule(MdIcons, candidates as any);
-    if (MdComp) return <MdComp size={size} color={color} style={style as any} {...rest} />;
+    const Comp = ICON_COMPONENTS[name];
+    if (Comp) return <Comp size={size} color={color} style={style as any} {...rest} />;
   } catch (e) {
-    // ignore and fall back to glyph
     // eslint-disable-next-line no-console
     console.debug('Icon lookup error for', name, e);
   }
@@ -89,13 +139,8 @@ export const Ionicons: React.FC<IconProps> = ({ name, size = 16, color = '#000',
 
 export const MaterialCommunityIcons: React.FC<IconProps> = ({ name, size = 16, color = '#000', style, ...rest }) => {
   try {
-    const candidates = mdMap[name];
-    const MdComp = resolveIconFromModule(MdIcons, candidates as any);
-    if (MdComp) return <MdComp size={size} color={color} style={style as any} {...rest} />;
-
-    // If not found in material set, try ion set for similar names
-    const IoComp = resolveIconFromModule(IoIcons, candidates as any);
-    if (IoComp) return <IoComp size={size} color={color} style={style as any} {...rest} />;
+    const Comp = ICON_COMPONENTS[name];
+    if (Comp) return <Comp size={size} color={color} style={style as any} {...rest} />;
   } catch (_) {
     // ignore and fall back
   }
