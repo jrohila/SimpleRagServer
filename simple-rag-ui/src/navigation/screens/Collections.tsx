@@ -245,7 +245,7 @@ export function Collections() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView>
         <Window>
           {loading && <ActivityIndicator />}
@@ -305,19 +305,19 @@ export function Collections() {
                 </View>
               </View>
               {/* Documents Table - Always Visible */}
-              <View style={{ marginTop: 24, paddingVertical: 8 }}>
-                <Text style={[styles.label, { fontSize: 16, marginBottom: 12 }]}>{t('collections.documentsTitle')}</Text>
+              <View style={styles.documentsSection}>
+                <Text style={[styles.label, styles.documentsTitle]}>{t('collections.documentsTitle')}</Text>
                 {documentsLoading ? (
                   <ActivityIndicator />
                 ) : (
-                  <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 4, marginTop: 8 }}>
-                    <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', padding: 8 }}>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.filename')}</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.type')}</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.size')}</Text>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.created')}</Text>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.updated')}</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.state')}</Text>
+                  <View style={styles.documentsContainer}>
+                    <View style={styles.documentsHeaderRow}>
+                      <Text style={[styles.documentsHeaderText, styles.docCellFilename]}>{t('collections.table.filename')}</Text>
+                      <Text style={[styles.documentsHeaderText, styles.docCellType]}>{t('collections.table.type')}</Text>
+                      <Text style={[styles.documentsHeaderText, styles.docCellSize]}>{t('collections.table.size')}</Text>
+                      <Text style={[styles.documentsHeaderText, styles.docCellCreated]}>{t('collections.table.created')}</Text>
+                      <Text style={[styles.documentsHeaderText, styles.docCellUpdated]}>{t('collections.table.updated')}</Text>
+                      <Text style={[styles.documentsHeaderText, styles.docCellState]}>{t('collections.table.state')}</Text>
                     </View>
                     <FlatList
                       data={documents}
@@ -325,16 +325,16 @@ export function Collections() {
                       scrollEnabled={false}
                       initialNumToRender={Math.min(documents.length || 0, 20)}
                       renderItem={({ item }) => (
-                        <View style={{ flexDirection: 'row', padding: 8, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
-                          <Text style={{ flex: 2 }}>{item.originalFilename}</Text>
-                          <Text style={{ flex: 1 }}>{item.mimeType}</Text>
-                          <Text style={{ flex: 1 }}>{item.contentLen}</Text>
-                          <Text style={{ flex: 2 }}>{item.createdTime}</Text>
-                          <Text style={{ flex: 2 }}>{item.updatedTime}</Text>
-                          <Text style={{ flex: 1 }}>{item.state}</Text>
+                        <View style={styles.documentRow}>
+                          <Text style={styles.docCellFilename}>{item.originalFilename}</Text>
+                          <Text style={styles.docCellType}>{item.mimeType}</Text>
+                          <Text style={styles.docCellSize}>{item.contentLen}</Text>
+                          <Text style={styles.docCellCreated}>{item.createdTime}</Text>
+                          <Text style={styles.docCellUpdated}>{item.updatedTime}</Text>
+                          <Text style={styles.docCellState}>{item.state}</Text>
                         </View>
                       )}
-                      ListEmptyComponent={<Text style={{ padding: 8, color: '#888' }}>{t('collections.noDocuments')}</Text>}
+                      ListEmptyComponent={<Text style={styles.docEmptyText}>{t('collections.noDocuments')}</Text>}
                     />
                   </View>
                 )}

@@ -223,7 +223,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
                 multiline
                 numberOfLines={5}
               />
-              <View style={{ height: 10 }} />
+              <View style={styles.spacer} />
               <Text style={styles.label}>{t('advanced.useRewriting')}</Text>
               <View style={styles.checkboxRow}>
                 <Switch
@@ -244,7 +244,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
                 multiline
                 numberOfLines={5}
               />
-              <View style={{ height: 10 }} />
+              <View style={styles.spacer} />
               <Text style={styles.label}>{t('advanced.overrideSystem')}</Text>
               <View style={styles.checkboxRow}>
                 <Switch

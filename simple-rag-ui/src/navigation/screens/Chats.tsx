@@ -320,7 +320,7 @@ export function Chats() {
   };
 
   return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
               <ScrollView>
     <Window>
       {loading && <ActivityIndicator />}
@@ -354,7 +354,7 @@ export function Chats() {
           />
 
           <Button title={t('actions.update')} onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
-          <View style={{ height: 10 }} />
+          <View style={styles.spacer} />
           <Button title={t('actions.delete')} onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
         </View>
       </View>

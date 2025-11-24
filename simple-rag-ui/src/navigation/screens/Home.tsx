@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet, Switch, Modal, Linking } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, Switch, Modal, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { Message } from '../../components/ChatMessage';
 import { LLMServiceFactory, LLMMode } from '../../services/LLMServiceFactory';
 import { LLMMessage } from '../../services/RemoteLLMService';
 import { useTranslation } from 'react-i18next';
+import { HomeStyles as styles } from '../../styles/HomeStyles';
 
 type Chat = {
   id: string;
@@ -520,7 +521,7 @@ export function Home() {
             <Text style={styles.modalMessage}>{t('home.modal.preparingMessage')}</Text>
 
             {downloadProgress ? (
-              <View style={{ width: '100%' }}>
+              <View style={styles.modalFullWidth}>
                 <Text style={styles.modalProgressText}>{downloadProgress.percentage}% ({Math.round(downloadProgress.loaded / 1024 / 1024)}MB / {Math.round(downloadProgress.total / 1024 / 1024)}MB)</Text>
                 <View style={styles.progressBar}>
                   <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, downloadProgress.percentage))}%` }]} />
@@ -544,8 +545,8 @@ export function Home() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('home.modal.upgradeTitle')}</Text>
             <Text style={styles.modalMessage}>{t('home.modal.upgradeMessage')}</Text>
-            <View style={{ width: '100%' }}>
-              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep1')} <Text style={{ fontWeight: '700' }}>#enable-unsafe-webgpu</Text></Text>
+            <View style={styles.modalFullWidth}>
+              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep1')} <Text style={styles.inlineStrong}>#enable-unsafe-webgpu</Text></Text>
               <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep2')}</Text>
             </View>
 
@@ -600,187 +601,4 @@ export function Home() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  dropdownContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  chatIcon: {
-    marginRight: 4,
-  },
-  pickerWrapper: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    overflow: 'hidden',
-    minHeight: 48,
-  },
-  picker: {
-    color: '#000',
-    backgroundColor: 'transparent',
-    borderRadius: 8,
-    fontSize: 16,
-    height: 48,
-  },
-  localModeIndicator: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  localModeText: {
-    color: '#2e7d32',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 8,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  clearButton: {
-    backgroundColor: '#ff6b6b',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 48,
-  },
-  clearButtonDisabled: {
-    backgroundColor: '#ccc',
-    opacity: 0.5,
-  },
-  warningBanner: {
-    backgroundColor: '#fff3cd',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ffc107',
-  },
-  warningText: {
-    color: '#856404',
-    fontSize: 13,
-    flex: 1,
-  },
-  downloadBanner: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2196F3',
-    flexWrap: 'wrap',
-  },
-  downloadText: {
-    color: '#0d47a1',
-    fontSize: 13,
-    flex: 1,
-  },
-  progressBar: {
-    width: '100%',
-    height: 4,
-    backgroundColor: '#bbdefb',
-    borderRadius: 2,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#2196F3',
-    borderRadius: 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 640,
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 12,
-    color: '#0d47a1',
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  modalProgressText: {
-    fontSize: 13,
-    color: '#0d47a1',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  upgradeButton: {
-    marginLeft: 12,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  upgradeButtonText: {
-    display: 'none',
-  },
-  modalButtonsRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 12,
-  },
-  modalButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 110,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  
-});
+// Styles moved to `src/styles/HomeStyles.ts` and imported as `styles`.

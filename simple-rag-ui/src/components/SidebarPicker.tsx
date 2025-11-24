@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, TouchableOpacity, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import styles from '../styles/SidebarPickerStyles';
 
 interface SidebarPickerProps<T> {
   items: T[];
@@ -29,11 +30,11 @@ function SidebarPicker<T>({
   emptyMessage,
 }: SidebarPickerProps<T>) {
   return (
-    <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 6, overflow: 'hidden', flex: 1, height: '100%' }}>
-      <ScrollView style={[{ flex: 1 }, containerStyle]} contentContainerStyle={{ flexGrow: 1 }}>
+    <View style={styles.container}>
+      <ScrollView style={[styles.scroll, containerStyle]} contentContainerStyle={styles.scrollContent}>
         {items.length === 0 ? (
-          <View style={{ padding: 8, justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: '#888', textAlign: 'center' }}>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
               {emptyMessage || 'No items found.'}
             </Text>
           </View>

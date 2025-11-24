@@ -248,7 +248,7 @@ export function Chunks() {
   }, [selectedCollectionId]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView>
         <Window>
           <View style={styles.container}>

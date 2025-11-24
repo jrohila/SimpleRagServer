@@ -108,6 +108,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  spacer: {
+    height: 10,
+  },
+  safeArea: {
+    flex: 1,
+  },
 });
 
 export default styles;

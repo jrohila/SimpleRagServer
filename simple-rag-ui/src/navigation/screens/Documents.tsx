@@ -212,7 +212,7 @@ export function Documents() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView>
         <Window>
           <View style={styles.container}>
@@ -264,8 +264,8 @@ export function Documents() {
             </View>
 
             {/* Document Form */}
-            <View style={[styles.form, { flex: 1, justifyContent: 'space-between' }]}> 
-              <View style={{ flexDirection: 'column', width: '100%' }}>
+            <View style={[styles.form, styles.formFlex]}> 
+              <View style={styles.columnFullWidth}>
                 {[ 
                   { label: t('documents.table.filename'), value: document?.originalFilename || '' },
                   { label: t('documents.table.type'), value: document?.mimeType || '' },
@@ -274,28 +274,23 @@ export function Documents() {
                   { label: t('documents.table.updated'), value: document?.updatedTime || '' },
                   { label: t('documents.table.state'), value: document?.state || '' },
                 ].map((field) => (
-                  <View key={String(field.label)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>{field.label}</Text>
-                    <TextInput style={[styles.input, { flex: 1, marginVertical: 0 }]} value={field.value} editable={false} />
+                  <View key={String(field.label)} style={styles.documentFieldRow}>
+                    <Text style={[styles.label, styles.fieldLabel]}>{field.label}</Text>
+                    <TextInput style={[styles.input, styles.documentInputFlex]} value={field.value} editable={false} />
                   </View>
                 ))}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>{t('documents.selectFile')}</Text>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.documentFieldRow}>
+                  <Text style={[styles.label, styles.fieldLabel]}>{t('documents.selectFile')}</Text>
+                  <View style={styles.fileRow}>
                     <TouchableOpacity 
                       onPress={handleFileSelect} 
                       disabled={!selectedDocumentId}
-                      style={{
-                        backgroundColor: !selectedDocumentId ? '#ccc' : '#007bff',
-                        paddingVertical: 8,
-                        paddingHorizontal: 16,
-                        borderRadius: 4,
-                      }}
+                      style={[styles.fileButton, !selectedDocumentId ? styles.fileButtonDisabled : styles.fileButtonPrimary]}
                     >
-                      <Text style={{ color: 'white', fontWeight: '600' }}>{t('documents.chooseFile')}</Text>
+                      <Text style={styles.fileButtonText}>{t('documents.chooseFile')}</Text>
                     </TouchableOpacity>
                     {fileName && (
-                      <Text style={{ flex: 1, fontSize: 14, color: '#666' }} numberOfLines={1}>
+                      <Text style={styles.fileNameText} numberOfLines={1}>
                         {fileName}
                       </Text>
                     )}

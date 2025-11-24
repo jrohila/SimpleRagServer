@@ -178,6 +178,9 @@ const styles = StyleSheet.create({
   urlColumn: {
     flex: 1.5,
   },
+  safeArea: {
+    flex: 1,
+  },
 });
 
 export default styles;
