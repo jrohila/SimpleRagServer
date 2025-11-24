@@ -20,10 +20,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginVertical: 8,
     overflow: 'hidden',
+    backgroundColor: '#fff',
   },
   picker: {
     width: '100%',
     height: 40,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
   },
   title: {
     fontSize: 22,
@@ -90,6 +93,20 @@ const styles = StyleSheet.create({
   textarea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  accordionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginVertical: 4,
+    overflow: 'hidden',
+  },
+  accordionTitle: {
+    backgroundColor: '#f5f5f5',
+  },
+  accordionContent: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 });
 
