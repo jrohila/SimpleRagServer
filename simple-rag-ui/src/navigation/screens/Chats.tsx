@@ -11,6 +11,7 @@ import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 import { ChatForm, ChatFormData, Collection } from '../../components/ChatForm';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 
 type Chat = {
   id: string;
@@ -31,6 +32,15 @@ type Chat = {
 
 export function Chats() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.chats') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
   const [chatDetails, setChatDetails] = useState<Chat | null>(null);

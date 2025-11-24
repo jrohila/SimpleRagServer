@@ -8,6 +8,7 @@ import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 import styles from '../../styles/CollectionsStyles';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { getCollections, getCollectionById, updateCollection, deleteCollection } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 
@@ -32,6 +33,15 @@ type DocumentEntity = {
 
 export function Collections() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.collections') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);

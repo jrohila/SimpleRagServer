@@ -10,6 +10,7 @@ import { Message } from '../../components/ChatMessage';
 import { LLMServiceFactory, LLMMode } from '../../services/LLMServiceFactory';
 import { LLMMessage } from '../../services/RemoteLLMService';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { HomeStyles as styles } from '../../styles/HomeStyles';
 
 type Chat = {
@@ -32,6 +33,16 @@ type Chat = {
 
 export function Home() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  // Update navigation header title when language changes
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.home') as any });
+    } catch (e) {
+      // ignore if navigation not available in some contexts
+    }
+  }, [t, navigation]);
   // Store message histories for each chat
   const [chatHistories, setChatHistories] = useState<{ [chatId: string]: Message[] }>({});
   const [messages, setMessages] = useState<Message[]>([]);

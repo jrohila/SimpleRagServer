@@ -21,9 +21,19 @@ type BoostTerm = {
 };
 
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 
 export function Search() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.search') as any });
+    } catch (e) {
+      // ignore when navigation isn't available
+    }
+  }, [t, navigation]);
   const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [loadingCollections, setLoadingCollections] = useState(false);

@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Window } from '../../components/Window';
 import styles from '../../styles/ChunksStyles';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { getCollections } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 import { getChunks, updateChunk, deleteChunk } from '../../api/chunks';
@@ -25,6 +26,15 @@ type Chunk = {
 
 export function Chunks() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.chunks') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [documents, setDocuments] = useState<Array<{ id: string; originalFilename: string }>>([]);

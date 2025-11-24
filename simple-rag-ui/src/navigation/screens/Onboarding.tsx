@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { Window } from '../../components/Window';
@@ -21,6 +22,15 @@ interface SelectedFile {
 
 export function Onboarding() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.onboarding') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   // Chat form data - using ChatFormData interface
   const [formData, setFormData] = useState<ChatFormData>({
     publicName: DEFAULT_CHAT_CONFIG.publicName,

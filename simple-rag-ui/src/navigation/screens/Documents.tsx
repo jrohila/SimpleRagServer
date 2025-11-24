@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { getCollections } from '../../api/collections';
 import { getDocuments, getDocument, updateDocument, deleteDocument } from '../../api/documents';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
@@ -28,6 +29,15 @@ type DocumentEntity = {
 
 export function Documents() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.documents') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
