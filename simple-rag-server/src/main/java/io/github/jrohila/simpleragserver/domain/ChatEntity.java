@@ -50,5 +50,7 @@ public class ChatEntity {
     private String defaultOutOfScopeMessage;
 
     private String welcomeMessage;
+    
+    private LLMConfig llmConfig;
 
 }

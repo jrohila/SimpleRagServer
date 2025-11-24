@@ -2,6 +2,24 @@ import { LLMMessage, LLMServiceConfig, StreamCallback } from './RemoteLLMService
 import { WebGpuMessageService } from './WebGpuMessageService';
 import { Platform } from 'react-native';
 
+// LLMConfig interface for local WebGPU generation
+// (Note: RemoteLLMService doesn't need this since backend overrides with server-side ChatEntity.llmConfig)
+export interface LLMConfig {
+  useCase?: string;
+  maxNewTokens?: number;
+  temperature?: number;
+  doSample?: boolean;
+  topK?: number;
+  topP?: number;
+  repetitionPenalty?: number;
+  minNewTokens?: number;
+}
+
+// Extended config for LocalLLMService that includes llmConfig
+export interface LocalLLMServiceConfig extends LLMServiceConfig {
+  llmConfig?: LLMConfig;
+}
+
 // Extend Navigator interface to include gpu property for WebGPU
 declare global {
   interface Navigator {
@@ -152,7 +170,8 @@ export class LocalLLMService {
   private async rewriteUserPrompt(
     userPrompt: string,
     lastAssistantMessage: string | null,
-    systemPrompt: string
+    systemPrompt: string,
+    llmConfig?: LLMConfig
   ): Promise<string> {
     try {
       console.log('\n=== Rewriting User Prompt (Granite Tokens) ===');
@@ -190,13 +209,13 @@ export class LocalLLMService {
       });
 
       await this.generator(rewriteMessages, {
-        max_new_tokens: 256,  // Shorter for prompt rewriting
-        temperature: 0.3,     // Lower temperature for more focused rewriting
-        do_sample: false,
-        top_k: 50,
-        top_p: 0.95,
-        repetition_penalty: 1.1,
-        min_new_tokens: 1,
+        max_new_tokens: llmConfig?.maxNewTokens || 256,  // Shorter for prompt rewriting
+        temperature: llmConfig?.temperature !== undefined ? llmConfig.temperature : 0.3,
+        do_sample: llmConfig?.doSample !== undefined ? llmConfig.doSample : false,
+        top_k: llmConfig?.topK || 50,
+        top_p: llmConfig?.topP || 0.95,
+        repetition_penalty: llmConfig?.repetitionPenalty || 1.1,
+        min_new_tokens: llmConfig?.minNewTokens || 1,
         streamer,
       });
 
@@ -229,7 +248,7 @@ export class LocalLLMService {
   }
 
   async sendMessage(
-    config: LLMServiceConfig,
+    config: LocalLLMServiceConfig,
     messages: LLMMessage[],
     callbacks: StreamCallback
   ): Promise<void> {
@@ -293,7 +312,8 @@ export class LocalLLMService {
             const rewrittenContent = await this.rewriteUserPrompt(
               lastUserMessage.content,
               lastAssistantMessage.content,
-              config.userPromptRewritingPrompt
+              config.userPromptRewritingPrompt,
+              config.llmConfig
             );
             
             console.log('----------------------------------------');
@@ -441,15 +461,16 @@ export class LocalLLMService {
         }
       ];
 
-      // Generate response with configurable parameters
+      // Generate response with configurable parameters from llmConfig
+      const llmConfig = config.llmConfig;
       await this.generator(graniteMessages, {
-        max_new_tokens: 2048, // Increased from 512 to 2048 tokens (~1600 words)
-        temperature: config.temperature || 0.7,
-        do_sample: config.temperature ? config.temperature > 0 : false,
-        top_k: 50,
-        top_p: 0.95,
-        repetition_penalty: 1.1,
-        min_new_tokens: 1,
+        max_new_tokens: llmConfig?.maxNewTokens || 2048,
+        temperature: llmConfig?.temperature !== undefined ? llmConfig.temperature : (config.temperature || 0.7),
+        do_sample: llmConfig?.doSample !== undefined ? llmConfig.doSample : (config.temperature ? config.temperature > 0 : false),
+        top_k: llmConfig?.topK || 50,
+        top_p: llmConfig?.topP || 0.95,
+        repetition_penalty: llmConfig?.repetitionPenalty || 1.1,
+        min_new_tokens: llmConfig?.minNewTokens || 1,
         streamer,
       });
 

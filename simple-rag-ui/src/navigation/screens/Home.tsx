@@ -16,6 +16,16 @@ type Chat = {
   welcomeMessage?: string;
   useUserPromptRewriting?: boolean;
   userPromptRewritingPrompt?: string;
+  llmConfig?: {
+    useCase?: string;
+    maxNewTokens?: number;
+    temperature?: number;
+    doSample?: boolean;
+    topK?: number;
+    topP?: number;
+    repetitionPenalty?: number;
+    minNewTokens?: number;
+  };
 };
 
 export function Home() {
@@ -187,17 +197,18 @@ export function Home() {
 
       let isFirstContent = true;
       
-      // Prepare config with prompt rewriting settings
+      // Prepare config with prompt rewriting settings and LLM config from chat entity
       const config: any = {
         publicName: selectedChat?.publicName || '',
         temperature: 0.7,
         useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
       };
       
-      // Add prompt rewriting configuration if available from full chat details
+      // Add prompt rewriting configuration and llmConfig if available from full chat details
       if (selectedChatDetails) {
         config.useUserPromptRewriting = selectedChatDetails.useUserPromptRewriting;
         config.userPromptRewritingPrompt = selectedChatDetails.userPromptRewritingPrompt;
+        config.llmConfig = selectedChatDetails.llmConfig;
       }
       
       await service.sendMessage(

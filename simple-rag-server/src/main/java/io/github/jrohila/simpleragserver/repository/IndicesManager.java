@@ -96,6 +96,17 @@ public class IndicesManager {
                 .properties("welcomeMessage", p -> p.text(t -> t))
                 .properties("useUserPromptRewriting", p -> p.boolean_(b -> b))
                 .properties("userPromptRewritingPrompt", p -> p.text(t -> t))
+                // Nested LLMConfig object
+                .properties("llmConfig", p -> p.object(o -> o
+                        .properties("useCase", pp -> pp.keyword(k -> k))
+                        .properties("maxNewTokens", pp -> pp.integer(i -> i))
+                        .properties("temperature", pp -> pp.double_(d -> d))
+                        .properties("doSample", pp -> pp.boolean_(b -> b))
+                        .properties("topK", pp -> pp.integer(i -> i))
+                        .properties("topP", pp -> pp.double_(d -> d))
+                        .properties("repetitionPenalty", pp -> pp.double_(d -> d))
+                        .properties("minNewTokens", pp -> pp.integer(i -> i))
+                ))
                 )
                 .build();
 

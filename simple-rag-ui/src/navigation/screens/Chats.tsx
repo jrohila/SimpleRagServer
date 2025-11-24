@@ -14,6 +14,16 @@ type Chat = {
   id: string;
   publicName: string;
   defaultCollectionId?: string;
+  llmConfig?: {
+    useCase?: string;
+    maxNewTokens?: number;
+    temperature?: number;
+    doSample?: boolean;
+    topK?: number;
+    topP?: number;
+    repetitionPenalty?: number;
+    minNewTokens?: number;
+  };
   [key: string]: any;
 };
 

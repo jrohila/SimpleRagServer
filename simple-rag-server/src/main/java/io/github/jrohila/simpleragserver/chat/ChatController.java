@@ -42,13 +42,19 @@ public class ChatController {
                 return ResponseEntity.badRequest().body("Chat with publicName '" + publicName + "' not found");
             }
             var chatEntity = chatEntityOpt.get();
+            
+            // Apply LLMConfig from ChatEntity - server config always overrides client values
+            applyLLMConfigToRequest(request, chatEntity.getLlmConfig());
+            
             if (request.getModel() == null || request.getModel().isBlank()) {
                 request.setModel(defaultModel);
             }
             boolean rag = (useRag == null) ? true : useRag;
-            log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={}",
+            log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={} maxTokens={} temp={} topP={} topK={} freqPenalty={}",
                 request.isStream(), rag, request.getModel(),
-                (request.getMessages() == null ? 0 : request.getMessages().size()));
+                (request.getMessages() == null ? 0 : request.getMessages().size()),
+                request.getMaxTokens(), request.getTemperature(), 
+                request.getTopP(), request.getTopK(), request.getFrequencyPenalty());
 
             if (request.isStream()) {
                 // Return SSE streaming response with 5 minute timeout
@@ -130,6 +136,50 @@ public class ChatController {
             log.error("Error in createCompletion", t);
             return ResponseEntity.status(500).body("Internal server error: " + t.getMessage());
         }
+    }
+
+    /**
+     * Apply LLMConfig values from ChatEntity to OpenAiChatRequest.
+     * Server-side configuration ALWAYS overrides client values for security and consistency.
+     */
+    private void applyLLMConfigToRequest(OpenAiChatRequest request, io.github.jrohila.simpleragserver.domain.LLMConfig llmConfig) {
+        if (llmConfig == null) {
+            log.warn("No LLMConfig found, using request defaults");
+            return;
+        }
+        
+        // Always override with server-side config - don't trust client values
+        if (llmConfig.getMaxNewTokens() != null) {
+            request.setMaxTokens(llmConfig.getMaxNewTokens());
+        }
+        
+        if (llmConfig.getTemperature() != null) {
+            request.setTemperature(llmConfig.getTemperature());
+        }
+        
+        if (llmConfig.getTopP() != null) {
+            request.setTopP(llmConfig.getTopP());
+        }
+        
+        if (llmConfig.getTopK() != null) {
+            request.setTopK(llmConfig.getTopK());
+        }
+        
+        if (llmConfig.getRepetitionPenalty() != null) {
+            request.setFrequencyPenalty(llmConfig.getRepetitionPenalty());
+        }
+        
+        if (llmConfig.getMinNewTokens() != null) {
+            request.setMinTokens(llmConfig.getMinNewTokens());
+        }
+        
+        if (llmConfig.getDoSample() != null) {
+            request.setDoSample(llmConfig.getDoSample());
+        }
+        
+        log.debug("Applied server-side LLMConfig (overriding client) - maxTokens: {}, temp: {}, topP: {}, topK: {}, freqPenalty: {}, minTokens: {}, doSample: {}",
+            request.getMaxTokens(), request.getTemperature(), request.getTopP(), 
+            request.getTopK(), request.getFrequencyPenalty(), request.getMinTokens(), request.getDoSample());
     }
 
     private static final ObjectMapper mapper = new ObjectMapper();

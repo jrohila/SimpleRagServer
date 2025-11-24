@@ -10,6 +10,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * Utility class for formatting chat prompts for IBM Granite LLMs.
@@ -39,6 +40,11 @@ public class GraniteHelper {
     public static Prompt toGranitePrompt(List<Message> messages) {
         String granitePrompt = toString(messages);
         return new Prompt(List.of(new UserMessage(granitePrompt)));
+    }
+
+    public static Prompt toGranitePrompt(List<Message> messages, ChatOptions options) {
+        String granitePrompt = toString(messages);
+        return new Prompt(List.of(new UserMessage(granitePrompt)), options);
     }
 
     public static String toString(List<Message> messages) {

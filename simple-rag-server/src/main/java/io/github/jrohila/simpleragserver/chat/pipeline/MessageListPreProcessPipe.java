@@ -50,7 +50,23 @@ public class MessageListPreProcessPipe {
         List<Message> processed = new ArrayList<>();
 
         if (chatEntity.isOverrideSystemMessage()) {
-            processed.add(new SystemMessage(chatEntity.getDefaultSystemPrompt() + "\n" + chatEntity.getDefaultSystemPromptAppend()));
+            StringBuilder sb = new StringBuilder();
+            sb.append(chatEntity.getDefaultSystemPrompt());
+            sb.append(" \n ");
+            sb.append(chatEntity.getDefaultSystemPromptAppend());
+
+            Integer maxTokens = null;
+            if (chatEntity.getLlmConfig() != null) {
+                maxTokens = chatEntity.getLlmConfig().getMaxNewTokens();
+            }
+            if (maxTokens == null && chatEntity != null && chatEntity.getLlmConfig() != null) {
+                maxTokens = chatEntity.getLlmConfig().getMaxNewTokens();
+            }
+            if (maxTokens != null) {
+                sb.append(" \n ");
+                sb.append(String.format("You have up to %d tokens available for your response. Be concise and avoid unnecessary repetition.", maxTokens));
+            }
+            processed.add(new SystemMessage(sb.toString()));
         }
         for (Message message : messages) {
             if (MessageType.ASSISTANT.equals(message.getMessageType())) {
