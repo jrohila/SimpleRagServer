@@ -3,7 +3,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
+import styles from '../styles/CustomDrawerStyles';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
 
@@ -69,21 +70,7 @@ export function CustomDrawerContent(props: any) {
 
 
 
-const styles = StyleSheet.create({
-  divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 8,
-    marginHorizontal: 16,
-    borderRadius: 1,
-  },
-  switcherContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-});
+// styles moved to `src/styles/CustomDrawerStyles.ts`
 
 
 
