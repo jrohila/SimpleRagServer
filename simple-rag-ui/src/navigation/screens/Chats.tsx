@@ -10,6 +10,7 @@ import { getCollections } from '../../api/collections';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 import { ChatForm, ChatFormData, Collection } from '../../components/ChatForm';
+import { useTranslation } from 'react-i18next';
 
 type Chat = {
   id: string;
@@ -29,6 +30,7 @@ type Chat = {
 };
 
 export function Chats() {
+  const { t } = useTranslation();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
   const [chatDetails, setChatDetails] = useState<Chat | null>(null);
@@ -202,7 +204,7 @@ export function Chats() {
         setUpdating(false);
         setUpdateResult({
           success: true,
-          message: 'Chat updated successfully',
+          message: t('messages.chatUpdateSuccess'),
         });
       })
       .catch((error) => {
@@ -210,7 +212,7 @@ export function Chats() {
         setUpdating(false);
         setUpdateResult({
           success: false,
-          message: `Failed to update chat: ${errorMessage}`,
+          message: t('messages.chatUpdateFailed', { error: errorMessage }),
         });
       });
   };
@@ -279,7 +281,7 @@ export function Chats() {
       .then(() => {
         setDeleteResult({
           success: true,
-          message: `Chat "${formData.publicName}" has been successfully deleted.`
+          message: t('messages.chatDeleted', { name: formData.publicName })
         });
         setDeleting(false);
         setSelectedChatId('');
@@ -294,7 +296,7 @@ export function Chats() {
         const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setDeleteResult({
           success: false,
-          message: `Failed to delete chat: ${errorMessage}`
+          message: t('messages.chatDeleteFailed', { error: errorMessage })
         });
         setDeleting(false);
       });
@@ -325,14 +327,14 @@ export function Chats() {
       <View style={styles.container}>
           {/* Chat Dropdown */}
           <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownLabel}>Chat:</Text>
+            <Text style={styles.dropdownLabel}>{t('labels.chatLabel')}</Text>
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={selectedChatId}
                 onValueChange={(value) => setSelectedChatId(value)}
                 style={styles.picker}
               >
-                <Picker.Item label="Select a chat..." value="" />
+                <Picker.Item label={t('basic.selectChat')} value="" />
                 {chats.map((chat) => (
                   <Picker.Item key={chat.id} label={chat.publicName || chat.id} value={chat.id} />
                 ))}
@@ -351,9 +353,9 @@ export function Chats() {
             onAccordionChange={setExpandedAccordion}
           />
 
-          <Button title="Update" onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
+          <Button title={t('actions.update')} onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
           <View style={{ height: 10 }} />
-          <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
+          <Button title={t('actions.delete')} onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
         </View>
       </View>
     </Window>
@@ -368,8 +370,8 @@ export function Chats() {
         deleting={deleting}
         deleteResult={deleteResult}
         onClose={handleCloseDeleteModal}
-        confirmMessage={`Are you sure you want to delete the chat \"${formData.publicName}\"?`}
-        deletingMessage="Deleting chat..."
+        confirmMessage={t('messages.confirmDelete', { name: formData.publicName })}
+        deletingMessage={t('messages.deleting')}
       />
       
       <UpdateModal
@@ -381,8 +383,8 @@ export function Chats() {
         updating={updating}
         updateResult={updateResult}
         onClose={handleCloseUpdateModal}
-        confirmMessage={`Are you sure you want to update the chat \"${formData.publicName}\"?`}
-        updatingMessage="Updating chat..."
+        confirmMessage={t('messages.confirmUpdate', { name: formData.publicName })}
+        updatingMessage={t('messages.updating')}
       />
     </SafeAreaView>
   );

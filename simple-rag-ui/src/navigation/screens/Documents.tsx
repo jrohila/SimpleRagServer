@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Window } from '../../components/Window';
 import styles from '../../styles/CollectionsStyles';
+import { useTranslation } from 'react-i18next';
 import { getCollections } from '../../api/collections';
 import { getDocuments, getDocument, updateDocument, deleteDocument } from '../../api/documents';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
@@ -26,6 +27,7 @@ type DocumentEntity = {
 };
 
 export function Documents() {
+  const { t } = useTranslation();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
@@ -99,7 +101,7 @@ export function Documents() {
         setUpdating(false);
         setUpdateResult({
           success: true,
-          message: 'Document updated successfully',
+          message: t('messages.documentUpdateSuccess'),
         });
       })
       .catch((error) => {
@@ -107,7 +109,7 @@ export function Documents() {
         setUpdating(false);
         setUpdateResult({
           success: false,
-          message: `Failed to update document: ${errorMessage}`,
+          message: t('messages.documentUpdateFailed', { error: errorMessage }),
         });
       });
   };
@@ -143,7 +145,7 @@ export function Documents() {
       .then(() => {
         setDeleteResult({
           success: true,
-          message: `Document deleted successfully.`
+          message: t('messages.documentDeleted'),
         });
         setDeleting(false);
         setSelectedDocumentId('');
@@ -153,7 +155,7 @@ export function Documents() {
         const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setDeleteResult({
           success: false,
-          message: `Failed to delete document: ${errorMessage}`
+          message: t('messages.documentDeleteFailed', { error: errorMessage }),
         });
         setDeleting(false);
       });
@@ -205,7 +207,7 @@ export function Documents() {
       }
     } catch (error) {
       console.error('Error picking document:', error);
-      alert('Failed to select file');
+      alert(t('messages.filePickFailed'));
     }
   };
 
@@ -217,7 +219,7 @@ export function Documents() {
             {/* Dropdowns for Collections and Documents */}
             <View style={styles.filtersContainer}>
               <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Collection:</Text>
+                <Text style={styles.dropdownLabel}>{t('documents.collection')}</Text>
                 {loading ? (
                   <ActivityIndicator />
                 ) : (
@@ -227,7 +229,7 @@ export function Documents() {
                       onValueChange={(value) => setSelectedCollectionId(value)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Select a collection..." value="" />
+                      <Picker.Item label={t('basic.selectCollection')} value="" />
                       {collections.map((col) => (
                         <Picker.Item key={col.id} label={col.name} value={col.id} />
                       ))}
@@ -237,7 +239,7 @@ export function Documents() {
               </View>
 
               <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Document:</Text>
+                <Text style={styles.dropdownLabel}>{t('documents.label')}</Text>
                 {docLoading ? (
                   <ActivityIndicator />
                 ) : (
@@ -249,7 +251,7 @@ export function Documents() {
                       enabled={!!selectedCollectionId && documents.length > 0}
                     >
                       <Picker.Item 
-                        label={!selectedCollectionId ? "Select a collection first..." : documents.length === 0 ? "No documents found" : "Select a document..."} 
+                        label={!selectedCollectionId ? t('documents.selectCollectionFirst') : documents.length === 0 ? t('documents.noDocuments') : t('documents.selectDocument')} 
                         value="" 
                       />
                       {documents.map((doc) => (
@@ -265,20 +267,20 @@ export function Documents() {
             <View style={[styles.form, { flex: 1, justifyContent: 'space-between' }]}> 
               <View style={{ flexDirection: 'column', width: '100%' }}>
                 {[ 
-                  { label: 'Filename', value: document?.originalFilename || '' },
-                  { label: 'Type', value: document?.mimeType || '' },
-                  { label: 'Size', value: document?.contentLen?.toString() || '' },
-                  { label: 'Created', value: document?.createdTime || '' },
-                  { label: 'Updated', value: document?.updatedTime || '' },
-                  { label: 'State', value: document?.state || '' },
+                  { label: t('documents.table.filename'), value: document?.originalFilename || '' },
+                  { label: t('documents.table.type'), value: document?.mimeType || '' },
+                  { label: t('documents.table.size'), value: document?.contentLen?.toString() || '' },
+                  { label: t('documents.table.created'), value: document?.createdTime || '' },
+                  { label: t('documents.table.updated'), value: document?.updatedTime || '' },
+                  { label: t('documents.table.state'), value: document?.state || '' },
                 ].map((field) => (
-                  <View key={field.label} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <View key={String(field.label)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>{field.label}</Text>
                     <TextInput style={[styles.input, { flex: 1, marginVertical: 0 }]} value={field.value} editable={false} />
                   </View>
                 ))}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>Select File</Text>
+                  <Text style={[styles.label, { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 }]}>{t('documents.selectFile')}</Text>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity 
                       onPress={handleFileSelect} 
@@ -290,7 +292,7 @@ export function Documents() {
                         borderRadius: 4,
                       }}
                     >
-                      <Text style={{ color: 'white', fontWeight: '600' }}>Choose File</Text>
+                      <Text style={{ color: 'white', fontWeight: '600' }}>{t('documents.chooseFile')}</Text>
                     </TouchableOpacity>
                     {fileName && (
                       <Text style={{ flex: 1, fontSize: 14, color: '#666' }} numberOfLines={1}>
@@ -302,10 +304,10 @@ export function Documents() {
               </View>
               <View style={[styles.buttonCol, { flexDirection: 'column', alignItems: 'flex-end', marginTop: 16 }]}> 
                 <View style={styles.buttonWrapper}>
-                  <Button title="Update" onPress={handleUpdate} disabled={updating || !file} />
+                  <Button title={t('actions.update')} onPress={handleUpdate} disabled={updating || !file} />
                 </View>
                 <View style={styles.buttonWrapper}>
-                  <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !selectedDocumentId} />
+                  <Button title={t('actions.delete')} onPress={handleDelete} color="red" disabled={updating || !selectedDocumentId} />
                 </View>
               </View>
             </View>
@@ -318,8 +320,8 @@ export function Documents() {
               deleting={deleting}
               deleteResult={deleteResult}
               onClose={handleCloseDeleteModal}
-              confirmMessage={`Are you sure you want to delete the document \"${document?.originalFilename || ''}\"?`}
-              deletingMessage="Deleting document..."
+              confirmMessage={t('messages.documentConfirmDelete', { name: document?.originalFilename || '' })}
+              deletingMessage={t('messages.deletingDocument')}
             />
             <UpdateModal
               confirmVisible={updateConfirmVisible}
@@ -330,8 +332,8 @@ export function Documents() {
               updating={updating}
               updateResult={updateResult}
               onClose={handleCloseUpdateModal}
-              confirmMessage={`Are you sure you want to update the document \"${document?.originalFilename || ''}\" with \"${fileName}\"?`}
-              updatingMessage="Updating document..."
+              confirmMessage={t('messages.documentConfirmUpdate', { name: document?.originalFilename || '', file: fileName })}
+              updatingMessage={t('messages.updatingDocument')}
             />
           </View>
         </Window>

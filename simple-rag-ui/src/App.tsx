@@ -8,6 +8,8 @@ import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
 import newspaperImage from './assets/newspaper.png';
 import bellImage from './assets/bell.png';
+// Initialize i18n (loads translations and sets language)
+import './i18n';
 
 Asset.loadAsync([
   ...NavigationAssets,

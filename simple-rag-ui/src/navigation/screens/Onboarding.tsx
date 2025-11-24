@@ -1,12 +1,14 @@
 ﻿
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { Window } from '../../components/Window';
 import { GlobalStyles } from '../../styles/GlobalStyles';
 import { CreateModal, CreateResult } from '../../components/CreateModal';
-import { ChatForm, ChatFormData } from '../../components/ChatForm';
+import { ChatForm, ChatFormData, Collection } from '../../components/ChatForm';
+import { getCollections } from '../../api/collections';
 import { DEFAULT_PROMPTS, DEFAULT_CHAT_CONFIG, DEFAULT_ONBOARDING_COLLECTION } from '../../constants/defaultPrompts';
 
 interface SelectedFile {
@@ -18,6 +20,7 @@ interface SelectedFile {
 }
 
 export function Onboarding() {
+  const { t } = useTranslation();
   // Chat form data - using ChatFormData interface
   const [formData, setFormData] = useState<ChatFormData>({
     publicName: DEFAULT_CHAT_CONFIG.publicName,
@@ -44,6 +47,7 @@ export function Onboarding() {
   
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
   
   // Accordion state - Basic is expanded by default
   const [expandedAccordion, setExpandedAccordion] = useState<string | null>('basic');
@@ -99,7 +103,7 @@ export function Onboarding() {
         console.log('Files selected:', newFiles.map(f => f.name).join(', '));
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick files');
+      Alert.alert(t('messages.errorTitle'), t('onboarding.errors.pickFiles'));
       console.error('File picker error:', error);
     }
   };
@@ -200,6 +204,20 @@ export function Onboarding() {
     setCreateResult(null);
   };
 
+  // Load collections so the picker in ChatForm is populated during onboarding
+  React.useEffect(() => {
+    let mounted = true;
+    getCollections()
+      .then((res) => {
+        const data = (res as any).data as Collection[];
+        if (mounted) setCollections(data);
+      })
+      .catch((err) => {
+        console.warn('Failed to load collections for onboarding:', err);
+      });
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView>
@@ -207,34 +225,34 @@ export function Onboarding() {
           <ChatForm
             data={formData}
             onFieldChange={handleFieldChange}
-            collections={[]} // No collections needed in onboarding
+            collections={collections}
             disabled={isUploading}
             expandedAccordion={expandedAccordion}
             onAccordionChange={setExpandedAccordion}
             renderAfterBasic={() => (
               <>
-                <Text style={styles.label}>Collection Name</Text>
+                <Text style={styles.label}>{t('onboarding.collectionName')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Collection Name"
+                  placeholder={t('placeholders.collectionName')}
                   value={collectionName}
                   onChangeText={setCollectionName}
                   editable={!isUploading}
                 />
-                <Text style={styles.label}>Collection Description</Text>
+                <Text style={styles.label}>{t('onboarding.collectionDescription')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Collection Description"
+                  placeholder={t('placeholders.collectionDescription')}
                   value={collectionDescription}
                   onChangeText={setCollectionDescription}
                   editable={!isUploading}
                 />
                 
                 {/* File Upload Section */}
-                <Text style={styles.label}>Upload Documents (Optional)</Text>
+                <Text style={styles.label}>{t('onboarding.uploadTitle')}</Text>
                 <TouchableOpacity style={styles.uploadButton} onPress={handlePickFiles} disabled={isUploading}>
                   <Text style={styles.uploadButtonText}>
-                    {isUploading ? 'Uploading...' : '+ Select Files'}
+                    {isUploading ? t('onboarding.uploading') : `+ ${t('onboarding.selectFiles')}`}
                   </Text>
                 </TouchableOpacity>
 
@@ -265,9 +283,9 @@ export function Onboarding() {
           />
 
           <View style={styles.buttonRow}>
-            <Button title="Cancel" onPress={handleClear} color="#888" disabled={isUploading} />
+            <Button title={t('actions.cancel')} onPress={handleClear} color="#888" disabled={isUploading} />
             <Button 
-              title={isUploading ? 'Creating...' : 'Create'} 
+              title={isUploading ? t('onboarding.creating') : t('actions.create')} 
               onPress={handleCreate} 
               color="#007bff" 
               disabled={isUploading}
@@ -285,8 +303,8 @@ export function Onboarding() {
         creating={isUploading}
         createResult={createResult}
         onClose={handleCloseCreateModal}
-        confirmMessage={`Are you sure you want to create the chat "${formData.publicName}" with ${selectedFiles.length} file(s)?`}
-        creatingMessage="Creating chat and uploading files..."
+        confirmMessage={t('onboarding.confirmCreate', { name: formData.publicName, count: selectedFiles.length })}
+        creatingMessage={t('onboarding.creatingMessage')}
       />
     </SafeAreaView>
   );

@@ -7,6 +7,7 @@ import { Window } from '../../components/Window';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
 import styles from '../../styles/CollectionsStyles';
+import { useTranslation } from 'react-i18next';
 import { getCollections, getCollectionById, updateCollection, deleteCollection } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 
@@ -30,6 +31,7 @@ type DocumentEntity = {
 };
 
 export function Collections() {
+  const { t } = useTranslation();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -120,7 +122,7 @@ export function Collections() {
         setUpdating(false);
         setUpdateResult({
           success: true,
-          message: 'Collection updated successfully',
+          message: t('messages.collectionUpdateSuccess'),
         });
       })
       .catch((error) => {
@@ -128,7 +130,7 @@ export function Collections() {
         setUpdating(false);
         setUpdateResult({
           success: false,
-          message: `Failed to update collection: ${errorMessage}`,
+          message: t('messages.collectionUpdateFailed', { error: errorMessage }),
         });
       });
   };
@@ -189,7 +191,7 @@ export function Collections() {
         console.log('Delete successful');
         setDeleteResult({
           success: true,
-          message: `Collection "${name}" has been successfully deleted.`
+          message: t('messages.collectionDeleted', { name }),
         });
         setDeleting(false);
         
@@ -206,7 +208,7 @@ export function Collections() {
         const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setDeleteResult({
           success: false,
-          message: `Failed to delete collection: ${errorMessage}`
+          message: t('messages.collectionDeleteFailed', { error: errorMessage }),
         });
         setDeleting(false);
       });
@@ -250,14 +252,14 @@ export function Collections() {
           <View style={styles.container}>
             {/* Collection Dropdown */}
             <View style={styles.dropdownContainer}>
-              <Text style={styles.dropdownLabel}>Collection:</Text>
+              <Text style={styles.dropdownLabel}>{t('collections.label')}</Text>
               <View style={styles.pickerWrapper}>
                 <Picker
                   selectedValue={selectedId}
                   onValueChange={(value) => setSelectedId(value)}
                   style={styles.picker}
                 >
-                  <Picker.Item label="Select a collection..." value="" />
+                  <Picker.Item label={t('basic.selectCollection')} value="" />
                   {collections.map((col) => (
                     <Picker.Item key={col.id} label={col.name} value={col.id} />
                   ))}
@@ -266,33 +268,33 @@ export function Collections() {
             </View>
             
             <View style={styles.form}>
-              <Text style={styles.label}>Name</Text>
+              <Text style={styles.label}>{t('collections.name')}</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Name"
+                placeholder={t('collections.name')}
                 editable={!!collection}
               />
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>{t('collections.description')}</Text>
               <TextInput
                 style={styles.input}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Description"
+                placeholder={t('collections.description')}
                 editable={!!collection}
               />
-              <Text style={styles.label}>Created</Text>
+              <Text style={styles.label}>{t('collections.created')}</Text>
               <Text style={styles.dateField}>{collection?.created || ''}</Text>
-              <Text style={styles.label}>Modified</Text>
+              <Text style={styles.label}>{t('collections.modified')}</Text>
               <Text style={styles.dateField}>{collection?.modified || ''}</Text>
               <View style={styles.buttonCol}>
                 <View style={styles.buttonWrapper}>
-                  <Button title="Update" onPress={handleUpdate} disabled={updating || !collection || !hasChanges()} />
+                  <Button title={t('actions.update')} onPress={handleUpdate} disabled={updating || !collection || !hasChanges()} />
                 </View>
                 <View style={styles.buttonWrapper}>
                   <Button 
-                    title="Delete" 
+                    title={t('actions.delete')} 
                     onPress={() => {
                       console.log('Delete button pressed');
                       handleDelete();
@@ -304,18 +306,18 @@ export function Collections() {
               </View>
               {/* Documents Table - Always Visible */}
               <View style={{ marginTop: 24, paddingVertical: 8 }}>
-                <Text style={[styles.label, { fontSize: 16, marginBottom: 12 }]}>Documents</Text>
+                <Text style={[styles.label, { fontSize: 16, marginBottom: 12 }]}>{t('collections.documentsTitle')}</Text>
                 {documentsLoading ? (
                   <ActivityIndicator />
                 ) : (
                   <View style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 4, marginTop: 8 }}>
                     <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', padding: 8 }}>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Filename</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>Type</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>Size</Text>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Created</Text>
-                      <Text style={{ flex: 2, fontWeight: 'bold' }}>Updated</Text>
-                      <Text style={{ flex: 1, fontWeight: 'bold' }}>State</Text>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.filename')}</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.type')}</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.size')}</Text>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.created')}</Text>
+                      <Text style={{ flex: 2, fontWeight: 'bold' }}>{t('collections.table.updated')}</Text>
+                      <Text style={{ flex: 1, fontWeight: 'bold' }}>{t('collections.table.state')}</Text>
                     </View>
                     <FlatList
                       data={documents}
@@ -332,7 +334,7 @@ export function Collections() {
                           <Text style={{ flex: 1 }}>{item.state}</Text>
                         </View>
                       )}
-                      ListEmptyComponent={<Text style={{ padding: 8, color: '#888' }}>No documents found.</Text>}
+                      ListEmptyComponent={<Text style={{ padding: 8, color: '#888' }}>{t('collections.noDocuments')}</Text>}
                     />
                   </View>
                 )}
@@ -352,8 +354,8 @@ export function Collections() {
         deleting={deleting}
         deleteResult={deleteResult}
         onClose={handleCloseDeleteModal}
-        confirmMessage={`Are you sure you want to delete the collection "${name}"?`}
-        deletingMessage="Deleting collection..."
+        confirmMessage={t('messages.collectionConfirmDelete', { name })}
+        deletingMessage={t('messages.deletingCollection')}
       />
       
       {/* Use the reusable UpdateModal component */}
@@ -366,8 +368,8 @@ export function Collections() {
         updating={updating}
         updateResult={updateResult}
         onClose={handleCloseUpdateModal}
-        confirmMessage={`Are you sure you want to update the collection "${name}"?`}
-        updatingMessage="Updating collection..."
+        confirmMessage={t('messages.collectionConfirmUpdate', { name })}
+        updatingMessage={t('messages.updatingCollection')}
       />
     </SafeAreaView>
   );

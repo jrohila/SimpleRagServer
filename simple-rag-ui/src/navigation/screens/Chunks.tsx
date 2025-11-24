@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Window } from '../../components/Window';
 import styles from '../../styles/ChunksStyles';
+import { useTranslation } from 'react-i18next';
 import { getCollections } from '../../api/collections';
 import { getDocuments } from '../../api/documents';
 import { getChunks, updateChunk, deleteChunk } from '../../api/chunks';
@@ -23,6 +24,7 @@ type Chunk = {
 };
 
 export function Chunks() {
+  const { t } = useTranslation();
   const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [documents, setDocuments] = useState<Array<{ id: string; originalFilename: string }>>([]);
@@ -253,7 +255,7 @@ export function Chunks() {
             {/* Dropdowns for Collections and Documents */}
             <View style={styles.filtersContainer}>
               <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Collection:</Text>
+                <Text style={styles.dropdownLabel}>{t('chunks.collection')}</Text>
                 {loadingCollections ? (
                   <ActivityIndicator />
                 ) : (
@@ -263,7 +265,7 @@ export function Chunks() {
                       onValueChange={(value) => setSelectedCollectionId(value)}
                       style={styles.picker}
                     >
-                      <Picker.Item label="Select a collection..." value="" />
+                      <Picker.Item label={t('basic.selectCollection')} value="" />
                       {collections.map((col) => (
                         <Picker.Item key={col.id} label={col.name} value={col.id} />
                       ))}
@@ -273,7 +275,7 @@ export function Chunks() {
               </View>
 
               <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Document:</Text>
+                <Text style={styles.dropdownLabel}>{t('chunks.document')}</Text>
                 {loadingDocuments ? (
                   <ActivityIndicator />
                 ) : (
@@ -285,7 +287,7 @@ export function Chunks() {
                       enabled={!!selectedCollectionId && documents.length > 0}
                     >
                       <Picker.Item 
-                        label={!selectedCollectionId ? "Select a collection first..." : documents.length === 0 ? "No documents found" : "All documents"} 
+                        label={!selectedCollectionId ? t('chunks.selectCollectionFirst') : documents.length === 0 ? t('chunks.noDocuments') : t('chunks.allDocuments')} 
                         value="" 
                       />
                       {documents.map((doc) => (
@@ -301,7 +303,7 @@ export function Chunks() {
             <View style={styles.chunksSection}>
               <View style={styles.header}>
                 {/* Pagination controls */}
-                <View style={styles.paginationContainer}>
+                  <View style={styles.paginationContainer}>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 0}
@@ -310,9 +312,9 @@ export function Chunks() {
                       currentPage === 0 ? styles.paginationButtonDisabled : styles.paginationButtonActive,
                     ]}
                   >
-                    <Text style={styles.paginationButtonText}>← Back</Text>
+                    <Text style={styles.paginationButtonText}>{t('chunks.pagination.back')}</Text>
                   </TouchableOpacity>
-                  <Text style={styles.paginationText}>Page {currentPage + 1}</Text>
+                  <Text style={styles.paginationText}>{t('chunks.pagination.page', { page: currentPage + 1 })}</Text>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage + 1)}
                     disabled={!hasMorePages}
@@ -321,7 +323,7 @@ export function Chunks() {
                       !hasMorePages ? styles.paginationButtonDisabled : styles.paginationButtonActive,
                     ]}
                   >
-                    <Text style={styles.paginationButtonText}>Next →</Text>
+                    <Text style={styles.paginationButtonText}>{t('chunks.pagination.next')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -329,17 +331,17 @@ export function Chunks() {
                 <ActivityIndicator />
               ) : (
                 <View style={styles.chunksContainer}>
-                  {chunks.length === 0 ? (
+                      {chunks.length === 0 ? (
                     // Empty disabled row when no chunks
                     <View style={styles.disabledRow}>
                       {/* First row: Text in textarea */}
                       <View style={styles.chunkTextRow}>
-                        <Text style={styles.chunkTextLabel}>Text:</Text>
+                            <Text style={styles.chunkTextLabel}>{t('chunks.textLabel')}</Text>
                         <View style={[styles.chunkTextArea, styles.chunkTextAreaDisabled]}>
-                          <Text style={[styles.chunkText, styles.chunkTextDisabled]}>
-                            {!selectedCollectionId ? 'Select a collection and document to view chunks' : 
-                             !selectedDocumentId ? 'Select a document to view chunks' : 
-                             'No chunks found'}
+                           <Text style={[styles.chunkText, styles.chunkTextDisabled]}>
+                           {!selectedCollectionId ? t('chunks.messages.selectCollectionAndDocument') : 
+                            !selectedDocumentId ? t('chunks.messages.selectDocument') : 
+                            t('chunks.messages.noChunks')}
                           </Text>
                         </View>
                       </View>
@@ -347,31 +349,31 @@ export function Chunks() {
                       <View style={styles.chunkMetadataRow}>
                         <View style={styles.chunkMetadataContainer}>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Type: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.type')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Section: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.section')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Page: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.page')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Language: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.language')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Document: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.document')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Created: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.created')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>Modified: </Text>
+                            <Text style={[styles.chunkMetadataLabel, styles.chunkMetadataLabelDisabled]}>{t('chunks.table.modified')}: </Text>
                             <Text style={[styles.chunkMetadataValue, styles.chunkMetadataValueDisabled]}>-</Text>
                           </View>
                         </View>
@@ -381,13 +383,13 @@ export function Chunks() {
                             disabled
                             style={[styles.chunkUpdateButton, styles.chunkButtonDisabled]}
                           >
-                            <Text style={styles.chunkButtonText}>Update</Text>
+                            <Text style={styles.chunkButtonText}>{t('actions.update')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             disabled
                             style={[styles.chunkDeleteButton, styles.chunkButtonDisabled]}
                           >
-                            <Text style={styles.chunkButtonText}>Delete</Text>
+                            <Text style={styles.chunkButtonText}>{t('actions.delete')}</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -397,7 +399,7 @@ export function Chunks() {
                     <View key={chunk.id} style={[styles.chunkRow, index === chunks.length - 1 && styles.chunkRowLast]}>
                       {/* First row: Text in textarea */}
                       <View style={styles.chunkTextRow}>
-                        <Text style={styles.chunkTextLabel}>Text:</Text>
+                        <Text style={styles.chunkTextLabel}>{t('chunks.textLabel')}</Text>
                         <View style={styles.chunkTextArea}>
                           <TextInput
                             style={styles.chunkText}
@@ -416,31 +418,31 @@ export function Chunks() {
                       <View style={styles.chunkMetadataRow}>
                         <View style={styles.chunkMetadataContainer}>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Type: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.type')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.type}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Section: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.section')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.sectionTitle}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Page: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.page')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.pageNumber}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Language: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.language')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.language}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Document: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.document')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.documentName}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Created: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.created')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.created}</Text>
                           </View>
                           <View style={styles.chunkMetadataField}>
-                            <Text style={styles.chunkMetadataLabel}>Modified: </Text>
+                            <Text style={styles.chunkMetadataLabel}>{t('chunks.table.modified')}: </Text>
                             <Text style={styles.chunkMetadataValue}>{chunk.modified}</Text>
                           </View>
                         </View>
@@ -454,13 +456,13 @@ export function Chunks() {
                             ]}
                             disabled={!isChunkTextChanged(chunk)}
                           >
-                            <Text style={styles.chunkButtonText}>Update</Text>
+                            <Text style={styles.chunkButtonText}>{t('actions.update')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => handleDeleteChunk(chunk)}
                             style={styles.chunkDeleteButton}
                           >
-                            <Text style={styles.chunkButtonText}>Delete</Text>
+                            <Text style={styles.chunkButtonText}>{t('actions.delete')}</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -480,9 +482,9 @@ export function Chunks() {
                       currentPage === 0 ? styles.paginationButtonDisabled : styles.paginationButtonActive
                     ]}
                   >
-                    <Text style={styles.paginationButtonText}>← Back</Text>
+                    <Text style={styles.paginationButtonText}>{t('chunks.pagination.back')}</Text>
                   </TouchableOpacity>
-                  <Text style={styles.paginationText}>Page {currentPage + 1}</Text>
+                  <Text style={styles.paginationText}>{t('chunks.pagination.page', { page: currentPage + 1 })}</Text>
                   <TouchableOpacity
                     onPress={() => setCurrentPage(currentPage + 1)}
                     disabled={!hasMorePages}
@@ -491,7 +493,7 @@ export function Chunks() {
                       !hasMorePages ? styles.paginationButtonDisabled : styles.paginationButtonActive
                     ]}
                   >
-                    <Text style={styles.paginationButtonText}>Next →</Text>
+                    <Text style={styles.paginationButtonText}>{t('chunks.pagination.next')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -508,8 +510,8 @@ export function Chunks() {
         deleting={deleting}
         deleteResult={deleteResult}
         onClose={handleCloseDeleteModal}
-        confirmMessage={`Are you sure you want to delete this chunk?`}
-        deletingMessage="Deleting chunk..."
+        confirmMessage={t('messages.chunkConfirmDelete')}
+        deletingMessage={t('messages.deletingChunk')}
       />
       <UpdateModal
         confirmVisible={updateConfirmVisible}
@@ -520,8 +522,8 @@ export function Chunks() {
         updating={updating}
         updateResult={updateResult}
         onClose={handleCloseUpdateModal}
-        confirmMessage={`Are you sure you want to update this chunk?`}
-        updatingMessage="Updating chunk..."
+        confirmMessage={t('messages.chunkConfirmUpdate')}
+        updatingMessage={t('messages.updatingChunk')}
       />
     </SafeAreaView>
   );

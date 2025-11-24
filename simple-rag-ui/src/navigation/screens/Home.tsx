@@ -9,6 +9,7 @@ import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Message } from '../../components/ChatMessage';
 import { LLMServiceFactory, LLMMode } from '../../services/LLMServiceFactory';
 import { LLMMessage } from '../../services/RemoteLLMService';
+import { useTranslation } from 'react-i18next';
 
 type Chat = {
   id: string;
@@ -29,6 +30,7 @@ type Chat = {
 };
 
 export function Home() {
+  const { t } = useTranslation();
   // Store message histories for each chat
   const [chatHistories, setChatHistories] = useState<{ [chatId: string]: Message[] }>({});
   const [messages, setMessages] = useState<Message[]>([]);
@@ -131,7 +133,7 @@ export function Home() {
       } else {
         // Initialize with welcome message for new chat
         const chat = chats.find(c => c.id === selectedChatId);
-        const welcomeText = chat?.welcomeMessage || 'Hello! How can I help you today?';
+        const welcomeText = chat?.welcomeMessage || t('prompts.welcomeMessage');
         const welcomeMessage: Message = {
           _id: `${selectedChatId}-welcome-${Date.now()}`,
           text: welcomeText,
@@ -175,7 +177,7 @@ export function Home() {
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: llmMode === 'local' ? 'Local AI' : 'SimpleRagServer',
+          name: llmMode === 'local' ? t('modes.local') : 'SimpleRagServer',
         },
         isLoading: true,
       };
@@ -191,7 +193,7 @@ export function Home() {
         const localLLM = LLMServiceFactory.getLocalLLM();
         if (!localLLM.isModelLoaded()) {
           setIsInitializingLocalLLM(true);
-          updateAssistantMessage('Initializing local AI model... This may take a moment on first run.', false);
+          updateAssistantMessage(t('home.initMessage'), false);
         }
       }
 
@@ -248,7 +250,7 @@ export function Home() {
           },
           onError: (error: Error) => {
             console.error('Error from LLM service:', error);
-            Alert.alert('Error', error.message || 'Failed to get response');
+              Alert.alert(t('messages.errorTitle'), error.message || t('messages.failedToGetResponse'));
             if (assistantMessageRef.current) {
               setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
               assistantMessageRef.current = null;
@@ -261,7 +263,7 @@ export function Home() {
 
     } catch (error) {
       console.error('Error calling LLM:', error);
-      Alert.alert('Error', 'Failed to get response from the LLM');
+      Alert.alert(t('messages.errorTitle'), t('messages.failedToGetResponse'));
       if (assistantMessageRef.current) {
         setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
         assistantMessageRef.current = null;
@@ -335,7 +337,7 @@ export function Home() {
 
   const handleToggleLLMMode = async () => {
     if (isGenerating) {
-      Alert.alert('Please Wait', 'Cannot switch mode while generating a response');
+      Alert.alert(t('messages.pleaseWaitTitle'), t('messages.cannotSwitchMode'));
       return;
     }
 
@@ -343,8 +345,8 @@ export function Home() {
     
     if (newMode === 'local' && !isLocalLLMAvailable) {
       Alert.alert(
-        'WebGPU Not Available',
-        'Your browser does not support WebGPU, which is required for local AI models. Please use Chrome, Edge, or another WebGPU-compatible browser.'
+        t('messages.webgpuTitle'),
+        t('messages.webgpuMessage')
       );
       return;
     }
@@ -376,7 +378,7 @@ export function Home() {
 
   const handleSend = useCallback(() => {
     if (!selectedChat && llmMode === 'remote') {
-      Alert.alert('Error', 'Please select a chat first');
+      Alert.alert(t('messages.errorTitle'), t('messages.selectChatFirst'));
       return;
     }
 
@@ -418,13 +420,13 @@ export function Home() {
 
   const getPlaceholder = () => {
     if (llmMode === 'local') {
-      if (isInitializingLocalLLM) return 'Initializing local AI...';
-      if (isGenerating) return 'Generating locally...';
-      return 'Type a message (using local AI)...';
+      if (isInitializingLocalLLM) return t('placeholders.initializingLocal');
+      if (isGenerating) return t('placeholders.generatingLocally');
+      return t('placeholders.typeLocal');
     }
-    if (!selectedChatId) return 'Please select a chat first...';
-    if (isGenerating) return 'Generating response...';
-    return 'Type a message...';
+    if (!selectedChatId) return t('placeholders.selectChatFirst');
+    if (isGenerating) return t('placeholders.generating');
+    return t('placeholders.typeMessage');
   };
 
   return (
@@ -446,7 +448,7 @@ export function Home() {
                   style={styles.picker}
                   dropdownIconColor="#666"
                 >
-                  <Picker.Item label="Select a chat..." value="" />
+                  <Picker.Item label={t('basic.selectChat')} value="" />
                   {chats.map((chat) => (
                     <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
                   ))}
@@ -458,7 +460,7 @@ export function Home() {
             {llmMode === 'local' && (
               <View style={styles.localModeIndicator}>
                 <Ionicons name="hardware-chip" size={20} color="#4CAF50" />
-                <Text style={styles.localModeText}>Local AI (WebGPU)</Text>
+                <Text style={styles.localModeText}>{t('home.localAiLabel')}</Text>
                 {isChromeBrowser && (
                   <TouchableOpacity onPress={() => setShowUpgradeModal(true)} style={styles.upgradeButton}>
                     <Ionicons name="rocket-outline" size={18} color="#2e7d32" />
@@ -468,7 +470,7 @@ export function Home() {
             )}
 
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>{llmMode === 'remote' ? 'Remote' : 'Local'}</Text>
+              <Text style={styles.toggleLabel}>{llmMode === 'remote' ? t('modes.remote') : t('modes.local')}</Text>
               <Switch
                 value={llmMode === 'local'}
                 onValueChange={handleToggleLLMMode}
@@ -514,8 +516,8 @@ export function Home() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ActivityIndicator size="large" color="#2196F3" />
-            <Text style={styles.modalTitle}>Preparing Local AI Model</Text>
-            <Text style={styles.modalMessage}>The local model is downloading and initializing. This may take a few minutes on first run.</Text>
+            <Text style={styles.modalTitle}>{t('home.modal.preparingTitle')}</Text>
+            <Text style={styles.modalMessage}>{t('home.modal.preparingMessage')}</Text>
 
             {downloadProgress ? (
               <View style={{ width: '100%' }}>
@@ -525,7 +527,7 @@ export function Home() {
                 </View>
               </View>
             ) : (
-              <Text style={styles.modalProgressText}>Starting...</Text>
+              <Text style={styles.modalProgressText}>{t('home.modal.starting')}</Text>
             )}
           </View>
         </View>
@@ -540,11 +542,11 @@ export function Home() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Upgrade Browser Settings</Text>
-            <Text style={styles.modalMessage}>To improve local model performance on Chrome, enable the following flags and ensure the high-performance GPU is selected.</Text>
+            <Text style={styles.modalTitle}>{t('home.modal.upgradeTitle')}</Text>
+            <Text style={styles.modalMessage}>{t('home.modal.upgradeMessage')}</Text>
             <View style={{ width: '100%' }}>
-              <Text style={styles.modalProgressText}>1) Enable Unsafe WebGPU: open Chrome flags and enable <Text style={{ fontWeight: '700' }}>#enable-unsafe-webgpu</Text></Text>
-              <Text style={styles.modalProgressText}>2) Force high-performance GPU: enable your system/browser GPU preferences and try launching Chrome with high-performance GPU.</Text>
+              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep1')} <Text style={{ fontWeight: '700' }}>#enable-unsafe-webgpu</Text></Text>
+              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep2')}</Text>
             </View>
 
             <View style={styles.modalButtonsRow}>
@@ -573,22 +575,22 @@ export function Home() {
                     try {
                       if (navigator.clipboard && navigator.clipboard.writeText) {
                         await navigator.clipboard.writeText(flagFragment);
-                        Alert.alert('Flags', 'Could not open chrome://flags. The flag token "#enable-unsafe-webgpu" has been copied to your clipboard. Open chrome://flags/ and paste it into the search box.');
+                        Alert.alert(t('home.modal.openFlagsTitle'), t('home.modal.openFlagsCopied'));
                         return;
                       }
                     } catch (clipErr) {
                       // ignore
                     }
 
-                    Alert.alert('Open Flags', 'Please open chrome://flags/ in your Chrome address bar and search for "#enable-unsafe-webgpu" to enable Unsafe WebGPU.');
+                    Alert.alert(t('home.modal.openFlagsTitle'), t('home.modal.openFlagsFallback'));
                   }
                 }}
               >
-                <Text style={styles.modalButtonText}>Open Flags</Text>
+                <Text style={styles.modalButtonText}>{t('home.modal.openFlags')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.modalButton, { minWidth: 140 }]} onPress={() => setShowUpgradeModal(false)}>
-                <Text style={styles.modalButtonText}>Close</Text>
+                <Text style={styles.modalButtonText}>{t('actions.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
