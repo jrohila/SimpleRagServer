@@ -1,22 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import styles from '../styles/LanguageSwitcherStyles';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from './Icons';
 import i18n from '../i18n';
 
 const storeLang = async (lng: string) => {
-  try {
-    // Try AsyncStorage (native)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    if (AsyncStorage && AsyncStorage.setItem) {
-      await AsyncStorage.setItem('user-lang', lng);
-      return;
-    }
-  } catch (_) {
-    // ignore
-  }
-
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('user-lang', lng);
@@ -27,12 +15,6 @@ const storeLang = async (lng: string) => {
 };
 
 const loadStoredLang = async (): Promise<string | null> => {
-  try {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    if (AsyncStorage && AsyncStorage.getItem) return await AsyncStorage.getItem('user-lang');
-  } catch (_) {
-    // ignore
-  }
   try {
     if (typeof window !== 'undefined' && window.localStorage) return window.localStorage.getItem('user-lang');
   } catch (_) {

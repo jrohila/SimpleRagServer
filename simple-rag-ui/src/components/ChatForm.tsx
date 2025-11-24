@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, Switch } from 'react-native';
 import { List, Divider } from 'react-native-paper';
+import { MaterialCommunityIcons } from './Icons';
 import { Picker } from '@react-native-picker/picker';
 import styles from '../styles/ChatsStyles';
 import { useTranslation } from 'react-i18next';
@@ -69,7 +70,12 @@ export const ChatForm: React.FC<ChatFormProps> = ({
         <View style={styles.accordionContainer}>
           <List.Accordion
             title={t('sections.basic')}
-            left={(props: any) => <List.Icon {...props} icon="information" />}
+            left={(props: any) => (
+              <List.Icon {...props} icon={() => <MaterialCommunityIcons name="information" size={props.size} color={props.color} />} />
+            )}
+            right={(props: any) => (
+              <MaterialCommunityIcons name={expandedAccordion === 'basic' ? 'chevron-up' : 'chevron-down'} size={props.size} color={props.color} />
+            )}
             expanded={expandedAccordion === 'basic'}
             onPress={() => onAccordionChange(expandedAccordion === 'basic' ? null : 'basic')}
             style={styles.accordionTitle}
@@ -79,7 +85,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={styles.input}
                 value={data.publicName}
-                onChangeText={(value) => onFieldChange('publicName', value)}
+                onChangeText={(value: string) => onFieldChange('publicName', value)}
                 placeholder={t('basic.publicName')}
                 editable={!disabled}
               />
@@ -87,7 +93,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={styles.input}
                 value={data.internalName}
-                onChangeText={(value) => onFieldChange('internalName', value)}
+                onChangeText={(value: string) => onFieldChange('internalName', value)}
                 placeholder={t('basic.internalName')}
                 editable={!disabled}
               />
@@ -95,7 +101,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={styles.input}
                 value={data.internalDescription}
-                onChangeText={(value) => onFieldChange('internalDescription', value)}
+                onChangeText={(value: string) => onFieldChange('internalDescription', value)}
                 placeholder={t('basic.internalDescription')}
                 editable={!disabled}
               />
@@ -103,7 +109,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={styles.input}
                 value={data.defaultLanguage}
-                onChangeText={(value) => onFieldChange('defaultLanguage', value)}
+                onChangeText={(value: string) => onFieldChange('defaultLanguage', value)}
                 placeholder={t('basic.defaultLanguage')}
                 editable={!disabled}
               />
@@ -111,7 +117,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <View style={styles.pickerWrapper}>
                 <Picker
                   selectedValue={data.defaultCollectionId}
-                  onValueChange={(itemValue) => !disabled && onFieldChange('defaultCollectionId', itemValue)}
+                  onValueChange={(itemValue: string) => !disabled && onFieldChange('defaultCollectionId', itemValue)}
                   enabled={!disabled}
                   style={styles.picker}
                 >
@@ -131,7 +137,12 @@ export const ChatForm: React.FC<ChatFormProps> = ({
         <View style={styles.accordionContainer}>
           <List.Accordion
             title={t('sections.prompts')}
-            left={(props: any) => <List.Icon {...props} icon="file-document" />}
+            left={(props: any) => (
+              <List.Icon {...props} icon={() => <MaterialCommunityIcons name="file-document" size={props.size} color={props.color} />} />
+            )}
+            right={(props: any) => (
+              <MaterialCommunityIcons name={expandedAccordion === 'prompts' ? 'chevron-up' : 'chevron-down'} size={props.size} color={props.color} />
+            )}
             expanded={expandedAccordion === 'prompts'}
             onPress={() => onAccordionChange(expandedAccordion === 'prompts' ? null : 'prompts')}
             style={styles.accordionTitle}
@@ -141,7 +152,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.welcomeMessage}
-                onChangeText={(value) => onFieldChange('welcomeMessage', value)}
+                onChangeText={(value: string) => onFieldChange('welcomeMessage', value)}
                 placeholder={t('labels.welcomeMessage', 'Welcome Message')}
                 editable={!disabled}
                 multiline
@@ -151,7 +162,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultSystemPrompt}
-                onChangeText={(value) => onFieldChange('defaultSystemPrompt', value)}
+                onChangeText={(value: string) => onFieldChange('defaultSystemPrompt', value)}
                 placeholder={t('labels.systemPrompt', 'Default System Prompt')}
                 editable={!disabled}
                 multiline
@@ -161,7 +172,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultSystemPromptAppend}
-                onChangeText={(value) => onFieldChange('defaultSystemPromptAppend', value)}
+                onChangeText={(value: string) => onFieldChange('defaultSystemPromptAppend', value)}
                 placeholder={t('labels.systemPromptAppend', 'Default System Prompt Append')}
                 editable={!disabled}
                 multiline
@@ -171,7 +182,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultOutOfScopeMessage}
-                onChangeText={(value) => onFieldChange('defaultOutOfScopeMessage', value)}
+                onChangeText={(value: string) => onFieldChange('defaultOutOfScopeMessage', value)}
                 placeholder={t('labels.outOfScopeMessage', 'Default Out of Scope Message')}
                 editable={!disabled}
                 multiline
@@ -187,7 +198,12 @@ export const ChatForm: React.FC<ChatFormProps> = ({
         <View style={styles.accordionContainer}>
           <List.Accordion
             title={t('sections.advanced')}
-            left={(props: any) => <List.Icon {...props} icon="cog" />}
+            left={(props: any) => (
+              <List.Icon {...props} icon={() => <MaterialCommunityIcons name="cog" size={props.size} color={props.color} />} />
+            )}
+            right={(props: any) => (
+              <MaterialCommunityIcons name={expandedAccordion === 'advanced' ? 'chevron-up' : 'chevron-down'} size={props.size} color={props.color} />
+            )}
             expanded={expandedAccordion === 'advanced'}
             onPress={() => onAccordionChange(expandedAccordion === 'advanced' ? null : 'advanced')}
             style={styles.accordionTitle}
@@ -197,7 +213,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultContextPrompt}
-                onChangeText={(value) => onFieldChange('defaultContextPrompt', value)}
+                onChangeText={(value: string) => onFieldChange('defaultContextPrompt', value)}
                 placeholder={t('advanced.contextPrompt')}
                 editable={!disabled}
                 multiline
@@ -207,7 +223,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultMemoryPrompt}
-                onChangeText={(value) => onFieldChange('defaultMemoryPrompt', value)}
+                onChangeText={(value: string) => onFieldChange('defaultMemoryPrompt', value)}
                 placeholder={t('advanced.memoryPrompt')}
                 editable={!disabled}
                 multiline
@@ -217,7 +233,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.defaultExtractorPrompt}
-                onChangeText={(value) => onFieldChange('defaultExtractorPrompt', value)}
+                onChangeText={(value: string) => onFieldChange('defaultExtractorPrompt', value)}
                 placeholder={t('advanced.extractorPrompt')}
                 editable={!disabled}
                 multiline
@@ -238,7 +254,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={data.userPromptRewritingPrompt}
-                onChangeText={(value) => onFieldChange('userPromptRewritingPrompt', value)}
+                onChangeText={(value: string) => onFieldChange('userPromptRewritingPrompt', value)}
                 placeholder={t('advanced.userRewrite')}
                 editable={!disabled}
                 multiline

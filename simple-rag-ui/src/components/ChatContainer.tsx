@@ -9,7 +9,7 @@ import {
   Text 
 } from 'react-native';
 import styles from '../styles/ChatContainerStyles';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from './Icons';
 import { ChatMessage, Message } from './ChatMessage';
 
 interface ChatContainerProps {

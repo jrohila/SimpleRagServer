@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import styles, { markdownStyles } from '../styles/ChatMessageStyles';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from './Icons';
 import Markdown from 'react-native-markdown-display';
 
 export interface Message {

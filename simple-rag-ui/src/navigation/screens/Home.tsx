@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, Switch, Modal, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '../../components/Icons';
 import { getChats, getChatById } from '../../api/chats';
 import { ChatContainer } from '../../components/ChatContainer';
 import { ErrorBoundary } from '../../components/ErrorBoundary';

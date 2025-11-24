@@ -11,7 +11,7 @@ import { getCollections } from '../../api/collections';
 import { getDocuments, getDocument, updateDocument, deleteDocument } from '../../api/documents';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
-import * as DocumentPicker from 'expo-document-picker';
+// Use a small web file picker instead of expo-document-picker
 
 type Collection = {
   id: string;
@@ -188,32 +188,22 @@ export function Documents() {
   // File picker implementation
   const handleFileSelect = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedFile = result.assets[0];
-        
-        // For web, we can use the file directly
-        if (Platform.OS === 'web') {
-          // @ts-ignore - file property exists on web
-          const webFile = selectedFile.file;
-          if (webFile) {
-            setFile(webFile as File);
-            setFileName(selectedFile.name);
+      if (Platform.OS === 'web') {
+        // create an invisible file input and click it
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '*/*';
+        input.onchange = (e: any) => {
+          const f = e.target.files && e.target.files[0];
+          if (f) {
+            setFile(f as File);
+            setFileName(f.name);
           }
-        } else {
-          // For native platforms, create a file-like object
-          const fileObject = {
-            uri: selectedFile.uri,
-            name: selectedFile.name,
-            type: selectedFile.mimeType || 'application/octet-stream',
-          } as any;
-          setFile(fileObject);
-          setFileName(selectedFile.name);
-        }
+        };
+        input.click();
+      } else {
+        // Native platforms: document picker not available in this build.
+        alert(t('messages.filePickNotSupported'));
       }
     } catch (error) {
       console.error('Error picking document:', error);

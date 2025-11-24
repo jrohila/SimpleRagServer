@@ -4,7 +4,6 @@ import { View, Text, TextInput, Button, ScrollView, StyleSheet, Alert, Touchable
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as DocumentPicker from 'expo-document-picker';
 import { Window } from '../../components/Window';
 import styles from '../../styles/OnboardingStyles';
 import { CreateModal, CreateResult } from '../../components/CreateModal';
@@ -95,22 +94,30 @@ export function Onboarding() {
 
   const handlePickFiles = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets) {
-        const newFiles: SelectedFile[] = result.assets.map((asset) => ({
-          uri: asset.uri,
-          name: asset.name,
-          size: asset.size,
-          mimeType: asset.mimeType || undefined,
-          file: (asset as any).file, // Keep raw File object for web
-        }));
-        setSelectedFiles((prev) => [...prev, ...newFiles]);
-        console.log('Files selected:', newFiles.map(f => f.name).join(', '));
+      if (typeof window !== 'undefined') {
+        // Web: create a hidden file input to allow multiple selection
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = '*/*';
+        input.onchange = (e: any) => {
+          const files: FileList = e.target.files;
+          if (files && files.length > 0) {
+            const newFiles: SelectedFile[] = Array.from(files).map((f: File) => ({
+              uri: URL.createObjectURL(f),
+              name: f.name,
+              size: f.size,
+              mimeType: f.type,
+              file: f,
+            }));
+            setSelectedFiles((prev) => [...prev, ...newFiles]);
+            console.log('Files selected:', newFiles.map((ff) => ff.name).join(', '));
+          }
+        };
+        input.click();
+      } else {
+        // Native: document picker not available in this web build
+        Alert.alert(t('messages.errorTitle'), t('onboarding.errors.pickFiles'));
       }
     } catch (error) {
       Alert.alert(t('messages.errorTitle'), t('onboarding.errors.pickFiles'));

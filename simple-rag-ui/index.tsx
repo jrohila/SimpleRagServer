@@ -1,9 +1,17 @@
-import '@expo/metro-runtime'; // Necessary for Fast Refresh on Web
-import { registerRootComponent } from 'expo';
-
+import React from 'react';
+import { createRoot } from 'react-dom/client';
 import { App } from './src/App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+// Standard web entry: mount React app into a root element.
+const ensureRoot = (): HTMLElement => {
+	let root = document.getElementById('root');
+	if (!root) {
+		root = document.createElement('div');
+		root.id = 'root';
+		document.body.appendChild(root);
+	}
+	return root;
+};
+
+const container = ensureRoot();
+createRoot(container).render(React.createElement(App));
