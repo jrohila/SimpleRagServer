@@ -1,6 +1,6 @@
 # SimpleRagServer
 
-SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generation (RAG) backend built with Spring Boot, OpenSearch, and Ollama. It enables private, local, or enterprise-grade LLM pipelines with hybrid search, local LLM/embedding support, document chunking, intelligent out-of-scope detection, and a modern React Native web UI—all fully dockerized for easy deployment.
+SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generation (RAG) backend built with Spring Boot, OpenSearch, and Ollama. It enables private, local, or enterprise-grade LLM pipelines with hybrid search, local LLM/embedding support, document chunking, intelligent out-of-scope detection, and a modern React Native web UI with optional WebGPU-powered in-browser LLM—all fully dockerized for easy deployment.
 
 ## Features
 
@@ -11,8 +11,10 @@ SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generati
 - **Automatic context injection**: Smart document retrieval and system prompt handling
 - **Docling-powered document parsing**: Advanced document chunking and parsing with heading detection
 - **Local LLM support**: Full integration with Ollama for local/private LLM and embedding models
+- **WebGPU in-browser LLM**: Optional client-side inference using transformers.js with WebGPU acceleration for local, private inference without backend dependencies
 - **Streaming & non-streaming**: Real-time streaming chat and traditional request/response modes
-- **Modern web UI**: React Native (Expo) web application with real-time chat, markdown rendering, and search capabilities
+- **Modern web UI**: React Native web application (Vite-powered) with real-time chat, markdown rendering, search capabilities, and multi-language support (i18n)
+- **Dual inference modes**: Choose between remote backend LLM (Ollama) or local in-browser LLM (WebGPU) with RAG support in both modes
 
 ### Architecture Features
 - **Multi-tenant collections**: Segregate documents by collection, each with its own OpenSearch index
@@ -25,7 +27,7 @@ SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generati
 ```
 simple-rag-parent/
 ├── simple-rag-server/     # Spring Boot backend (API + business logic)
-├── simple-rag-ui/         # React Native (Expo) web UI
+├── simple-rag-ui/         # React Native web UI (Vite + react-native-web)
 └── simple-rag-nlp/        # NLP utilities (summarization, term extraction)
 ```
 
@@ -40,36 +42,48 @@ simple-rag-parent/
 ## Architecture Overview
 
 ```
- ┌──────────────────┐       ┌──────────────────────────┐       ┌────────────┐
- │   Web UI         │       │                          │       │   Ollama   │
- │ (React Native)   │──────▶│  SimpleRagServer         │──────▶│ (LLM Host) │
- │                  │       │   (Spring Boot)          │◀──────│            │
- └──────────────────┘       │                          │       └────────────┘
-        │                   │  ┌────────────────────┐  │
-        │                   │  │ Out-of-Scope       │  │
-        │                   │  │ Detection Pipeline │  │
-        │                   │  └────────────────────┘  │
-        │                   │  ┌────────────────────┐  │
-        │                   │  │ Context Addition   │  │
-        │                   │  │ Pipeline           │  │
-        │                   │  └────────────────────┘  │
-        │                   └──────┬───────────────────┘
-        │                          │
-        ▼                          ▼
-   ┌─────────────────────────────────────┐
-   │         OpenSearch                  │
-   │  ┌──────────────┐  ┌──────────────┐│
-   │  │  BM25        │  │  kNN Vector  ││
-   │  │  (Keyword)   │  │  (Semantic)  ││
-   │  └──────────────┘  └──────────────┘│
-   │         Hybrid Search + RRF         │
-   └─────────────────────────────────────┘
-                │
-                ▼
-      ┌───────────────────┐
-      │  Docling Serve    │
-      │  (Doc Parser)     │
-      └───────────────────┘
+ ┌──────────────────────────────────────────────┐
+ │   Web UI (React Native + Vite)               │
+ │                                              │
+ │  ┌──────────────┐      ┌─────────────────┐  │
+ │  │ Remote Mode  │      │ Local WebGPU    │  │
+ │  │ (Backend LLM)│      │ Mode (Browser)  │  │
+ │  └──────┬───────┘      └────────┬────────┘  │
+ └─────────┼──────────────────────┬─────────────┘
+           │                      │
+           │                      │ transformers.js
+           │                      │ + WebGPU
+           │                      │ (client-side)
+           ▼                      │
+ ┌──────────────────────────┐     │
+ │  SimpleRagServer         │     │
+ │   (Spring Boot)          │     │
+ │                          │     │
+ │  ┌────────────────────┐  │     │
+ │  │ Out-of-Scope       │  │     │
+ │  │ Detection Pipeline │  │     │
+ │  └────────────────────┘  │     │
+ │  ┌────────────────────┐  │     │
+ │  │ Context Addition   │  │     │
+ │  │ Pipeline (RAG)     │◀─┼─────┘ (RAG context
+ │  └────────────────────┘  │        retrieval)
+ └──────┬───────────────────┘
+        │
+        ▼
+ ┌────────────┐       ┌─────────────────────────────────────┐
+ │   Ollama   │       │         OpenSearch                  │
+ │ (LLM Host) │       │  ┌──────────────┐  ┌──────────────┐│
+ │            │       │  │  BM25        │  │  kNN Vector  ││
+ └────────────┘       │  │  (Keyword)   │  │  (Semantic)  ││
+                      │  └──────────────┘  └──────────────┘│
+                      │         Hybrid Search + RRF         │
+                      └─────────────────────────────────────┘
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │  Docling Serve    │
+                         │  (Doc Parser)     │
+                         └───────────────────┘
 ```
 
 ### Key Processing Pipeline
@@ -153,14 +167,24 @@ java -jar simple-rag-server/target/simple-rag-server-0.0.1-SNAPSHOT.jar
 
 ### Web UI
 
-The React Native web UI provides:
+The React Native web UI (built with Vite + react-native-web) provides:
 - **Chat Interface**: Real-time streaming chat with markdown rendering
-- **Chat Selection**: Dropdown to switch between different chat sessions
+- **Dual LLM Modes**: Toggle between remote backend LLM (Ollama) or local in-browser LLM (WebGPU with transformers.js)
+- **RAG in Both Modes**: Retrieval-Augmented Generation works with both remote and local inference
+- **Chat Management**: Admin/power-user features for managing chats, collections, and documents
 - **Search Interface**: Hybrid, semantic, and keyword search capabilities
+- **Multi-language Support**: i18n with language switcher for internationalization
 - **Markdown Support**: Code syntax highlighting, tables, lists, and formatting
 - **Responsive Design**: Works on desktop and mobile browsers
 
 Access at: http://localhost:8080/
+
+**Local WebGPU Mode:**
+- Opt-in feature enabled from the UI
+- Uses transformers.js with WebGPU acceleration when available
+- Downloads model and WASM runtime on-demand (~tens of MB)
+- Enables fully local, private inference without backend dependencies
+- Ideal for offline use, low-latency responses, and privacy-sensitive scenarios
 
 ### Onboarding API (Create New Chat)
 
@@ -352,13 +376,17 @@ export OLLAMA_BASE_URL=http://my-ollama:11434
 - **Error handling**: Comprehensive error boundaries throughout pipeline
 
 ### Web UI Features
+- **Dual inference modes**: Choose between remote backend (Ollama) or local browser-based (WebGPU) LLM
+- **RAG integration**: Both remote and local modes support Retrieval-Augmented Generation
 - **Real-time streaming**: Server-Sent Events (SSE) for live chat responses
 - **Markdown rendering**: Full markdown support with code syntax highlighting
-- **Chat management**: Switch between multiple chat sessions
+- **Chat management**: Switch between multiple chat sessions with admin capabilities
 - **Search interface**: Hybrid, semantic, and keyword search capabilities
+- **Multi-language support**: i18n with language switcher (English, and extensible)
 - **Responsive design**: Works on desktop and mobile browsers
 - **Loading states**: Skeleton animations and progress indicators
 - **Error handling**: User-friendly error messages and retry logic
+- **Modern build**: Vite-powered development and production builds with optimized bundles
 
 ## Build & Development
 
@@ -405,16 +433,22 @@ mvn spring-boot:run
 
 ### UI Development
 
-For UI-only development:
+For UI-only development with Vite dev server:
 ```bash
 cd simple-rag-ui
 npm install
-npm start
-# or
-npm run web
+npm run dev
 ```
 
-The UI is built automatically during Maven build and bundled into the server JAR.
+Build production UI bundle:
+```bash
+cd simple-rag-ui
+npm run build
+```
+
+The UI is built automatically during Maven build (via frontend-maven-plugin) and bundled into the server JAR.
+
+**Note:** The frontend uses Vite for fast HMR (Hot Module Replacement) during development. See `simple-rag-ui/README.md` for detailed frontend documentation including WebGPU setup, bundle optimization, and troubleshooting.
 
 ## Technology Stack
 
@@ -428,10 +462,15 @@ The UI is built automatically during Maven build and bundled into the server JAR
 - **Apache OpenNLP 2.5.6** - NLP utilities
 
 ### Frontend
+- **React 19.1.0** - Modern React with concurrent features
 - **React Native 0.81.4** - Cross-platform UI framework
-- **Expo 54** - Development platform
+- **react-native-web 0.21.0** - React Native for web
+- **Vite 7.2.4** - Fast build tool with HMR
 - **TypeScript 5.9** - Type-safe JavaScript
-- **React Navigation 7.x** - Routing
+- **React Navigation 7.x** - Routing (drawer, stack, tabs)
+- **transformers.js 3.8.0** - In-browser ML with WebGPU support
+- **i18next 25.6.3** - Internationalization framework
+- **react-icons 4.10.1** - Icon library
 - **GiftedChat 2.8.1** - Chat UI components
 - **Markdown Display 7.0.2** - Markdown rendering
 
