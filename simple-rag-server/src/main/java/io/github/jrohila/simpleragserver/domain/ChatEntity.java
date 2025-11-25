@@ -44,8 +44,13 @@ public class ChatEntity {
     private boolean overrideSystemMessage;
     private boolean overrideAssistantMessage;
 
+    private boolean useUserPromptRewriting;
+    private String userPromptRewritingPrompt;
+
     private String defaultOutOfScopeMessage;
 
     private String welcomeMessage;
+    
+    private LLMConfig llmConfig;
 
 }

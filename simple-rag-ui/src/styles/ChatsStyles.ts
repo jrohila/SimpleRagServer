@@ -16,12 +16,17 @@ const styles = StyleSheet.create({
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    marginVertical: 8,
+    overflow: 'hidden',
     backgroundColor: '#fff',
   },
   picker: {
+    width: '100%',
     height: 40,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
   },
   title: {
     fontSize: 22,
@@ -89,16 +94,25 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    marginVertical: 8,
+  accordionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginVertical: 4,
     overflow: 'hidden',
   },
-  picker: {
-    width: '100%',
-    minHeight: 40,
+  accordionTitle: {
+    backgroundColor: '#f5f5f5',
+  },
+  accordionContent: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  spacer: {
+    height: 10,
+  },
+  safeArea: {
+    flex: 1,
   },
 });
 

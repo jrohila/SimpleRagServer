@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import styles, { markdownStyles } from '../styles/ChatMessageStyles';
+import { Ionicons } from './Icons';
 import Markdown from 'react-native-markdown-display';
 
 export interface Message {
@@ -22,6 +23,24 @@ interface ChatMessageProps {
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername = true }) => {
   const isUser = message.user._id === 1;
   const isAssistant = message.user._id === 2;
+
+  // Format timestamp
+  const formatTimestamp = (date: Date): string => {
+    const messageDate = new Date(date);
+    
+    const dateStr = messageDate.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    
+    const timeStr = messageDate.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    
+    return `${dateStr}, ${timeStr}`;
+  };
 
   return (
     <View style={styles.messageContainer}>
@@ -57,128 +76,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
           </Markdown>
         )}
       </View>
+      {!message.isLoading && message.text && (
+        <Text style={styles.timestamp}>
+          {formatTimestamp(message.createdAt)}
+        </Text>
+      )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  messageContainer: {
-    marginBottom: 20,
-    alignItems: 'flex-start',
-    paddingHorizontal: 12,
-  },
-  usernameContainer: {
-    marginBottom: 4,
-    marginLeft: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  usernameIcon: {
-    marginRight: 4,
-  },
-  usernameText: {
-    color: '#666',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  userBubble: {
-    backgroundColor: '#fff',
-    borderColor: '#e0e0e0',
-  },
-  assistantBubble: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#2196f3',
-  },
-  loadingContainer: {
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadingBarsContainer: {
-    marginLeft: 8,
-  },
-  loadingBar1: {
-    width: 40,
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  loadingBar2: {
-    width: 60,
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-  },
-});
-
-const markdownStyles = {
-  assistant: {
-    body: { color: '#222', fontSize: 16 },
-    heading1: { fontSize: 24, fontWeight: 'bold' as const, marginBottom: 8 },
-    heading2: { fontSize: 20, fontWeight: 'bold' as const, marginBottom: 6 },
-    heading3: { fontSize: 18, fontWeight: 'bold' as const, marginBottom: 4 },
-    paragraph: { marginBottom: 8 },
-    strong: { fontWeight: 'bold' as const },
-    em: { fontStyle: 'italic' as const },
-    s: { textDecorationLine: 'line-through' as const },
-    code_inline: {
-      backgroundColor: '#f0f0f0',
-      color: '#d63384',
-      paddingHorizontal: 4,
-      paddingVertical: 2,
-      borderRadius: 3,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    },
-    code_block: {
-      backgroundColor: '#f6f8fa',
-      color: '#24292e',
-      padding: 10,
-      borderRadius: 6,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      marginBottom: 8,
-    },
-    fence: {
-      backgroundColor: '#f6f8fa',
-      color: '#24292e',
-      padding: 10,
-      borderRadius: 6,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      marginBottom: 8,
-    },
-    link: { color: '#0366d6', textDecorationLine: 'underline' as const },
-    blockquote: {
-      backgroundColor: '#f6f8fa',
-      borderLeftColor: '#dfe2e5',
-      borderLeftWidth: 4,
-      paddingLeft: 10,
-      marginLeft: 0,
-      marginBottom: 8,
-    },
-    list_item: { flexDirection: 'row' as const, marginBottom: 4 },
-    bullet_list: { marginBottom: 8 },
-    ordered_list: { marginBottom: 8 },
-    hr: { backgroundColor: '#e0e0e0', height: 1, marginVertical: 8 },
-  },
-  user: {
-    body: { color: '#222', fontSize: 16 },
-    paragraph: { marginBottom: 8 },
-    strong: { fontWeight: 'bold' as const },
-    em: { fontStyle: 'italic' as const },
-    code_inline: {
-      backgroundColor: '#f0f0f0',
-      color: '#d63384',
-      paddingHorizontal: 4,
-      paddingVertical: 2,
-      borderRadius: 3,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    },
-  },
-};
+// styles moved to `src/styles/ChatMessageStyles.ts` (markdownStyles exported)

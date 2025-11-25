@@ -1,21 +1,28 @@
 import { Assets as NavigationAssets } from '@react-navigation/elements';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
-import { Asset } from 'expo-asset';
-import { createURL } from 'expo-linking';
-import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
+import newspaperImage from './assets/newspaper.png';
+import bellImage from './assets/bell.png';
+// Initialize i18n (loads translations and sets language)
+import './i18n';
 
-Asset.loadAsync([
-  ...NavigationAssets,
-  require('./assets/newspaper.png'),
-  require('./assets/bell.png'),
-]);
+// Optionally preload images for web (no-op if not needed)
+try {
+  if (typeof window !== 'undefined' && window.document) {
+    const imgs = [newspaperImage, bellImage];
+    imgs.forEach((src) => {
+      const img = new Image();
+      // @ts-ignore
+      img.src = src;
+    });
+  }
+} catch (e) {
+  // ignore preload errors
+}
 
-SplashScreen.preventAutoHideAsync();
-
-const prefix = createURL('/');
+const prefix = typeof window !== 'undefined' ? window.location.origin + '/' : '/';
 
 export function App() {
   // Use the default theme for the app
@@ -29,7 +36,7 @@ export function App() {
         prefixes: [prefix],
       }}
       onReady={() => {
-        SplashScreen.hideAsync();
+        // no-op for web
       }}
     />
   );

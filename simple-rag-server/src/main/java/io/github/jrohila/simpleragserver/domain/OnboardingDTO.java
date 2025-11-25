@@ -39,6 +39,12 @@ public class OnboardingDTO {
     @Schema(example = "Extract and normalize user facts from the message.")
     private String defaultExtractorPrompt;
 
+    @Schema(example = "true")
+    private Boolean useUserPromptRewriting;
+
+    @Schema(example = "You are a prompt rewriter. Given the user's latest message and the last assistant response, rewrite the user's request so it is clearer, more explicit, and unambiguous while preserving the original intent. Use the assistant's last response only as context for understanding what the user likely wants next. Do not add new requirements that the user did not imply. Resolve pronouns and vague references (like \"this\", \"that\", \"the above\") into explicit descriptions. Respond with a single rewritten prompt only, no explanations or extra text.")
+    private String userPromptRewritingPrompt;
+
     // CollectionEntity fields (without id)
     @Schema(example = "Onboarding Collection")
     private String collectionName;

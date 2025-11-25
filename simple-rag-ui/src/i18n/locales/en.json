@@ -1,0 +1,228 @@
+{
+  "basic": {
+    "publicName": "Public Name",
+    "internalName": "Internal Name",
+    "internalDescription": "Internal Description",
+    "defaultLanguage": "Default Language",
+    "defaultCollection": "Default Collection",
+    "selectCollection": "Select a collection...",
+    "selectChat": "Select a chat..."
+  },
+  "prompts": {
+    "welcomeMessage": "Hello! I'm your AI assistant. I'm here to help answer your questions based on the knowledge available to me.",
+    "systemPrompt": "Default System Prompt",
+    "systemPromptAppend": "Follow the system behavioral rules",
+    "outOfScope": "I can only answer questions based on the provided context."
+  },
+  "labels": {
+    "welcomeMessage": "Welcome Message",
+    "systemPrompt": "Default System Prompt",
+    "systemPromptAppend": "Default System Prompt Append",
+    "outOfScopeMessage": "Default Out of Scope Message",
+    "chatLabel": "Chat:"
+  },
+  "advanced": {
+    "contextPrompt": "Default Context Prompt",
+    "memoryPrompt": "Default Memory Prompt",
+    "extractorPrompt": "Default Extractor Prompt",
+    "userRewrite": "User Prompt Rewriting Prompt",
+    "overrideSystem": "Override System Message",
+    "overrideAssistant": "Override Assistant Message",
+    "useRewriting": "Use User Prompt Rewriting"
+  },
+  "actions": {
+    "update": "Update",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "close": "Close",
+    "addBoostTerm": "Add Boost Term",
+    "search": "Search",
+    "create": "Create"
+  },
+  "modes": {
+    "remote": "Remote",
+    "local": "Local"
+  },
+  
+  "messages": {
+    "errorTitle": "Error",
+    "failedToGetResponse": "Failed to get response",
+    "selectChatFirst": "Please select a chat first",
+    "pleaseWaitTitle": "Please Wait",
+    "cannotSwitchMode": "Cannot switch mode while generating a response",
+    "webgpuTitle": "WebGPU Not Available",
+    "webgpuMessage": "Your browser does not support WebGPU, which is required for local AI models. Please use Chrome, Edge, or another WebGPU-compatible browser.",
+    "confirmDelete": "Are you sure you want to delete the chat \"{{name}}\"?",
+    "deleting": "Deleting chat...",
+    "confirmUpdate": "Are you sure you want to update the chat \"{{name}}\"?",
+    "updating": "Updating chat...",
+    "chatDeleted": "Chat \"{{name}}\" has been successfully deleted.",
+    "chatUpdateSuccess": "Chat updated successfully",
+    "chatUpdateFailed": "Failed to update chat: {{error}}",
+    "chatDeleteFailed": "Failed to delete chat: {{error}}",
+    "collectionConfirmDelete": "Are you sure you want to delete the collection \"{{name}}\"?",
+    "deletingCollection": "Deleting collection...",
+    "collectionConfirmUpdate": "Are you sure you want to update the collection \"{{name}}\"?",
+    "updatingCollection": "Updating collection...",
+    "collectionDeleted": "Collection \"{{name}}\" has been successfully deleted.",
+    "collectionUpdateSuccess": "Collection updated successfully",
+    "collectionUpdateFailed": "Failed to update collection: {{error}}",
+    "collectionDeleteFailed": "Failed to delete collection: {{error}}",
+    "documentConfirmDelete": "Are you sure you want to delete the document \"{{name}}\"?",
+    "deletingDocument": "Deleting document...",
+    "documentConfirmUpdate": "Are you sure you want to update the document \"{{name}}\" with \"{{file}}\"?",
+    "updatingDocument": "Updating document...",
+    "documentDeleted": "Document has been successfully deleted.",
+    "documentUpdateSuccess": "Document updated successfully",
+    "documentUpdateFailed": "Failed to update document: {{error}}",
+    "documentDeleteFailed": "Failed to delete document: {{error}}",
+    "filePickFailed": "Failed to select file",
+    "chunkConfirmDelete": "Are you sure you want to delete this chunk?",
+    "deletingChunk": "Deleting chunk...",
+    "chunkConfirmUpdate": "Are you sure you want to update this chunk?",
+    "updatingChunk": "Updating chunk...",
+    "chunkUpdateSuccess": "Chunk updated successfully",
+    "chunkUpdateFailed": "Failed to update chunk: {{error}}",
+    "chunkDeleteFailed": "Failed to delete chunk: {{error}}"
+  },
+  "placeholders": {
+    "initializingLocal": "Initializing local AI...",
+    "generatingLocally": "Generating locally...",
+    "typeLocal": "Type a message (using local AI)...",
+    "selectChatFirst": "Please select a chat first...",
+    "generating": "Generating response...",
+    "typeMessage": "Type a message...",
+    "searchQuery": "Enter search query...",
+    "languageExample": "e.g., en, fr, es (leave empty for all)",
+    "term": "Term",
+    "weight": "Weight"
+  },
+  "search": {
+    "collection": "Collection:",
+    "queryLabel": "Search Query:",
+    "languageLabel": "Language (optional):",
+    "enableFuzziness": "Enable Fuzziness",
+    "boostTermsTitle": "Boost Terms & Weights:",
+    "resultsTitle": "Results ({{count}}):",
+    "table": {
+      "score": "Score",
+      "text": "Text",
+      "document": "Document",
+      "section": "Section",
+      "page": "Page",
+      "url": "URL"
+    },
+    "errors": {
+      "selectCollectionAndQuery": "Please select a collection and enter a search query",
+      "failed": "Failed to perform search"
+    }
+  },
+  "home": {
+    "localAiLabel": "Local AI (WebGPU)",
+    "initMessage": "Initializing local AI model... This may take a moment on first run.",
+    "modal": {
+      "preparingTitle": "Preparing Local AI Model",
+      "preparingMessage": "The local model is downloading and initializing. This may take a few minutes on first run.",
+      "starting": "Starting...",
+      "upgradeTitle": "Upgrade Browser Settings",
+      "upgradeMessage": "To improve local model performance on Chrome, enable the following flags and ensure the high-performance GPU is selected.",
+      "upgradeStep1": "1) Enable Unsafe WebGPU: open Chrome flags and enable",
+      "upgradeStep2": "2) Force high-performance GPU: enable your system/browser GPU preferences and try launching Chrome with high-performance GPU.",
+      "openFlags": "Open Flags",
+      "openFlagsTitle": "Flags",
+      "openFlagsCopied": "Could not open chrome://flags. The flag token \"#enable-unsafe-webgpu\" has been copied to your clipboard. Open chrome://flags/ and paste it into the search box.",
+      "openFlagsFallback": "Please open chrome://flags/ in your Chrome address bar and search for \"#enable-unsafe-webgpu\" to enable Unsafe WebGPU."
+    }
+  },
+  "onboarding": {
+    "collectionName": "Collection Name",
+    "collectionDescription": "Collection Description",
+    "uploadTitle": "Upload Documents (Optional)",
+    "selectFiles": "Select Files",
+    "uploading": "Uploading...",
+    "creating": "Creating...",
+    "confirmCreate": "Are you sure you want to create the chat \"{{name}}\" with {{count}} file(s)?",
+    "creatingMessage": "Creating chat and uploading files...",
+    "errors": {
+      "pickFiles": "Failed to pick files"
+    }
+  },
+  
+  "navigation": {
+    "home": "Home",
+    "search": "Search",
+    "onboarding": "Onboarding",
+    "chats": "Chats",
+    "collections": "Collections",
+    "documents": "Documents",
+    "chunks": "Chunks"
+  }
+  ,
+  "collections": {
+    "label": "Collection:",
+    "pickerPlaceholder": "Select a collection...",
+    "name": "Name",
+    "description": "Description",
+    "created": "Created",
+    "modified": "Modified",
+    "documentsTitle": "Documents",
+    "noDocuments": "No documents found.",
+    "table": {
+      "filename": "Filename",
+      "type": "Type",
+      "size": "Size",
+      "created": "Created",
+      "updated": "Updated",
+      "state": "State"
+    }
+  },
+  "documents": {
+    "collection": "Collection:",
+    "label": "Document:",
+    "selectDocument": "Select a document...",
+    "selectCollectionFirst": "Select a collection first...",
+    "noDocuments": "No documents found",
+    "selectFile": "Select File",
+    "chooseFile": "Choose File",
+    "table": {
+      "filename": "Filename",
+      "type": "Type",
+      "size": "Size",
+      "created": "Created",
+      "updated": "Updated",
+      "state": "State"
+    }
+  },
+  "chunks": {
+    "collection": "Collection:",
+    "document": "Document:",
+    "selectCollectionFirst": "Select a collection first...",
+    "noDocuments": "No documents found",
+    "allDocuments": "All documents",
+    "textLabel": "Text:",
+    "messages": {
+      "selectCollectionAndDocument": "Select a collection and document to view chunks",
+      "selectDocument": "Select a document to view chunks",
+      "noChunks": "No chunks found"
+    },
+    "table": {
+      "type": "Type",
+      "section": "Section",
+      "page": "Page",
+      "language": "Language",
+      "document": "Document",
+      "created": "Created",
+      "modified": "Modified"
+    },
+    "pagination": {
+      "back": "← Back",
+      "next": "Next →",
+      "page": "Page {{page}}"
+    }
+  },
+  "sections": {
+    "basic": "Basic",
+    "prompts": "Prompts",
+    "advanced": "Advanced Prompts"
+  }
+}

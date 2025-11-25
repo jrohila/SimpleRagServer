@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, Text, TextInput, Button, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, Button, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import styles from '../../styles/ChatsStyles';
 import { Picker } from '@react-native-picker/picker';
@@ -9,21 +9,38 @@ import { getChats, getChatById, updateChat, deleteChat } from '../../api/chats';
 import { getCollections } from '../../api/collections';
 import { DeleteModal, DeleteResult } from '../../components/DeleteModal';
 import { UpdateModal, UpdateResult } from '../../components/UpdateModal';
+import { ChatForm, ChatFormData, Collection } from '../../components/ChatForm';
+import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 
 type Chat = {
   id: string;
   publicName: string;
   defaultCollectionId?: string;
-  [key: string]: any;
-};
-
-type Collection = {
-  id: string;
-  name: string;
+  llmConfig?: {
+    useCase?: string;
+    maxNewTokens?: number;
+    temperature?: number;
+    doSample?: boolean;
+    topK?: number;
+    topP?: number;
+    repetitionPenalty?: number;
+    minNewTokens?: number;
+  };
   [key: string]: any;
 };
 
 export function Chats() {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.chats') as any });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [t, navigation]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
   const [chatDetails, setChatDetails] = useState<Chat | null>(null);
@@ -40,21 +57,28 @@ export function Chats() {
   const [updateResultVisible, setUpdateResultVisible] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
 
-  // Form fields
-  const [publicName, setPublicName] = useState('');
-  const [internalName, setInternalName] = useState('');
-  const [internalDescription, setInternalDescription] = useState('');
-  const [defaultLanguage, setDefaultLanguage] = useState('');
-  const [defaultSystemPrompt, setDefaultSystemPrompt] = useState('');
-  const [defaultSystemPromptAppend, setDefaultSystemPromptAppend] = useState('');
-  const [welcomeMessage, setWelcomeMessage] = useState('');
-  const [defaultOutOfScopeMessage, setDefaultOutOfScopeMessage] = useState('');
-  const [defaultContextPrompt, setDefaultContextPrompt] = useState('');
-  const [defaultMemoryPrompt, setDefaultMemoryPrompt] = useState('');
-  const [defaultExtractorPrompt, setDefaultExtractorPrompt] = useState('');
-  const [overrideSystemMessage, setOverrideSystemMessage] = useState(false);
-  const [overrideAssistantMessage, setOverrideAssistantMessage] = useState(false);
-  const [defaultCollectionId, setDefaultCollectionId] = useState<string>('');
+  // Form data - consolidated into ChatFormData structure
+  const [formData, setFormData] = useState<ChatFormData>({
+    publicName: '',
+    internalName: '',
+    internalDescription: '',
+    defaultLanguage: '',
+    defaultCollectionId: '',
+    welcomeMessage: '',
+    defaultSystemPrompt: '',
+    defaultSystemPromptAppend: '',
+    defaultOutOfScopeMessage: '',
+    defaultContextPrompt: '',
+    defaultMemoryPrompt: '',
+    defaultExtractorPrompt: '',
+    overrideSystemMessage: false,
+    overrideAssistantMessage: false,
+    useUserPromptRewriting: false,
+    userPromptRewritingPrompt: '',
+  });
+  
+  // Accordion state - Basic is expanded by default
+  const [expandedAccordion, setExpandedAccordion] = useState<string | null>('basic');
   
   // Fetch collections and chats whenever screen comes into focus
   useFocusEffect(
@@ -81,43 +105,53 @@ export function Chats() {
   useEffect(() => {
     if (selectedChatId) {
       setLoading(true);
+      setExpandedAccordion('basic'); // Open Basic accordion by default when chat is selected
       getChatById(selectedChatId)
         .then((res) => {
           const data = (res as any).data as Chat;
           setChatDetails(data);
-          setPublicName(data.publicName || '');
-          setInternalName(data.internalName || '');
-          setInternalDescription(data.internalDescription || '');
-          setDefaultLanguage(data.defaultLanguage || '');
-          setDefaultSystemPrompt(data.defaultSystemPrompt || '');
-          setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
-          setWelcomeMessage(data.welcomeMessage || '');
-          setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
-          setDefaultContextPrompt(data.defaultContextPrompt || '');
-          setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
-          setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
-          setOverrideSystemMessage(!!data.overrideSystemMessage);
-          setOverrideAssistantMessage(!!data.overrideAssistantMessage);
-          setDefaultCollectionId(data.defaultCollectionId || '');
+          setFormData({
+            publicName: data.publicName || '',
+            internalName: data.internalName || '',
+            internalDescription: data.internalDescription || '',
+            defaultLanguage: data.defaultLanguage || '',
+            defaultCollectionId: data.defaultCollectionId || '',
+            welcomeMessage: data.welcomeMessage || '',
+            defaultSystemPrompt: data.defaultSystemPrompt || '',
+            defaultSystemPromptAppend: data.defaultSystemPromptAppend || '',
+            defaultOutOfScopeMessage: data.defaultOutOfScopeMessage || '',
+            defaultContextPrompt: data.defaultContextPrompt || '',
+            defaultMemoryPrompt: data.defaultMemoryPrompt || '',
+            defaultExtractorPrompt: data.defaultExtractorPrompt || '',
+            overrideSystemMessage: !!data.overrideSystemMessage,
+            overrideAssistantMessage: !!data.overrideAssistantMessage,
+            useUserPromptRewriting: !!data.useUserPromptRewriting,
+            userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+          });
           setLoading(false);
         })
         .catch(() => setLoading(false));
     } else {
+      setExpandedAccordion('basic'); // Reset to Basic when no chat selected
       setChatDetails(null);
-      setPublicName('');
-      setInternalName('');
-      setInternalDescription('');
-      setDefaultLanguage('');
-      setDefaultSystemPrompt('');
-      setDefaultSystemPromptAppend('');
-      setWelcomeMessage('');
-      setDefaultOutOfScopeMessage('');
-      setDefaultContextPrompt('');
-      setDefaultMemoryPrompt('');
-      setDefaultExtractorPrompt('');
-      setOverrideSystemMessage(false);
-      setOverrideAssistantMessage(false);
-      setDefaultCollectionId('');
+      setFormData({
+        publicName: '',
+        internalName: '',
+        internalDescription: '',
+        defaultLanguage: '',
+        defaultCollectionId: '',
+        welcomeMessage: '',
+        defaultSystemPrompt: '',
+        defaultSystemPromptAppend: '',
+        defaultOutOfScopeMessage: '',
+        defaultContextPrompt: '',
+        defaultMemoryPrompt: '',
+        defaultExtractorPrompt: '',
+        overrideSystemMessage: false,
+        overrideAssistantMessage: false,
+        useUserPromptRewriting: false,
+        userPromptRewritingPrompt: '',
+      });
     }
   }, [selectedChatId]);
 
@@ -125,20 +159,22 @@ export function Chats() {
   const hasChanges = () => {
     if (!chatDetails) return false;
     return (
-      publicName !== (chatDetails.publicName || '') ||
-      internalName !== (chatDetails.internalName || '') ||
-      internalDescription !== (chatDetails.internalDescription || '') ||
-      defaultLanguage !== (chatDetails.defaultLanguage || '') ||
-      defaultSystemPrompt !== (chatDetails.defaultSystemPrompt || '') ||
-      defaultSystemPromptAppend !== (chatDetails.defaultSystemPromptAppend || '') ||
-      welcomeMessage !== (chatDetails.welcomeMessage || '') ||
-      defaultOutOfScopeMessage !== (chatDetails.defaultOutOfScopeMessage || '') ||
-      defaultContextPrompt !== (chatDetails.defaultContextPrompt || '') ||
-      defaultMemoryPrompt !== (chatDetails.defaultMemoryPrompt || '') ||
-      defaultExtractorPrompt !== (chatDetails.defaultExtractorPrompt || '') ||
-      overrideSystemMessage !== (chatDetails.overrideSystemMessage || false) ||
-      overrideAssistantMessage !== (chatDetails.overrideAssistantMessage || false) ||
-      defaultCollectionId !== (chatDetails.defaultCollectionId || '')
+      formData.publicName !== (chatDetails.publicName || '') ||
+      formData.internalName !== (chatDetails.internalName || '') ||
+      formData.internalDescription !== (chatDetails.internalDescription || '') ||
+      formData.defaultLanguage !== (chatDetails.defaultLanguage || '') ||
+      formData.defaultSystemPrompt !== (chatDetails.defaultSystemPrompt || '') ||
+      formData.defaultSystemPromptAppend !== (chatDetails.defaultSystemPromptAppend || '') ||
+      formData.welcomeMessage !== (chatDetails.welcomeMessage || '') ||
+      formData.defaultOutOfScopeMessage !== (chatDetails.defaultOutOfScopeMessage || '') ||
+      formData.defaultContextPrompt !== (chatDetails.defaultContextPrompt || '') ||
+      formData.defaultMemoryPrompt !== (chatDetails.defaultMemoryPrompt || '') ||
+      formData.defaultExtractorPrompt !== (chatDetails.defaultExtractorPrompt || '') ||
+      formData.overrideSystemMessage !== (chatDetails.overrideSystemMessage || false) ||
+      formData.overrideAssistantMessage !== (chatDetails.overrideAssistantMessage || false) ||
+      formData.useUserPromptRewriting !== (chatDetails.useUserPromptRewriting || false) ||
+      formData.userPromptRewritingPrompt !== (chatDetails.userPromptRewritingPrompt || '') ||
+      formData.defaultCollectionId !== (chatDetails.defaultCollectionId || '')
     );
   };
 
@@ -156,27 +192,29 @@ export function Chats() {
     
     const updatedChat: Chat = {
       ...chatDetails,
-      publicName,
-      internalName,
-      internalDescription,
-      defaultLanguage,
-      defaultSystemPrompt,
-      defaultSystemPromptAppend,
-      welcomeMessage,
-      defaultOutOfScopeMessage,
-      defaultContextPrompt,
-      defaultMemoryPrompt,
-      defaultExtractorPrompt,
-      overrideSystemMessage,
-      overrideAssistantMessage,
-      defaultCollectionId,
+      publicName: formData.publicName,
+      internalName: formData.internalName,
+      internalDescription: formData.internalDescription,
+      defaultLanguage: formData.defaultLanguage,
+      defaultSystemPrompt: formData.defaultSystemPrompt,
+      defaultSystemPromptAppend: formData.defaultSystemPromptAppend,
+      welcomeMessage: formData.welcomeMessage,
+      defaultOutOfScopeMessage: formData.defaultOutOfScopeMessage,
+      defaultContextPrompt: formData.defaultContextPrompt,
+      defaultMemoryPrompt: formData.defaultMemoryPrompt,
+      defaultExtractorPrompt: formData.defaultExtractorPrompt,
+      overrideSystemMessage: formData.overrideSystemMessage,
+      overrideAssistantMessage: formData.overrideAssistantMessage,
+      useUserPromptRewriting: formData.useUserPromptRewriting,
+      userPromptRewritingPrompt: formData.userPromptRewritingPrompt,
+      defaultCollectionId: formData.defaultCollectionId,
     };
     updateChat(selectedChatId, updatedChat)
       .then(() => {
         setUpdating(false);
         setUpdateResult({
           success: true,
-          message: 'Chat updated successfully',
+          message: t('messages.chatUpdateSuccess'),
         });
       })
       .catch((error) => {
@@ -184,7 +222,7 @@ export function Chats() {
         setUpdating(false);
         setUpdateResult({
           success: false,
-          message: `Failed to update chat: ${errorMessage}`,
+          message: t('messages.chatUpdateFailed', { error: errorMessage }),
         });
       });
   };
@@ -212,20 +250,24 @@ export function Chats() {
         .then((res) => {
           const data = (res as any).data as Chat;
           setChatDetails(data);
-          setPublicName(data.publicName || '');
-          setInternalName(data.internalName || '');
-          setInternalDescription(data.internalDescription || '');
-          setDefaultLanguage(data.defaultLanguage || '');
-          setDefaultSystemPrompt(data.defaultSystemPrompt || '');
-          setDefaultSystemPromptAppend(data.defaultSystemPromptAppend || '');
-          setWelcomeMessage(data.welcomeMessage || '');
-          setDefaultOutOfScopeMessage(data.defaultOutOfScopeMessage || '');
-          setDefaultContextPrompt(data.defaultContextPrompt || '');
-          setDefaultMemoryPrompt(data.defaultMemoryPrompt || '');
-          setDefaultExtractorPrompt(data.defaultExtractorPrompt || '');
-          setOverrideSystemMessage(data.overrideSystemMessage || false);
-          setOverrideAssistantMessage(data.overrideAssistantMessage || false);
-          setDefaultCollectionId(data.defaultCollectionId || '');
+          setFormData({
+            publicName: data.publicName || '',
+            internalName: data.internalName || '',
+            internalDescription: data.internalDescription || '',
+            defaultLanguage: data.defaultLanguage || '',
+            defaultCollectionId: data.defaultCollectionId || '',
+            welcomeMessage: data.welcomeMessage || '',
+            defaultSystemPrompt: data.defaultSystemPrompt || '',
+            defaultSystemPromptAppend: data.defaultSystemPromptAppend || '',
+            defaultOutOfScopeMessage: data.defaultOutOfScopeMessage || '',
+            defaultContextPrompt: data.defaultContextPrompt || '',
+            defaultMemoryPrompt: data.defaultMemoryPrompt || '',
+            defaultExtractorPrompt: data.defaultExtractorPrompt || '',
+            overrideSystemMessage: data.overrideSystemMessage || false,
+            overrideAssistantMessage: data.overrideAssistantMessage || false,
+            useUserPromptRewriting: !!data.useUserPromptRewriting,
+            userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+          });
         })
         .catch(() => {
           console.error('Failed to reload chat');
@@ -249,7 +291,7 @@ export function Chats() {
       .then(() => {
         setDeleteResult({
           success: true,
-          message: `Chat "${publicName}" has been successfully deleted.`
+          message: t('messages.chatDeleted', { name: formData.publicName })
         });
         setDeleting(false);
         setSelectedChatId('');
@@ -264,7 +306,7 @@ export function Chats() {
         const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error occurred';
         setDeleteResult({
           success: false,
-          message: `Failed to delete chat: ${errorMessage}`
+          message: t('messages.chatDeleteFailed', { error: errorMessage })
         });
         setDeleting(false);
       });
@@ -288,21 +330,21 @@ export function Chats() {
   };
 
   return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
               <ScrollView>
     <Window>
       {loading && <ActivityIndicator />}
       <View style={styles.container}>
           {/* Chat Dropdown */}
           <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownLabel}>Chat:</Text>
+            <Text style={styles.dropdownLabel}>{t('labels.chatLabel')}</Text>
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={selectedChatId}
                 onValueChange={(value) => setSelectedChatId(value)}
                 style={styles.picker}
               >
-                <Picker.Item label="Select a chat..." value="" />
+                <Picker.Item label={t('basic.selectChat')} value="" />
                 {chats.map((chat) => (
                   <Picker.Item key={chat.id} label={chat.publicName || chat.id} value={chat.id} />
                 ))}
@@ -310,176 +352,49 @@ export function Chats() {
             </View>
           </View>
         <View style={styles.form}>
-        <Text style={styles.label}>Public Name</Text>
-        <TextInput
-          style={styles.input}
-          value={publicName}
-          onChangeText={setPublicName}
-          placeholder="Public Name"
-          editable={!!chatDetails}
-        />
-        <Text style={styles.label}>Internal Name</Text>
-        <TextInput
-          style={styles.input}
-          value={internalName}
-          onChangeText={setInternalName}
-          placeholder="Internal Name"
-          editable={!!chatDetails}
-        />
-        <Text style={styles.label}>Internal Description</Text>
-        <TextInput
-          style={styles.input}
-          value={internalDescription}
-          onChangeText={setInternalDescription}
-          placeholder="Internal Description"
-          editable={!!chatDetails}
-        />
-        <Text style={styles.label}>Default Language</Text>
-        <TextInput
-          style={styles.input}
-          value={defaultLanguage}
-          onChangeText={setDefaultLanguage}
-          placeholder="Default Language"
-          editable={!!chatDetails}
-        />
-
-        <Text style={styles.label}>Default Collection</Text>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={defaultCollectionId}
-            onValueChange={(itemValue) => chatDetails && setDefaultCollectionId(itemValue)}
-            enabled={!!chatDetails}
-            style={styles.picker}
-          >
-            <Picker.Item label="Select a collection..." value="" />
-            {collections.map((col) => (
-              <Picker.Item key={col.id} label={col.name} value={col.id} />
-            ))}
-          </Picker>
-        </View>
-
-        <Text style={styles.label}>Default System Prompt</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultSystemPrompt}
-          onChangeText={setDefaultSystemPrompt}
-          placeholder="Default System Prompt"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Default System Prompt Append</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultSystemPromptAppend}
-          onChangeText={setDefaultSystemPromptAppend}
-          placeholder="Default System Prompt Append"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Welcome Message</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={welcomeMessage}
-          onChangeText={setWelcomeMessage}
-          placeholder="Welcome Message"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Default Out of Scope Message</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultOutOfScopeMessage}
-          onChangeText={setDefaultOutOfScopeMessage}
-          placeholder="Default Out of Scope Message"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Default Context Prompt</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultContextPrompt}
-          onChangeText={setDefaultContextPrompt}
-          placeholder="Default Context Prompt"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Default Memory Prompt</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultMemoryPrompt}
-          onChangeText={setDefaultMemoryPrompt}
-          placeholder="Default Memory Prompt"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <Text style={styles.label}>Default Extractor Prompt</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={defaultExtractorPrompt}
-          onChangeText={setDefaultExtractorPrompt}
-          placeholder="Default Extractor Prompt"
-          editable={!!chatDetails}
-          multiline
-          numberOfLines={5}
-        />
-        <View style={styles.checkboxRow}>
-          <Text style={styles.label}>Override System Message</Text>
-          <input
-            type="checkbox"
-            checked={overrideSystemMessage}
-            onChange={() => !!chatDetails && setOverrideSystemMessage(!overrideSystemMessage)}
-            style={styles.checkbox}
+          <ChatForm
+            data={formData}
+            onFieldChange={(field, value) => {
+              setFormData((prev) => ({ ...prev, [field]: value }));
+            }}
+            collections={collections}
             disabled={!chatDetails}
+            expandedAccordion={expandedAccordion}
+            onAccordionChange={setExpandedAccordion}
           />
+
+          <Button title={t('actions.update')} onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
+          <View style={styles.spacer} />
+          <Button title={t('actions.delete')} onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
         </View>
-        <View style={styles.checkboxRow}>
-          <Text style={styles.label}>Override Assistant Message</Text>
-          <input
-            type="checkbox"
-            checked={overrideAssistantMessage}
-            onChange={() => !!chatDetails && setOverrideAssistantMessage(!overrideAssistantMessage)}
-            style={styles.checkbox}
-            disabled={!chatDetails}
-          />
-        </View>
-        <Button title="Update" onPress={handleUpdate} disabled={updating || !chatDetails || !hasChanges()} />
-        <View style={{ height: 10 }} />
-        <Button title="Delete" onPress={handleDelete} color="red" disabled={updating || !chatDetails} />
-      </View>
       </View>
     </Window>
       </ScrollView>
 
       <DeleteModal
         confirmVisible={confirmModalVisible}
-        itemName={publicName}
+        itemName={formData.publicName}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         resultVisible={deleteModalVisible}
         deleting={deleting}
         deleteResult={deleteResult}
         onClose={handleCloseDeleteModal}
-        confirmMessage={`Are you sure you want to delete the chat \"${publicName}\"?`}
-        deletingMessage="Deleting chat..."
+        confirmMessage={t('messages.confirmDelete', { name: formData.publicName })}
+        deletingMessage={t('messages.deleting')}
       />
       
       <UpdateModal
         confirmVisible={updateConfirmVisible}
-        itemName={publicName}
+        itemName={formData.publicName}
         onConfirm={handleConfirmUpdate}
         onCancel={handleCancelUpdate}
         resultVisible={updateResultVisible}
         updating={updating}
         updateResult={updateResult}
         onClose={handleCloseUpdateModal}
-        confirmMessage={`Are you sure you want to update the chat \"${publicName}\"?`}
-        updatingMessage="Updating chat..."
+        confirmMessage={t('messages.confirmUpdate', { name: formData.publicName })}
+        updatingMessage={t('messages.updating')}
       />
     </SafeAreaView>
   );

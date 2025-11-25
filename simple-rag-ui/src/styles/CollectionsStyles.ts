@@ -152,6 +152,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  safeArea: {
+    flex: 1,
+  },
+  documentsSection: {
+    marginTop: 24,
+    paddingVertical: 8,
+  },
+  documentsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  documentsContainer: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  documentsHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+  },
+  documentsHeaderText: {
+    fontWeight: 'bold',
+  },
+  documentRow: {
+    flexDirection: 'row',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  columnFullWidth: { flexDirection: 'column', width: '100%' },
+  docCellFilename: { flex: 2 },
+  docCellType: { flex: 1 },
+  docCellSize: { flex: 1 },
+  docCellCreated: { flex: 2 },
+  docCellUpdated: { flex: 2 },
+  docCellState: { flex: 1 },
+  docEmptyText: { padding: 8, color: '#888' },
+  formFlex: { flex: 1, justifyContent: 'space-between' },
+  documentFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  fieldLabel: { minWidth: 90, marginRight: 12, marginBottom: 0, flexShrink: 1, flexGrow: 0 },
+  documentInputFlex: { flex: 1, marginVertical: 0 },
+  fileRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fileButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  fileButtonPrimary: {
+    backgroundColor: '#007bff',
+  },
+  fileButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  fileButtonText: { color: '#fff', fontWeight: '600' },
+  fileNameText: { flex: 1, fontSize: 14, color: '#666' },
 });
 
 export default styles;

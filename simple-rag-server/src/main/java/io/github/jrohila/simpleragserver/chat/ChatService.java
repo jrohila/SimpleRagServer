@@ -14,6 +14,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -105,7 +106,6 @@ public class ChatService {
             List<Integer> rollingTokens = TokenGenerator.createTokens(springMessages);
 
             springMessages = this.messageListPreProcessPipe.transform(request);
-            springMessages = this.messageListPreProcessPipe.process(springMessages, chatEntity);
             Pair<OperationResult, List<Message>> contextResult = this.contextAdditionPipe.process(springMessages, chatEntity);
             if (OperationResult.CONTEXT_ADDED.equals(contextResult.getKey())) {
                 springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
@@ -149,7 +149,7 @@ public class ChatService {
         } else {
             List<Message> springMessages = processResult.getValue();
 
-            Prompt prompt = GraniteHelper.toGranitePrompt(springMessages);
+            Prompt prompt = GraniteHelper.toGranitePrompt(springMessages, buildOllamaOptions(request));
             // Log prompt token length using jtokkit
             try {
                 int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
@@ -268,7 +268,7 @@ public class ChatService {
             StringBuilder cumulative = new StringBuilder();
             AtomicInteger index = new AtomicInteger(0);
 
-            Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages);
+            Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages, buildOllamaOptions(request));
             return chatModel.stream(granitePrompt)
                     .flatMap(resp -> Flux.fromIterable(resp.getResults()))
                     .map(result -> {
@@ -341,5 +341,65 @@ public class ChatService {
                         return done;
                     }));
         }
+    }
+
+    /**
+     * Build OllamaOptions from OpenAiChatRequest parameters.
+     * Maps all available LLM parameters to Ollama-specific options.
+     * Supports both standard OpenAI parameters and extended Ollama parameters.
+     */
+    private OllamaOptions buildOllamaOptions(OpenAiChatRequest request) {
+        OllamaOptions.Builder builder = OllamaOptions.builder();
+        
+        // Core generation parameters
+        if (request.getTemperature() != null) {
+            builder.temperature(request.getTemperature());
+        }
+        if (request.getTopP() != null) {
+            builder.topP(request.getTopP());
+        }
+        if (request.getTopK() != null) {
+            builder.topK(request.getTopK());
+        }
+        
+        // Token limits
+        if (request.getMaxTokens() != null) {
+            builder.numPredict(request.getMaxTokens());
+        }
+        
+        // Penalty parameters (control repetition)
+        if (request.getFrequencyPenalty() != null) {
+            builder.frequencyPenalty(request.getFrequencyPenalty());
+        }
+        
+        // Additional Ollama-specific parameters that can be added:
+        // - repeatPenalty: penalize repetitions (similar to frequencyPenalty but Ollama-native)
+        // - presencePenalty: penalize tokens based on presence in context
+        // - stop: stop sequences
+        // - seed: for reproducible generation
+        // - numCtx: context window size
+        // - numBatch: batch size for prompt evaluation
+        // - numGpu: number of layers to offload to GPU
+        // - mainGpu: primary GPU to use
+        // - lowVram: reduce VRAM usage
+        // - f16Kv: use fp16 for key/value cache
+        // - logitsAll: return logits for all tokens
+        // - vocabOnly: only load vocabulary
+        // - useMmap: use memory mapping
+        // - useMlock: lock model in memory
+        // - embeddingOnly: only return embeddings
+        // - ropeFrequencyBase: RoPE frequency base
+        // - ropeFrequencyScale: RoPE frequency scale
+        // - numThread: number of threads to use
+        
+        // Note: minTokens and doSample are not directly supported by OllamaOptions
+        // minTokens could be handled by post-processing or custom prompting
+        // doSample is implicitly controlled by temperature (0 = greedy, >0 = sampling)
+        
+        log.debug("Built OllamaOptions: temp={}, topP={}, topK={}, maxTokens={}, freqPenalty={}",
+            request.getTemperature(), request.getTopP(), request.getTopK(), 
+            request.getMaxTokens(), request.getFrequencyPenalty());
+        
+        return builder.build();
     }
 }

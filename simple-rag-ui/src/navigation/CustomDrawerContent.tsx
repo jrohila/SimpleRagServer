@@ -1,8 +1,11 @@
 
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
+import styles from '../styles/CustomDrawerStyles';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 
 
@@ -29,7 +32,19 @@ export function CustomDrawerContent(props: any) {
       {routes.map((route: any, idx: number) => (
         <React.Fragment key={route.key}>
           <DrawerItem
-            label={descriptors[route.key].options.title || route.name}
+            label={((): any => {
+              // Prefer explicit translation for known navigation keys
+              try {
+                const { t } = (useTranslation as any)();
+                const key = `navigation.${route.name.toLowerCase()}`;
+                const translated = t(key);
+                // if translation returns the key itself, fall back to descriptor title or route name
+                if (translated && translated !== key) return translated;
+              } catch (_) {
+                // fall through
+              }
+              return descriptors[route.key].options.title || route.name;
+            })()}
             focused={state.index === idx}
             onPress={() => navigation.navigate(route.name)}
             icon={descriptors[route.key].options.drawerIcon}
@@ -44,6 +59,9 @@ export function CustomDrawerContent(props: any) {
           )}
         </React.Fragment>
       ))}
+      <View style={styles.switcherContainer}>
+        <LanguageSwitcher />
+      </View>
     </DrawerContentScrollView>
   );
 }
@@ -52,15 +70,7 @@ export function CustomDrawerContent(props: any) {
 
 
 
-const styles = StyleSheet.create({
-  divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 8,
-    marginHorizontal: 16,
-    borderRadius: 1,
-  },
-});
+// styles moved to `src/styles/CustomDrawerStyles.ts`
 
 
 

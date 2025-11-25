@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
+import io.github.jrohila.simpleragserver.domain.LLMConfig;
+import io.github.jrohila.simpleragserver.factory.LLMConfigFactory;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -31,9 +33,17 @@ public class ChatManagerService {
     @Autowired
     private OpenSearchClient openSearchClient;
 
+    @Autowired
+    private LLMConfigFactory llmConfigFactory;
+
     public ChatEntity create(ChatEntity chat) {
         if (chat.getId() == null || chat.getId().isBlank()) {
             chat.setId(java.util.UUID.randomUUID().toString());
+        }
+
+        // Initialize LLMConfig to RAG_QA default if not set
+        if (chat.getLlmConfig() == null) {
+            chat.setLlmConfig(llmConfigFactory.create(LLMConfig.UseCase.RAG_QA));
         }
 
         try {
@@ -59,7 +69,12 @@ public class ChatManagerService {
             GetResponse<ChatEntity> resp = openSearchClient.get(GetRequest.of(g -> g.index(indexName).id(id)), ChatEntity.class);
             if (resp.found()) {
                 log.info("Chat found for id: {}", id);
-                return Optional.of(resp.source());
+                ChatEntity chat = resp.source();
+                // Initialize LLMConfig to RAG_QA default if not set
+                if (chat.getLlmConfig() == null) {
+                    chat.setLlmConfig(llmConfigFactory.create(LLMConfig.UseCase.RAG_QA));
+                }
+                return Optional.of(chat);
             } else {
                 log.info("No chat found for id: {}", id);
                 return Optional.empty();
@@ -82,7 +97,12 @@ public class ChatManagerService {
             ), ChatEntity.class);
             List<ChatEntity> results = new ArrayList<>();
             for (var hit : resp.hits().hits()) {
-                results.add(hit.source());
+                ChatEntity chat = hit.source();
+                // Initialize LLMConfig to RAG_QA default if not set
+                if (chat.getLlmConfig() == null) {
+                    chat.setLlmConfig(llmConfigFactory.create(LLMConfig.UseCase.RAG_QA));
+                }
+                results.add(chat);
             }
             log.info("Listed {} chats", results.size());
             return results;
@@ -94,6 +114,10 @@ public class ChatManagerService {
 
     public ChatEntity update(String id, ChatEntity chat) {
         chat.setId(id);
+        // Initialize LLMConfig to RAG_QA default if not set
+        if (chat.getLlmConfig() == null) {
+            chat.setLlmConfig(llmConfigFactory.create(LLMConfig.UseCase.RAG_QA));
+        }
         try {
             log.info("Updating chat id={}: {}", id, chat);
             String indexName = indicesManager.createIfNotExist(null, ChatEntity.class);
@@ -143,7 +167,12 @@ public class ChatManagerService {
             ), ChatEntity.class);
             if (!resp.hits().hits().isEmpty()) {
                 log.info("Chat found for publicName: {}", publicName);
-                return Optional.ofNullable(resp.hits().hits().get(0).source());
+                ChatEntity chat = resp.hits().hits().get(0).source();
+                // Initialize LLMConfig to RAG_QA default if not set
+                if (chat != null && chat.getLlmConfig() == null) {
+                    chat.setLlmConfig(llmConfigFactory.create(LLMConfig.UseCase.RAG_QA));
+                }
+                return Optional.ofNullable(chat);
             } else {
                 log.info("No chat found for publicName: {}", publicName);
                 return Optional.empty();

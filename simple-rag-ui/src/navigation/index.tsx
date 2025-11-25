@@ -18,63 +18,23 @@ import { Chats } from './screens/Chats';
 import { Collections } from './screens/Collections';
 import { Documents } from './screens/Documents';
 import { Chunks } from './screens/Chunks';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '../components/Icons';
 import { CustomDrawerContent } from './CustomDrawerContent';
 
 
 
 const Drawer = createDrawerNavigator({
   screens: {
-    Home: {
-      screen: Home,
-      options: {
-        title: 'Home',
-        drawerIcon: ({ color, size }) => <Icon name="home-outline" size={size} color={color} />,
-      },
-    },
-    Search: {
-      screen: Search,
-      options: {
-        title: 'Search',
-        drawerIcon: ({ color, size }) => <Icon name="magnify" size={size} color={color} />,
-      },
-    },
-    Onboarding: {
-      screen: Onboarding,
-      options: {
-        title: 'Onboarding',
-        drawerIcon: ({ color, size }) => <Icon name="rocket-launch-outline" size={size} color={color} />,
-      },
-    },
-    Chats: {
-      screen: Chats,
-      options: {
-        title: 'Chats',
-        drawerIcon: ({ color, size }) => <Icon name="chat-outline" size={size} color={color} />,
-      },
-    },
-    Collections: {
-      screen: Collections,
-      options: {
-        title: 'Collections',
-        drawerIcon: ({ color, size }) => <Icon name="folder-outline" size={size} color={color} />,
-      },
-    },
-    Documents: {
-      screen: Documents,
-      options: {
-        title: 'Documents',
-        drawerIcon: ({ color, size }) => <Icon name="file-document-outline" size={size} color={color} />,
-      },
-    },
-    Chunks: {
-      screen: Chunks,
-      options: {
-        title: 'Chunks',
-        drawerIcon: ({ color, size }) => <Icon name="view-list-outline" size={size} color={color} />,
-      },
-    },
+    Home: { screen: Home, options: { title: i18n.t('navigation.home'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="home-outline" size={size} color={color} /> } },
+    Search: { screen: Search, options: { title: i18n.t('navigation.search'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="magnify" size={size} color={color} /> } },
+    Onboarding: { screen: Onboarding, options: { title: i18n.t('navigation.onboarding'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="rocket-launch-outline" size={size} color={color} /> } },
+    Chats: { screen: Chats, options: { title: i18n.t('navigation.chats'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="chat-outline" size={size} color={color} /> } },
+    Collections: { screen: Collections, options: { title: i18n.t('navigation.collections'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="folder-outline" size={size} color={color} /> } },
+    Documents: { screen: Documents, options: { title: i18n.t('navigation.documents'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="file-document-outline" size={size} color={color} /> } },
+    Chunks: { screen: Chunks, options: { title: i18n.t('navigation.chunks'), drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="view-list-outline" size={size} color={color} /> } },
   },
   drawerContent: (props) => <CustomDrawerContent {...props} />,
 });

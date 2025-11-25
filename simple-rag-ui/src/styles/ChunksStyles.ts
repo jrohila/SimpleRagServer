@@ -242,6 +242,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 16,
   },
+  safeArea: {
+    flex: 1,
+  },
 });
 
 export default styles;

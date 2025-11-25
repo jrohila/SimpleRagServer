@@ -42,17 +42,47 @@ public class ChatController {
                 return ResponseEntity.badRequest().body("Chat with publicName '" + publicName + "' not found");
             }
             var chatEntity = chatEntityOpt.get();
+            
+            // Apply LLMConfig from ChatEntity - server config always overrides client values
+            applyLLMConfigToRequest(request, chatEntity.getLlmConfig());
+            
             if (request.getModel() == null || request.getModel().isBlank()) {
                 request.setModel(defaultModel);
             }
             boolean rag = (useRag == null) ? true : useRag;
-            log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={}",
+            log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={} maxTokens={} temp={} topP={} topK={} freqPenalty={}",
                 request.isStream(), rag, request.getModel(),
-                (request.getMessages() == null ? 0 : request.getMessages().size()));
+                (request.getMessages() == null ? 0 : request.getMessages().size()),
+                request.getMaxTokens(), request.getTemperature(), 
+                request.getTopP(), request.getTopK(), request.getFrequencyPenalty());
 
             if (request.isStream()) {
-                // Return SSE streaming response
-                SseEmitter emitter = new SseEmitter(30000L); // 30 second timeout
+                // Return SSE streaming response with 5 minute timeout
+                SseEmitter emitter = new SseEmitter(300000L); // 5 minutes timeout (300000 ms)
+                
+                // Add timeout handler
+                emitter.onTimeout(() -> {
+                    log.warn("SSE connection timed out for chat: {}", publicName);
+                    try {
+                        emitter.send(SseEmitter.event()
+                            .data("{\"error\":\"Request timed out. Please try a shorter query or increase timeout.\"}"));
+                        emitter.complete();
+                    } catch (IOException | IllegalStateException e) {
+                        log.error("Error sending timeout message", e);
+                    }
+                });
+                
+                // Add error handler
+                emitter.onError((ex) -> {
+                    log.error("Error in SSE stream", ex);
+                    emitter.completeWithError(ex);
+                });
+                
+                // Add completion handler
+                emitter.onCompletion(() -> {
+                    log.info("SSE stream completed for chat: {}", publicName);
+                });
+                
                 CompletableFuture.runAsync(() -> {
                     try {
                         chatService.chatStream(request, chatEntity)
@@ -62,20 +92,34 @@ public class ChatController {
                                     emitter.send(SseEmitter.event()
                                         .data(jsonData));
                                 } catch (IOException e) {
+                                    log.error("Error sending SSE message", e);
                                     emitter.completeWithError(e);
+                                } catch (IllegalStateException e) {
+                                    log.warn("Attempted to send to completed emitter", e);
+                                    // Silently ignore - connection already closed
                                 }
                             })
                             .doOnComplete(() -> {
                                 try {
                                     emitter.send(SseEmitter.event().data("[DONE]"));
                                     emitter.complete();
-                                } catch (IOException e) {
-                                    emitter.completeWithError(e);
+                                } catch (IOException | IllegalStateException e) {
+                                    log.debug("Error completing emitter", e);
                                 }
                             })
-                            .doOnError(emitter::completeWithError)
+                            .doOnError((error) -> {
+                                log.error("Error in chat completion stream", error);
+                                try {
+                                    emitter.send(SseEmitter.event()
+                                        .data("{\"error\":\"" + error.getMessage() + "\"}"));
+                                    emitter.completeWithError(error);
+                                } catch (IOException | IllegalStateException e) {
+                                    log.error("Error sending error message", e);
+                                }
+                            })
                             .subscribe();
                     } catch (Exception e) {
+                        log.error("Exception in async task", e);
                         emitter.completeWithError(e);
                     }
                 });
@@ -92,6 +136,50 @@ public class ChatController {
             log.error("Error in createCompletion", t);
             return ResponseEntity.status(500).body("Internal server error: " + t.getMessage());
         }
+    }
+
+    /**
+     * Apply LLMConfig values from ChatEntity to OpenAiChatRequest.
+     * Server-side configuration ALWAYS overrides client values for security and consistency.
+     */
+    private void applyLLMConfigToRequest(OpenAiChatRequest request, io.github.jrohila.simpleragserver.domain.LLMConfig llmConfig) {
+        if (llmConfig == null) {
+            log.warn("No LLMConfig found, using request defaults");
+            return;
+        }
+        
+        // Always override with server-side config - don't trust client values
+        if (llmConfig.getMaxNewTokens() != null) {
+            request.setMaxTokens(llmConfig.getMaxNewTokens());
+        }
+        
+        if (llmConfig.getTemperature() != null) {
+            request.setTemperature(llmConfig.getTemperature());
+        }
+        
+        if (llmConfig.getTopP() != null) {
+            request.setTopP(llmConfig.getTopP());
+        }
+        
+        if (llmConfig.getTopK() != null) {
+            request.setTopK(llmConfig.getTopK());
+        }
+        
+        if (llmConfig.getRepetitionPenalty() != null) {
+            request.setFrequencyPenalty(llmConfig.getRepetitionPenalty());
+        }
+        
+        if (llmConfig.getMinNewTokens() != null) {
+            request.setMinTokens(llmConfig.getMinNewTokens());
+        }
+        
+        if (llmConfig.getDoSample() != null) {
+            request.setDoSample(llmConfig.getDoSample());
+        }
+        
+        log.debug("Applied server-side LLMConfig (overriding client) - maxTokens: {}, temp: {}, topP: {}, topK: {}, freqPenalty: {}, minTokens: {}, doSample: {}",
+            request.getMaxTokens(), request.getTemperature(), request.getTopP(), 
+            request.getTopK(), request.getFrequencyPenalty(), request.getMinTokens(), request.getDoSample());
     }
 
     private static final ObjectMapper mapper = new ObjectMapper();

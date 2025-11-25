@@ -20,7 +20,20 @@ type BoostTerm = {
   weight: number;
 };
 
+import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
+
 export function Search() {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.search') as any });
+    } catch (e) {
+      // ignore when navigation isn't available
+    }
+  }, [t, navigation]);
   const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState('');
   const [loadingCollections, setLoadingCollections] = useState(false);
@@ -67,7 +80,7 @@ export function Search() {
 
   const handleSearch = () => {
     if (!selectedCollectionId || !query) {
-      Alert.alert('Error', 'Please select a collection and enter a search query');
+      Alert.alert(t('messages.errorTitle'), t('search.errors.selectCollectionAndQuery'));
       return;
     }
 
@@ -101,20 +114,20 @@ export function Search() {
       })
       .catch((err) => {
         console.error('Search error:', err);
-        Alert.alert('Error', 'Failed to perform search');
+        Alert.alert(t('messages.errorTitle'), t('search.errors.failed'));
         setResults([]);
         setSearching(false);
       });
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView>
         <Window>
           <View style={styles.container}>
             {/* Collection Dropdown */}
             <View style={styles.dropdownContainer}>
-              <Text style={styles.label}>Collection:</Text>
+              <Text style={styles.label}>{t('search.collection')}</Text>
               {loadingCollections ? (
                 <ActivityIndicator />
               ) : (
@@ -124,7 +137,7 @@ export function Search() {
                     onValueChange={(value) => setSelectedCollectionId(value)}
                     style={styles.picker}
                   >
-                    <Picker.Item label="Select a collection..." value="" />
+                    <Picker.Item label={t('basic.selectCollection')} value="" />
                     {collections.map((col) => (
                       <Picker.Item key={col.id} label={col.name} value={col.id} />
                     ))}
@@ -135,24 +148,24 @@ export function Search() {
 
             {/* Search Query */}
             <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Search Query:</Text>
+              <Text style={styles.label}>{t('search.queryLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Enter search query..."
+                placeholder={t('placeholders.searchQuery')}
                 multiline
               />
             </View>
 
             {/* Language */}
             <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Language (optional):</Text>
+              <Text style={styles.label}>{t('search.languageLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={language || ''}
                 onChangeText={(text) => setLanguage(text || null)}
-                placeholder="e.g., en, fr, es (leave empty for all)"
+                placeholder={t('placeholders.languageExample')}
               />
             </View>
 
@@ -165,26 +178,26 @@ export function Search() {
                 <View style={[styles.checkboxBox, enableFuzziness && styles.checkboxBoxChecked]}>
                   {enableFuzziness && <Text style={styles.checkboxCheck}>✓</Text>}
                 </View>
-                <Text style={styles.checkboxLabel}>Enable Fuzziness</Text>
+                <Text style={styles.checkboxLabel}>{t('search.enableFuzziness')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Boost Terms */}
             <View style={styles.boostTermsSection}>
-              <Text style={styles.sectionTitle}>Boost Terms & Weights:</Text>
+              <Text style={styles.sectionTitle}>{t('search.boostTermsTitle')}</Text>
               {boostTerms.map((bt, index) => (
                 <View key={index} style={styles.boostTermRow}>
                   <TextInput
                     style={[styles.input, styles.boostTermInput]}
                     value={bt.term}
                     onChangeText={(text) => handleBoostTermChange(index, 'term', text)}
-                    placeholder="Term"
+                    placeholder={t('placeholders.term')}
                   />
                   <TextInput
                     style={[styles.input, styles.boostWeightInput]}
                     value={bt.weight.toString()}
                     onChangeText={(text) => handleBoostTermChange(index, 'weight', text)}
-                    placeholder="Weight"
+                    placeholder={t('placeholders.weight')}
                     keyboardType="numeric"
                   />
                   {boostTerms.length > 1 && (
@@ -198,13 +211,13 @@ export function Search() {
                 </View>
               ))}
               <TouchableOpacity style={styles.addButton} onPress={handleAddBoostTerm}>
-                <Text style={styles.addButtonText}>+ Add Boost Term</Text>
+                <Text style={styles.addButtonText}>+ {t('actions.addBoostTerm')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Search Button */}
             <View style={styles.searchButtonContainer}>
-              <Button title="Search" onPress={handleSearch} disabled={searching || !selectedCollectionId || !query} />
+              <Button title={t('actions.search')} onPress={handleSearch} disabled={searching || !selectedCollectionId || !query} />
             </View>
 
             {/* Results */}
@@ -212,16 +225,16 @@ export function Search() {
               <ActivityIndicator style={styles.loader} />
             ) : results.length > 0 ? (
               <View style={styles.resultsContainer}>
-                <Text style={styles.resultsTitle}>Results ({results.length}):</Text>
+                <Text style={styles.resultsTitle}>{t('search.resultsTitle', { count: results.length })}</Text>
                 <View style={styles.tableContainer}>
                   {/* Table Header */}
                   <View style={styles.tableHeader}>
-                    <Text style={[styles.tableHeaderText, styles.scoreColumn]}>Score</Text>
-                    <Text style={[styles.tableHeaderText, styles.textColumn]}>Text</Text>
-                    <Text style={[styles.tableHeaderText, styles.documentColumn]}>Document</Text>
-                    <Text style={[styles.tableHeaderText, styles.sectionColumn]}>Section</Text>
-                    <Text style={[styles.tableHeaderText, styles.pageColumn]}>Page</Text>
-                    <Text style={[styles.tableHeaderText, styles.urlColumn]}>URL</Text>
+                    <Text style={[styles.tableHeaderText, styles.scoreColumn]}>{t('search.table.score')}</Text>
+                    <Text style={[styles.tableHeaderText, styles.textColumn]}>{t('search.table.text')}</Text>
+                    <Text style={[styles.tableHeaderText, styles.documentColumn]}>{t('search.table.document')}</Text>
+                    <Text style={[styles.tableHeaderText, styles.sectionColumn]}>{t('search.table.section')}</Text>
+                    <Text style={[styles.tableHeaderText, styles.pageColumn]}>{t('search.table.page')}</Text>
+                    <Text style={[styles.tableHeaderText, styles.urlColumn]}>{t('search.table.url')}</Text>
                   </View>
                   {/* Table Rows */}
                   {results.map((result, index) => (

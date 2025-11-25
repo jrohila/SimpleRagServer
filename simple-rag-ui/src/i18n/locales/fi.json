@@ -1,0 +1,228 @@
+{
+  "basic": {
+    "publicName": "Julkinen nimi",
+    "internalName": "Sisäinen nimi",
+    "internalDescription": "Sisäinen kuvaus",
+    "defaultLanguage": "Oletuskieli",
+    "defaultCollection": "Oletuskokoelma",
+    "selectCollection": "Valitse kokoelma...",
+    "selectChat": "Valitse keskustelu..."
+  },
+  "prompts": {
+    "welcomeMessage": "Hei! Olen avustajasi. Autan mielelläni vastaamaan kysymyksiisi saatavilla olevan tiedon perusteella.",
+    "systemPrompt": "Oletusjärjestelmäkehote",
+    "systemPromptAppend": "Seuraa järjestelmän käyttäytymissääntöjä",
+    "outOfScope": "Voin vastata vain annetun kontekstin perusteella."
+  },
+  "labels": {
+    "welcomeMessage": "Tervetuloviesti",
+    "systemPrompt": "Oletusjärjestelmäkehote",
+    "systemPromptAppend": "Lisäjärjestelmäkehote",
+    "outOfScopeMessage": "Oletus: Ei kuulu aiheeseen -viesti",
+    "chatLabel": "Keskustelu:"
+  },
+  "advanced": {
+    "contextPrompt": "Oletuskontekstikehote",
+    "memoryPrompt": "Oletusmuistikehote",
+    "extractorPrompt": "Oletuserotin-kehote",
+    "userRewrite": "Käyttäjän kehotteen uudelleenkirjoitus",
+    "overrideSystem": "Ohita järjestelmäviesti",
+    "overrideAssistant": "Ohita avustajaviesti",
+    "useRewriting": "Käytä käyttäjän kehotteen uudelleenkirjoitusta"
+  },
+  "actions": {
+    "update": "Päivitä",
+    "delete": "Poista",
+    "cancel": "Peruuta",
+    "close": "Sulje",
+    "addBoostTerm": "Lisää boost-termi",
+    "search": "Hae",
+    "create": "Luo"
+  },
+  "modes": {
+    "remote": "Etä",
+    "local": "Paikallinen"
+  },
+  
+  "messages": {
+    "errorTitle": "Virhe",
+    "failedToGetResponse": "Vastausta ei saatu",
+    "selectChatFirst": "Valitse ensin keskustelu",
+    "pleaseWaitTitle": "Odota",
+    "cannotSwitchMode": "Ei voi vaihtaa tilaa vastauksen luomisen aikana",
+    "webgpuTitle": "WebGPU ei ole käytettävissä",
+    "webgpuMessage": "Selaimesi ei tue WebGPU:ta, jota tarvitaan paikallisiin AI-malleihin. Käytä Chromea, Edgeä tai muuta WebGPU-yhteensopivaa selainta.",
+    "confirmDelete": "Haluatko varmasti poistaa keskustelun \"{{name}}\"?",
+    "deleting": "Poistetaan keskustelua...",
+    "confirmUpdate": "Haluatko varmasti päivittää keskustelun \"{{name}}\"?",
+    "updating": "Päivitetään keskustelua...",
+    "chatDeleted": "Keskustelu \"{{name}}\" poistettiin onnistuneesti.",
+    "chatUpdateSuccess": "Keskustelu päivitetty onnistuneesti",
+    "chatUpdateFailed": "Keskustelun päivitys epäonnistui: {{error}}",
+    "chatDeleteFailed": "Keskustelun poisto epäonnistui: {{error}}",
+    "collectionConfirmDelete": "Haluatko varmasti poistaa kokoelman \"{{name}}\"?",
+    "deletingCollection": "Poistetaan kokoelmaa...",
+    "collectionConfirmUpdate": "Haluatko varmasti päivittää kokoelman \"{{name}}\"?",
+    "updatingCollection": "Kokoelman päivittäminen...",
+    "collectionDeleted": "Kokoelma \"{{name}}\" poistettiin onnistuneesti.",
+    "collectionUpdateSuccess": "Kokoelma päivitetty onnistuneesti",
+    "collectionUpdateFailed": "Kokoelman päivitys epäonnistui: {{error}}",
+    "collectionDeleteFailed": "Kokoelman poisto epäonnistui: {{error}}",
+    "documentConfirmDelete": "Haluatko varmasti poistaa asiakirjan \"{{name}}\"?",
+    "deletingDocument": "Poistetaan asiakirjaa...",
+    "documentConfirmUpdate": "Haluatko varmasti päivittää asiakirjan \"{{name}}\" tiedostolla \"{{file}}\"?",
+    "updatingDocument": "Asiakirjan päivittäminen...",
+    "documentDeleted": "Asiakirja poistettiin onnistuneesti.",
+    "documentUpdateSuccess": "Asiakirja päivitetty onnistuneesti",
+    "documentUpdateFailed": "Asiakirjan päivitys epäonnistui: {{error}}",
+    "documentDeleteFailed": "Asiakirjan poisto epäonnistui: {{error}}",
+    "filePickFailed": "Tiedoston valinta epäonnistui",
+    "chunkConfirmDelete": "Haluatko varmasti poistaa tämän palan?",
+    "deletingChunk": "Poistetaan palaa...",
+    "chunkConfirmUpdate": "Haluatko varmasti päivittää tämän palan?",
+    "updatingChunk": "Palojen päivittäminen...",
+    "chunkUpdateSuccess": "Pala päivitetty onnistuneesti",
+    "chunkUpdateFailed": "Palan päivitys epäonnistui: {{error}}",
+    "chunkDeleteFailed": "Palan poisto epäonnistui: {{error}}"
+  },
+  "placeholders": {
+    "initializingLocal": "Alustetaan paikallista AI:ta...",
+    "generatingLocally": "Luodaan paikallisesti...",
+    "typeLocal": "Kirjoita viesti (käyttäen paikallista AI:ta)...",
+    "selectChatFirst": "Valitse ensin keskustelu...",
+    "generating": "Luodaan vastausta...",
+    "typeMessage": "Kirjoita viesti...",
+    "searchQuery": "Syötä hakukysely...",
+    "languageExample": "esim. en, fr, es (jätä tyhjäksi kaikille)",
+    "term": "Termi",
+    "weight": "Paino"
+  },
+  "search": {
+    "collection": "Kokoelma:",
+    "queryLabel": "Hakukysely:",
+    "languageLabel": "Kieli (valinnainen):",
+    "enableFuzziness": "Ota herkkyys käyttöön",
+    "boostTermsTitle": "Boost-termit & painot:",
+    "resultsTitle": "Tulokset ({{count}}):",
+    "table": {
+      "score": "Pistemäärä",
+      "text": "Teksti",
+      "document": "Asiakirja",
+      "section": "Osa",
+      "page": "Sivu",
+      "url": "URL"
+    },
+    "errors": {
+      "selectCollectionAndQuery": "Valitse kokoelma ja syötä hakukysely",
+      "failed": "Haun suorittaminen epäonnistui"
+    }
+  },
+  "home": {
+    "localAiLabel": "Paikallinen AI (WebGPU)",
+    "initMessage": "Alustetaan paikallista AI-mallia... Tämä voi kestää hetken ensimmäisellä kerralla.",
+    "modal": {
+      "preparingTitle": "Valmistellaan paikallista AI-mallia",
+      "preparingMessage": "Paikallinen malli ladataan ja alustetaan. Tämä voi kestää muutaman minuutin ensimmäisellä kerralla.",
+      "starting": "Aloitetaan...",
+      "upgradeTitle": "Päivitä selaimen asetuksia",
+      "upgradeMessage": "Parantaaksesi paikallisen mallin suorituskykyä Chromessa, ota käyttöön seuraavat liput ja varmista, että valittu korkean suorituskyvyn GPU.",
+      "upgradeStep1": "1) Ota käyttöön Unsafe WebGPU: avaa Chrome-liput ja ota käyttöön",
+      "upgradeStep2": "2) Pakota korkean suorituskyvyn GPU: ota käyttöön järjestelmän/selaimen GPU-asetukset ja käynnistä Chrome uudelleen korkean suorituskyvyn tilassa.",
+      "openFlags": "Avaa liput",
+      "openFlagsTitle": "Liput",
+      "openFlagsCopied": "chrome://flags ei voitu avata. Lipun tunniste \"#enable-unsafe-webgpu\" on kopioitu leikepöydällesi. Avaa chrome://flags/ ja liitä tunniste hakukenttään.",
+      "openFlagsFallback": "Avaa chrome://flags/ Chromen osoiteriville ja etsi \"#enable-unsafe-webgpu\" ottaaksesi Unsafe WebGPU käyttöön."
+    }
+  },
+  "onboarding": {
+    "collectionName": "Kokoelman nimi",
+    "collectionDescription": "Kokoelman kuvaus",
+    "uploadTitle": "Lähetä asiakirjoja (valinnainen)",
+    "selectFiles": "Valitse tiedostot",
+    "uploading": "Lähetetään...",
+    "creating": "Luodaan...",
+    "confirmCreate": "Haluatko varmasti luoda keskustelun \"{{name}}\" ja ladata {{count}} tiedostoa?",
+    "creatingMessage": "Luodaan keskustelua ja ladataan tiedostoja...",
+    "errors": {
+      "pickFiles": "Tiedostojen valinta epäonnistui"
+    }
+  },
+  
+  "navigation": {
+    "home": "Koti",
+    "search": "Haku",
+    "onboarding": "Käyttöönotto",
+    "chats": "Keskustelut",
+    "collections": "Kokoelmat",
+    "documents": "Asiakirjat",
+    "chunks": "Palat"
+  }
+  ,
+  "collections": {
+    "label": "Kokoelma:",
+    "pickerPlaceholder": "Valitse kokoelma...",
+    "name": "Nimi",
+    "description": "Kuvaus",
+    "created": "Luotu",
+    "modified": "Muokattu",
+    "documentsTitle": "Asiakirjat",
+    "noDocuments": "Asiakirjoja ei löytynyt.",
+    "table": {
+      "filename": "Tiedostonimi",
+      "type": "Tyyppi",
+      "size": "Koko",
+      "created": "Luotu",
+      "updated": "Päivitetty",
+      "state": "Tila"
+    }
+  },
+  "documents": {
+    "collection": "Kokoelma:",
+    "label": "Asiakirja:",
+    "selectDocument": "Valitse asiakirja...",
+    "selectCollectionFirst": "Valitse ensin kokoelma...",
+    "noDocuments": "Asiakirjoja ei löytynyt",
+    "selectFile": "Valitse tiedosto",
+    "chooseFile": "Valitse tiedosto",
+    "table": {
+      "filename": "Tiedostonimi",
+      "type": "Tyyppi",
+      "size": "Koko",
+      "created": "Luotu",
+      "updated": "Päivitetty",
+      "state": "Tila"
+    }
+  },
+  "chunks": {
+    "collection": "Kokoelma:",
+    "document": "Asiakirja:",
+    "selectCollectionFirst": "Valitse ensin kokoelma...",
+    "noDocuments": "Asiakirjoja ei löytynyt",
+    "allDocuments": "Kaikki asiakirjat",
+    "textLabel": "Teksti:",
+    "messages": {
+      "selectCollectionAndDocument": "Valitse kokoelma ja asiakirja nähdäksesi palat",
+      "selectDocument": "Valitse asiakirja nähdäksesi palat",
+      "noChunks": "Palat eivät ole löytyneet"
+    },
+    "table": {
+      "type": "Tyyppi",
+      "section": "Osa",
+      "page": "Sivu",
+      "language": "Kieli",
+      "document": "Asiakirja",
+      "created": "Luotu",
+      "modified": "Muokattu"
+    },
+    "pagination": {
+      "back": "← Edellinen",
+      "next": "Seuraava →",
+      "page": "Sivu {{page}}"
+    }
+  },
+  "sections": {
+    "basic": "Perus",
+    "prompts": "Kehotteet",
+    "advanced": "Lisäasetukset"
+  }
+}

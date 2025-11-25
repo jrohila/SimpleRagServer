@@ -1,29 +1,111 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, SafeAreaView, TouchableOpacity, Switch, Modal, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { Ionicons } from '@expo/vector-icons';
-import { getChats } from '../../api/chats';
-import { sendConversation } from '../../api/openAI';
+import { Ionicons } from '../../components/Icons';
+import { getChats, getChatById } from '../../api/chats';
 import { ChatContainer } from '../../components/ChatContainer';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Message } from '../../components/ChatMessage';
+import { LLMServiceFactory, LLMMode } from '../../services/LLMServiceFactory';
+import { LLMMessage } from '../../services/RemoteLLMService';
+import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
+import { HomeStyles as styles } from '../../styles/HomeStyles';
 
 type Chat = {
   id: string;
   publicName: string;
   welcomeMessage?: string;
+  useUserPromptRewriting?: boolean;
+  userPromptRewritingPrompt?: string;
+  llmConfig?: {
+    useCase?: string;
+    maxNewTokens?: number;
+    temperature?: number;
+    doSample?: boolean;
+    topK?: number;
+    topP?: number;
+    repetitionPenalty?: number;
+    minNewTokens?: number;
+  };
 };
 
 export function Home() {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+
+  // Update navigation header title when language changes
+  React.useEffect(() => {
+    try {
+      navigation.setOptions({ title: t('navigation.home') as any });
+    } catch (e) {
+      // ignore if navigation not available in some contexts
+    }
+  }, [t, navigation]);
   // Store message histories for each chat
   const [chatHistories, setChatHistories] = useState<{ [chatId: string]: Message[] }>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState('');
+  const [selectedChatDetails, setSelectedChatDetails] = useState<Chat | null>(null);
   const [loadingChats, setLoadingChats] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [llmMode, setLlmMode] = useState<LLMMode>('remote');
+  const [isLocalLLMAvailable, setIsLocalLLMAvailable] = useState(false);
+  const [isInitializingLocalLLM, setIsInitializingLocalLLM] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ percentage: number; loaded: number; total: number } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const assistantMessageRef = useRef<Message | null>(null);
+
+  const isChromeBrowser = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent) && !/Edg\//.test(navigator.userAgent);
+
+  // Check WebGPU availability on mount
+  useEffect(() => {
+    LLMServiceFactory.checkLocalAvailability().then(setIsLocalLLMAvailable);
+    
+    // Set up download progress callback
+    const localLLM = LLMServiceFactory.getLocalLLM();
+    if (localLLM) {
+      localLLM.setDownloadProgressCallback((progress) => {
+        setDownloadProgress(progress);
+      });
+    }
+  }, []);
+
+  // When initializing local model, poll for completion to close the modal when ready
+  useEffect(() => {
+    if (!isInitializingLocalLLM) return;
+    const localLLM = LLMServiceFactory.getLocalLLM();
+    if (!localLLM) return;
+
+    let cancelled = false;
+    const start = Date.now();
+
+    const check = async () => {
+      try {
+        if (localLLM.isModelLoaded && localLLM.isModelLoaded()) {
+          if (!cancelled) setIsInitializingLocalLLM(false);
+          return;
+        }
+        // Poll until model is loaded or timeout (2 minutes)
+        if (Date.now() - start > 2 * 60 * 1000) {
+          console.warn('Local model init timeout');
+          if (!cancelled) setIsInitializingLocalLLM(false);
+          return;
+        }
+        setTimeout(check, 500);
+      } catch (err) {
+        console.warn('Error checking local model load state', err);
+        if (!cancelled) setIsInitializingLocalLLM(false);
+      }
+    };
+
+    check();
+
+    return () => { cancelled = true; };
+  }, [isInitializingLocalLLM]);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,13 +126,26 @@ export function Home() {
   // Update messages when selectedChatId changes
   useEffect(() => {
     if (selectedChatId) {
+      // Fetch full chat details to get prompt rewriting configuration
+      getChatById(selectedChatId)
+        .then((res) => {
+          const data = (res as any).data as Chat;
+          setSelectedChatDetails(data);
+        })
+        .catch((error) => {
+          console.warn('Failed to fetch chat details:', error);
+          setSelectedChatDetails(null);
+        });
+      
       // Load chat history for the selected chat, or use default welcome message
       if (chatHistories[selectedChatId]) {
-        setMessages(chatHistories[selectedChatId]);
+        // Filter out any null/undefined messages when loading from history
+        const validMessages = chatHistories[selectedChatId].filter(msg => msg != null);
+        setMessages(validMessages);
       } else {
         // Initialize with welcome message for new chat
         const chat = chats.find(c => c.id === selectedChatId);
-        const welcomeText = chat?.welcomeMessage || 'Hello! How can I help you today?';
+        const welcomeText = chat?.welcomeMessage || t('prompts.welcomeMessage');
         const welcomeMessage: Message = {
           _id: `${selectedChatId}-welcome-${Date.now()}`,
           text: welcomeText,
@@ -72,121 +167,121 @@ export function Home() {
   // Save messages to chat history whenever they change
   useEffect(() => {
     if (selectedChatId && messages.length > 0) {
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedChatId]: messages
-      }));
+      // Filter out any null/undefined messages before saving
+      const validMessages = messages.filter(msg => msg != null);
+      if (validMessages.length > 0) {
+        setChatHistories(prev => ({
+          ...prev,
+          [selectedChatId]: validMessages
+        }));
+      }
     }
   }, [messages, selectedChatId]);
 
   const selectedChat = chats.find(c => c.id === selectedChatId);
 
-  const handleStreamResponse = async (publicName: string, conversationMessages: any[]) => {
+  const handleStreamResponse = async (conversationMessages: LLMMessage[]) => {
     try {
       // Create assistant message placeholder with loading state
-      const assistantMessage: any = {
+      const assistantMessage: Message = {
         _id: Date.now() + 1,
         text: '',
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: 'SimpleRagServer',
+          name: llmMode === 'local' ? t('modes.local') : 'SimpleRagServer',
         },
-        isLoading: true, // Custom property to track loading state
+        isLoading: true,
       };
       
       assistantMessageRef.current = assistantMessage;
-      // With inverted={false}, add to the end of the array
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Make the API call with streaming enabled
-      const response = await sendConversation({
-        publicName,
-        messages: conversationMessages,
-        stream: true,
-        temperature: 0.7,
-        useRag: true
-      });
+      // Get appropriate service
+      const service = LLMServiceFactory.getService(llmMode);
 
-      // Handle streaming response from fetch API
-      if (!response.body) {
-        throw new Error('Response body is not available');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let reading = true;
-
-      while (reading) {
-        try {
-          const { done, value } = await reader.read();
-          
-          if (done) {
-            reading = false;
-            break;
-          }
-
-          // Decode the chunk and add to buffer
-          buffer += decoder.decode(value, { stream: true });
-          
-          // Split by newlines to process each SSE message
-          const lines = buffer.split('\n');
-          
-          // Keep the last incomplete line in the buffer
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            try {
-              const trimmedLine = line.trim();
-              
-              // Parse SSE format: "data: {json}"
-              if (trimmedLine.startsWith('data:')) {
-                const data = trimmedLine.slice(5).trim();
-                
-                // Check for stream end signal
-                if (data === '[DONE]') {
-                  reading = false;
-                  break;
-                }
-                
-                try {
-                  const parsed = JSON.parse(data);
-                  // Extract content from: choices[0].delta.content
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  
-                  if (content) {
-                    updateAssistantMessage(content, true);
-                  }
-                } catch (parseError) {
-                  console.error('Error parsing streaming chunk:', parseError, 'Data:', data);
-                  // Continue processing other lines
-                }
-              }
-            } catch (lineError) {
-              console.error('Error processing line:', lineError);
-              // Continue to next line
-            }
-          }
-        } catch (readError) {
-          console.error('Error reading stream:', readError);
-          // Terminate the stream gracefully on read error
-          reading = false;
-          break;
+      // For local mode, initialize if needed
+      if (llmMode === 'local') {
+        const localLLM = LLMServiceFactory.getLocalLLM();
+        if (!localLLM.isModelLoaded()) {
+          setIsInitializingLocalLLM(true);
+          updateAssistantMessage(t('home.initMessage'), false);
         }
       }
 
+      let isFirstContent = true;
+      
+      // Prepare config with prompt rewriting settings and LLM config from chat entity
+      const config: any = {
+        publicName: selectedChat?.publicName || '',
+        temperature: 0.7,
+        useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
+      };
+      
+      // Add prompt rewriting configuration and llmConfig if available from full chat details
+      if (selectedChatDetails) {
+        config.useUserPromptRewriting = selectedChatDetails.useUserPromptRewriting;
+        config.userPromptRewritingPrompt = selectedChatDetails.userPromptRewritingPrompt;
+        config.llmConfig = selectedChatDetails.llmConfig;
+      }
+      
+      await service.sendMessage(
+        config,
+        conversationMessages,
+        {
+          onContent: (content: string) => {
+            setIsInitializingLocalLLM(false);
+            // Clear initialization message on first content, then append
+            updateAssistantMessage(content, !isFirstContent);
+            isFirstContent = false;
+          },
+          onComplete: () => {
+            // Ensure final message state is set before clearing ref
+            if (assistantMessageRef.current) {
+              setMessages((prev) => {
+                const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
+                return safeMessages.map(msg => {
+                  if (!msg || !msg._id) return msg;
+                  if (msg._id === assistantMessageRef.current!._id) {
+                    return { 
+                      ...msg, 
+                      isLoading: false,
+                      createdAt: new Date() // Update timestamp when response is complete
+                    };
+                  }
+                  return msg;
+                }).filter((msg): msg is Message => msg != null && msg._id != null);
+              });
+            }
+            setIsGenerating(false);
+            setIsInitializingLocalLLM(false);
+            // Defer nulling the ref to avoid race conditions
+            setTimeout(() => {
+              assistantMessageRef.current = null;
+            }, 0);
+          },
+          onError: (error: Error) => {
+            console.error('Error from LLM service:', error);
+              Alert.alert(t('messages.errorTitle'), error.message || t('messages.failedToGetResponse'));
+            if (assistantMessageRef.current) {
+              setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
+              assistantMessageRef.current = null;
+            }
+            setIsGenerating(false);
+            setIsInitializingLocalLLM(false);
+          }
+        }
+      );
+
     } catch (error) {
-      console.error('Error calling chat API:', error);
-      Alert.alert('Error', 'Failed to get response from the server');
-      // Remove the assistant message placeholder on error
+      console.error('Error calling LLM:', error);
+      Alert.alert(t('messages.errorTitle'), t('messages.failedToGetResponse'));
       if (assistantMessageRef.current) {
-        setMessages((prev) => prev.filter(m => m._id !== assistantMessageRef.current!._id));
+        setMessages((prev) => prev.filter(m => m != null && m._id !== assistantMessageRef.current!._id));
         assistantMessageRef.current = null;
       }
-    } finally {
       setIsGenerating(false);
-      assistantMessageRef.current = null;
+      setIsInitializingLocalLLM(false);
     }
   };
 
@@ -194,28 +289,37 @@ export function Home() {
     try {
       if (assistantMessageRef.current) {
         setMessages((prev) => {
-          try {
-            const updated = prev.map(msg => {
-              if (msg && msg._id === assistantMessageRef.current!._id) {
-                return {
-                  ...msg,
-                  text: append ? (msg.text || '') + content : content,
-                  isLoading: false, // Remove loading state when content arrives
-                };
-              }
-              return msg;
-            });
-            return updated;
-          } catch (mapError) {
-            console.error('Error updating message in map:', mapError);
-            return prev; // Return unchanged state on error
-          }
+          // Safety check - ensure prev is an array and filter out any null/undefined messages immediately
+          const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
+          
+          const updatedMessages = safeMessages.map(msg => {
+            // Double check msg is valid before accessing properties
+            if (!msg || !msg._id) return null;
+            
+            if (msg._id === assistantMessageRef.current!._id) {
+              return {
+                ...msg,
+                text: append ? (msg.text || '') + content : content,
+                isLoading: false,
+              };
+            }
+            return msg;
+          });
+          
+          // Filter out any null values that might have been created
+          return updatedMessages.filter((msg): msg is Message => msg != null && msg._id != null);
         });
       }
     } catch (error) {
       console.error('Error in updateAssistantMessage:', error);
-      // Silently fail - don't crash the app
     }
+  };
+
+  const handleErrorReset = () => {
+    // Clean up any corrupted state
+    setMessages(prevMessages => prevMessages.filter(msg => msg != null && msg._id != null));
+    assistantMessageRef.current = null;
+    setIsGenerating(false);
   };
 
   const handleClearHistory = () => {
@@ -243,14 +347,55 @@ export function Home() {
     }));
   };
 
+  const handleToggleLLMMode = async () => {
+    if (isGenerating) {
+      Alert.alert(t('messages.pleaseWaitTitle'), t('messages.cannotSwitchMode'));
+      return;
+    }
+
+    const newMode: LLMMode = llmMode === 'remote' ? 'local' : 'remote';
+    
+    if (newMode === 'local' && !isLocalLLMAvailable) {
+      Alert.alert(
+        t('messages.webgpuTitle'),
+        t('messages.webgpuMessage')
+      );
+      return;
+    }
+
+    setLlmMode(newMode);
+    // If switching to local, start model initialization in background and show progress
+    if (newMode === 'local') {
+      const localLLM = LLMServiceFactory.getLocalLLM();
+      if (localLLM) {
+        // Ensure progress callback is set (in case it wasn't already)
+        localLLM.setDownloadProgressCallback((progress) => {
+          setDownloadProgress(progress);
+        });
+
+        // If already loaded, clear initializing flag; otherwise start init
+        if (localLLM.isModelLoaded && localLLM.isModelLoaded()) {
+          setIsInitializingLocalLLM(false);
+        } else {
+          setIsInitializingLocalLLM(true);
+          localLLM.startInitialization();
+        }
+      }
+    } else {
+      // switching away from local - clear download progress
+      setDownloadProgress(null);
+      setIsInitializingLocalLLM(false);
+    }
+  };
+
   const handleSend = useCallback(() => {
-    if (!selectedChat) {
-      Alert.alert('Error', 'Please select a chat first');
+    if (!selectedChat && llmMode === 'remote') {
+      Alert.alert(t('messages.errorTitle'), t('messages.selectChatFirst'));
       return;
     }
 
     if (isGenerating || !text.trim()) {
-      return; // Prevent sending while generating or if text is empty
+      return;
     }
 
     // Create user message
@@ -266,46 +411,94 @@ export function Home() {
     setText('');
     setIsGenerating(true);
 
-    // Convert messages to OpenAI format
-    const conversationMessages = [...messages, userMessage]
+    // Convert messages to LLM format
+    const conversationMessages: LLMMessage[] = [...messages, userMessage]
+      .filter(msg => msg != null) // Filter out any null/undefined messages
       .map(msg => ({
         role: msg.user._id === 1 ? 'user' : 'assistant',
         content: msg.text
-      }));
+      })) as LLMMessage[];
 
-    // Call the API with streaming
-    handleStreamResponse(selectedChat.publicName, conversationMessages);
-  }, [selectedChat, messages, isGenerating, text]);
+    // Add system message for local mode
+    if (llmMode === 'local') {
+      conversationMessages.unshift({
+        role: 'system',
+        content: 'You are a helpful assistant.'
+      });
+    }
+
+    handleStreamResponse(conversationMessages);
+  }, [selectedChat, messages, isGenerating, text, llmMode]);
+
+  const getPlaceholder = () => {
+    if (llmMode === 'local') {
+      if (isInitializingLocalLLM) return t('placeholders.initializingLocal');
+      if (isGenerating) return t('placeholders.generatingLocally');
+      return t('placeholders.typeLocal');
+    }
+    if (!selectedChatId) return t('placeholders.selectChatFirst');
+    if (isGenerating) return t('placeholders.generating');
+    return t('placeholders.typeMessage');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Chat Selection Dropdown */}
+      {/* Chat Selection and LLM Mode Toggle */}
       <View style={styles.dropdownContainer}>
         {loadingChats ? (
           <ActivityIndicator color="#666" />
         ) : (
           <>
             <Ionicons name="chatbubbles" size={24} color="#007aff" style={styles.chatIcon} />
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={selectedChatId}
-                onValueChange={(value) => setSelectedChatId(value)}
-                style={styles.picker}
-                dropdownIconColor="#666"
-              >
-                <Picker.Item label="Select a chat..." value="" />
-                {chats.map((chat) => (
-                  <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
-                ))}
-              </Picker>
+
+            {/* Chat Selector - Only show in remote mode */}
+            {llmMode === 'remote' && (
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={selectedChatId}
+                  onValueChange={(value) => setSelectedChatId(value)}
+                  style={styles.picker}
+                  dropdownIconColor="#666"
+                >
+                  <Picker.Item label={t('basic.selectChat')} value="" />
+                  {chats.map((chat) => (
+                    <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+
+            {/* Local AI indicator */}
+            {llmMode === 'local' && (
+              <View style={styles.localModeIndicator}>
+                <Ionicons name="hardware-chip" size={20} color="#4CAF50" />
+                <Text style={styles.localModeText}>{t('home.localAiLabel')}</Text>
+                {isChromeBrowser && (
+                  <TouchableOpacity onPress={() => setShowUpgradeModal(true)} style={styles.upgradeButton}>
+                    <Ionicons name="rocket-outline" size={18} color="#2e7d32" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleLabel}>{llmMode === 'remote' ? t('modes.remote') : t('modes.local')}</Text>
+              <Switch
+                value={llmMode === 'local'}
+                onValueChange={handleToggleLLMMode}
+                disabled={!isLocalLLMAvailable || isGenerating}
+                trackColor={{ false: '#767577', true: '#4CAF50' }}
+                thumbColor={llmMode === 'local' ? '#fff' : '#f4f3f4'}
+              />
             </View>
+
             <TouchableOpacity
               style={[
                 styles.clearButton,
-                (!selectedChatId || isGenerating) && styles.clearButtonDisabled
+                ((!selectedChatId && llmMode === 'remote') || isGenerating) && styles.clearButtonDisabled,
               ]}
               onPress={handleClearHistory}
-              disabled={!selectedChatId || isGenerating}
+              disabled={(!selectedChatId && llmMode === 'remote') || isGenerating}
             >
               <Ionicons name="trash-outline" size={20} color="#fff" />
             </TouchableOpacity>
@@ -313,69 +506,110 @@ export function Home() {
         )}
       </View>
 
-      <ChatContainer
-        messages={messages}
-        text={text}
-        onTextChange={setText}
-        onSend={handleSend}
-        placeholder={!selectedChatId ? "Please select a chat first..." : (isGenerating ? "Generating response..." : "Type a message...")}
-        disabled={!selectedChatId}
-        isGenerating={isGenerating}
-      />
+      <ErrorBoundary onReset={handleErrorReset}>
+        <ChatContainer
+          messages={messages.filter(msg => msg != null && msg._id != null)}
+          text={text}
+          onTextChange={setText}
+          onSend={handleSend}
+          placeholder={getPlaceholder()}
+          disabled={(llmMode === 'remote' && !selectedChatId) || isInitializingLocalLLM}
+          isGenerating={isGenerating}
+        />
+      </ErrorBoundary>
+
+      {/* Initialization modal for local model */}
+      <Modal
+        visible={isInitializingLocalLLM}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => { /* no-op: modal is not dismissible while initializing */ }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.modalTitle}>{t('home.modal.preparingTitle')}</Text>
+            <Text style={styles.modalMessage}>{t('home.modal.preparingMessage')}</Text>
+
+            {downloadProgress ? (
+              <View style={styles.modalFullWidth}>
+                <Text style={styles.modalProgressText}>{downloadProgress.percentage}% ({Math.round(downloadProgress.loaded / 1024 / 1024)}MB / {Math.round(downloadProgress.total / 1024 / 1024)}MB)</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, downloadProgress.percentage))}%` }]} />
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.modalProgressText}>{t('home.modal.starting')}</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Upgrade modal for Chrome users */}
+      <Modal
+        visible={showUpgradeModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowUpgradeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{t('home.modal.upgradeTitle')}</Text>
+            <Text style={styles.modalMessage}>{t('home.modal.upgradeMessage')}</Text>
+            <View style={styles.modalFullWidth}>
+              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep1')} <Text style={styles.inlineStrong}>#enable-unsafe-webgpu</Text></Text>
+              <Text style={styles.modalProgressText}>{t('home.modal.upgradeStep2')}</Text>
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={async () => {
+                  // Best-effort: try to open chrome://flags; many browsers block this from pages.
+                  // If that fails, open a helpful search page and copy the flag token to the clipboard.
+                  const flagFragment = '#enable-unsafe-webgpu';
+                  try {
+                    // Try direct open first (may be blocked)
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
+                    const opened = window.open('chrome://flags/' + flagFragment, '_blank');
+                    if (opened) return;
+                  } catch (err) {
+                    // fallthrough to fallback behavior
+                  }
+
+                  // Fallback: attempt to open a web search with instructions
+                  const searchUrl = 'https://www.google.com/search?q=enable+unsafe+webgpu+chrome';
+                  try {
+                    await Linking.openURL(searchUrl);
+                  } catch (linkErr) {
+                    // If opening the search fails (webview restrictions), copy the flag token and show instructions
+                    try {
+                      if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(flagFragment);
+                        Alert.alert(t('home.modal.openFlagsTitle'), t('home.modal.openFlagsCopied'));
+                        return;
+                      }
+                    } catch (clipErr) {
+                      // ignore
+                    }
+
+                    Alert.alert(t('home.modal.openFlagsTitle'), t('home.modal.openFlagsFallback'));
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>{t('home.modal.openFlags')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.modalButton, { minWidth: 140 }]} onPress={() => setShowUpgradeModal(false)}>
+                <Text style={styles.modalButtonText}>{t('actions.close')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  dropdownContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  chatIcon: {
-    marginRight: 4,
-  },
-  pickerWrapper: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    overflow: 'hidden',
-    minHeight: 48,
-  },
-  picker: {
-    color: '#000',
-    backgroundColor: 'transparent',
-    borderRadius: 8,
-    fontSize: 16,
-    height: 48,
-  },
-  clearButton: {
-    backgroundColor: '#ff6b6b',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 48,
-  },
-  clearButtonDisabled: {
-    backgroundColor: '#ccc',
-    opacity: 0.5,
-  },
-  clearButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+// Styles moved to `src/styles/HomeStyles.ts` and imported as `styles`.

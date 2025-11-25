@@ -17,6 +17,18 @@ public class OpenAiChatRequest {
     @JsonProperty("max_tokens")
     private Integer maxTokens; // maps to max_output_tokens or similar
     private boolean stream = false;
+    
+    // Extended parameters for Ollama and other LLM backends
+    @JsonProperty("top_p")
+    private Double topP;
+    @JsonProperty("top_k")
+    private Integer topK;
+    @JsonProperty("frequency_penalty")
+    private Double frequencyPenalty;
+    @JsonProperty("min_tokens")
+    private Integer minTokens;
+    @JsonProperty("do_sample")
+    private Boolean doSample;
 
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }
@@ -28,6 +40,17 @@ public class OpenAiChatRequest {
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
     public boolean isStream() { return stream; }
     public void setStream(boolean stream) { this.stream = stream; }
+    
+    public Double getTopP() { return topP; }
+    public void setTopP(Double topP) { this.topP = topP; }
+    public Integer getTopK() { return topK; }
+    public void setTopK(Integer topK) { this.topK = topK; }
+    public Double getFrequencyPenalty() { return frequencyPenalty; }
+    public void setFrequencyPenalty(Double frequencyPenalty) { this.frequencyPenalty = frequencyPenalty; }
+    public Integer getMinTokens() { return minTokens; }
+    public void setMinTokens(Integer minTokens) { this.minTokens = minTokens; }
+    public Boolean getDoSample() { return doSample; }
+    public void setDoSample(Boolean doSample) { this.doSample = doSample; }
 
     public static class Message {
         private String role; // system|user|assistant|tool
