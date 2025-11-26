@@ -49,7 +49,10 @@ export default function useHealthCheck({
 
   const handleSuccess = () => {
     failureCount.current = 0;
-    if (!up) setUp(true);
+    // Always set up true on a successful check. Using a conditional here caused
+    // issues when the `check` callback captured a stale `up` value and the
+    // state wasn't updated. Setting unconditionally is idempotent and reliable.
+    setUp(true);
     setLastChecked(Date.now());
     scheduleNext(steadyIntervalMs);
   };
