@@ -1,4 +1,11 @@
 {
+  "backend": {
+    "unavailable": {
+      "title": "Service unavailable",
+      "message": "The backend is currently unreachable. The app will retry automatically.",
+      "retry": "Retry now"
+    }
+  },
   "basic": {
     "publicName": "Public Name",
     "internalName": "Internal Name",
@@ -85,6 +92,7 @@
     "chunkUpdateFailed": "Failed to update chunk: {{error}}",
     "chunkDeleteFailed": "Failed to delete chunk: {{error}}"
   },
+  
   "placeholders": {
     "initializingLocal": "Initializing local AI...",
     "generatingLocally": "Generating locally...",

@@ -9,6 +9,13 @@
     "selectChat": "Valitse keskustelu..."
   },
   "prompts": {
+    "backend": {
+      "unavailable": {
+        "title": "Palvelu ei käytettävissä",
+        "message": "Palvelin on tavoittamattomissa. Sovellus yrittää uudelleen automaattisesti.",
+        "retry": "Yritä nyt"
+      }
+    },
     "welcomeMessage": "Hei! Olen avustajasi. Autan mielelläni vastaamaan kysymyksiisi saatavilla olevan tiedon perusteella.",
     "systemPrompt": "Oletusjärjestelmäkehote",
     "systemPromptAppend": "Seuraa järjestelmän käyttäytymissääntöjä",
