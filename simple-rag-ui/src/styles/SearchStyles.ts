@@ -1,41 +1,18 @@
 import { StyleSheet } from 'react-native';
+import { GlobalStyles, Colors, FontSizes, Spacing, BorderRadius } from './GlobalStyles';
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  dropdownContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-    color: '#666',
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    backgroundColor: '#fff',
-  },
-  picker: {
-    height: 40,
-  },
+  container: GlobalStyles.container,
+  dropdownContainer: GlobalStyles.dropdownContainer,
+  label: GlobalStyles.label,
+  pickerWrapper: GlobalStyles.pickerWrapper,
+  picker: GlobalStyles.picker,
   fieldContainer: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    padding: 8,
-    backgroundColor: '#fff',
-    fontSize: 14,
-  },
+  input: GlobalStyles.input,
   checkboxContainer: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   checkbox: {
     flexDirection: 'row',
@@ -45,39 +22,34 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#007bff',
-    borderRadius: 4,
-    marginRight: 8,
+    borderColor: Colors.primary,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
   },
   checkboxBoxChecked: {
-    backgroundColor: '#007bff',
+    backgroundColor: Colors.primary,
   },
   checkboxCheck: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.white,
+    fontSize: FontSizes.md,
     fontWeight: 'bold',
   },
   checkboxLabel: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: FontSizes.base,
+    color: Colors.text,
   },
   boostTermsSection: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
-  sectionTitle: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 8,
-    color: '#333',
-  },
+  sectionTitle: GlobalStyles.sectionTitle,
   boostTermRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   boostTermInput: {
     flex: 2,
@@ -88,88 +60,57 @@ const styles = StyleSheet.create({
   removeButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#dc3545',
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: Colors.white,
+    fontSize: FontSizes.lg,
     fontWeight: 'bold',
   },
   addButton: {
-    padding: 10,
-    backgroundColor: '#28a745',
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: 8,
+    ...GlobalStyles.button,
+    ...GlobalStyles.buttonSuccess,
+    marginTop: Spacing.sm,
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+  addButtonText: GlobalStyles.buttonText,
   searchButtonContainer: {
-    marginVertical: 16,
+    marginVertical: Spacing.lg,
   },
   loader: {
-    marginVertical: 20,
+    marginVertical: Spacing.xl,
   },
   resultsContainer: {
-    marginTop: 16,
+    marginTop: Spacing.lg,
   },
   resultsTitle: {
     fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 12,
-    color: '#333',
+    fontSize: FontSizes.md,
+    marginBottom: Spacing.md,
+    color: Colors.text,
   },
-  tableContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    padding: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: '#ddd',
-  },
-  tableHeaderText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-    color: '#333',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tableRowEven: {
-    backgroundColor: '#f9f9f9',
-  },
-  tableCell: {
-    fontSize: 11,
-    color: '#333',
-  },
+  tableContainer: GlobalStyles.tableContainer,
+  tableHeader: GlobalStyles.tableHeader,
+  tableHeaderText: GlobalStyles.tableHeaderText,
+  tableRow: GlobalStyles.tableRow,
+  tableRowEven: GlobalStyles.tableRowEven,
+  tableCell: GlobalStyles.tableCell,
   scoreColumn: {
     width: 60,
   },
   textColumn: {
     flex: 3,
-    paddingRight: 8,
+    paddingRight: Spacing.sm,
   },
   documentColumn: {
     flex: 2,
-    paddingRight: 8,
+    paddingRight: Spacing.sm,
   },
   sectionColumn: {
     flex: 1.5,
-    paddingRight: 8,
+    paddingRight: Spacing.sm,
   },
   pageColumn: {
     width: 50,
@@ -178,9 +119,7 @@ const styles = StyleSheet.create({
   urlColumn: {
     flex: 1.5,
   },
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: GlobalStyles.safeArea,
 });
 
 export default styles;

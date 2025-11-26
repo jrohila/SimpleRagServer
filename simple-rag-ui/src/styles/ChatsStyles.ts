@@ -1,38 +1,21 @@
 import { StyleSheet } from 'react-native';
+import { GlobalStyles, Colors, FontSizes, Spacing, BorderRadius } from './GlobalStyles';
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  dropdownContainer: {
-    marginBottom: 16,
-  },
-  dropdownLabel: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-    color: '#666',
-  },
+  container: GlobalStyles.container,
+  dropdownContainer: GlobalStyles.dropdownContainer,
+  dropdownLabel: GlobalStyles.label,
   pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    marginVertical: 8,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
+    ...GlobalStyles.pickerWrapper,
+    marginVertical: Spacing.sm,
   },
-  picker: {
-    width: '100%',
-    height: 40,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-  },
+  picker: GlobalStyles.picker,
   title: {
-    fontSize: 22,
+    fontSize: FontSizes.xxl,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
     textAlign: 'center',
+    color: Colors.text,
   },
   row: {
     flexDirection: 'row',
@@ -40,80 +23,55 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sidebar: {
+    ...GlobalStyles.sidebar,
     width: '20%',
-    minWidth: 120,
-    maxWidth: 260,
-    height: '100%',
-    marginRight: 16,
   },
   sidebarContent: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
-  chatItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: 'transparent',
-  },
-  chatItemSelected: {
-    backgroundColor: '#e0eaff',
-  },
-  chatItemText: {
-    fontSize: 16,
-  },
+  chatItem: GlobalStyles.sidebarItem,
+  chatItemSelected: GlobalStyles.sidebarItemSelected,
+  chatItemText: GlobalStyles.sidebarItemText,
   form: {
     flex: 1,
     width: '100%',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 8,
-    marginVertical: 8,
+    ...GlobalStyles.input,
+    marginVertical: Spacing.sm,
   },
-  label: {
-    alignSelf: 'flex-start',
-    fontWeight: 'bold',
-    marginBottom: 2,
-    marginTop: 6,
-  },
+  label: GlobalStyles.label,
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
-    gap: 8,
+    marginVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
   checkbox: {
-    marginLeft: 8,
+    marginLeft: Spacing.sm,
     width: 20,
     height: 20,
   },
   textarea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
+    ...GlobalStyles.input,
+    ...GlobalStyles.textarea,
   },
   accordionContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginVertical: 4,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    marginVertical: Spacing.xs,
     overflow: 'hidden',
   },
   accordionTitle: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   accordionContent: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
   },
-  spacer: {
-    height: 10,
-  },
-  safeArea: {
-    flex: 1,
-  },
+  spacer: GlobalStyles.spacer,
+  safeArea: GlobalStyles.safeArea,
 });
 
 export default styles;
