@@ -493,7 +493,7 @@ The UI is built automatically during Maven build (via frontend-maven-plugin) and
 
 ## License
 
-[Specify your license here]
+Apache-2.0 license
 
 ## Contributing
 
