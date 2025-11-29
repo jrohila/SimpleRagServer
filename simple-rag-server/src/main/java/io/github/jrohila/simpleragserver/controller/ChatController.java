@@ -1,5 +1,7 @@
-package io.github.jrohila.simpleragserver.chat;
+package io.github.jrohila.simpleragserver.controller;
 
+import io.github.jrohila.simpleragserver.service.ChatService;
+import io.github.jrohila.simpleragserver.dto.OpenAiChatRequestDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +35,7 @@ public class ChatController {
     // OpenAI-compatible chat completions endpoint
     @PostMapping(path = {"/{publicName}/v1/chat/completions", "/{publicName}/api/chat"})
     public ResponseEntity<?> createCompletion(@PathVariable String publicName,
-                                             @RequestBody OpenAiChatRequest request,
+                                             @RequestBody OpenAiChatRequestDTO request,
                                              @RequestParam(value = "useRag", required = false) Boolean useRag) {
         try {
             // Fetch ChatEntity by publicName
@@ -142,7 +144,7 @@ public class ChatController {
      * Apply LLMConfig values from ChatEntity to OpenAiChatRequest.
      * Server-side configuration ALWAYS overrides client values for security and consistency.
      */
-    private void applyLLMConfigToRequest(OpenAiChatRequest request, io.github.jrohila.simpleragserver.domain.LLMConfig llmConfig) {
+    private void applyLLMConfigToRequest(OpenAiChatRequestDTO request, io.github.jrohila.simpleragserver.domain.LLMConfig llmConfig) {
         if (llmConfig == null) {
             log.warn("No LLMConfig found, using request defaults");
             return;

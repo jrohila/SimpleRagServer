@@ -4,8 +4,9 @@
  */
 package io.github.jrohila.simpleragserver.chat.pipeline;
 
-import io.github.jrohila.simpleragserver.chat.OpenAiChatRequest;
+import io.github.jrohila.simpleragserver.dto.OpenAiChatRequestDTO;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -22,24 +23,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class MessageListPreProcessPipe {
 
-    public List<Message> transform(OpenAiChatRequest request) {
+    public List<Message> transform(OpenAiChatRequestDTO request) {
         List<Message> messages = new ArrayList<>();
         if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
+            for (MessageDTO m : request.getMessages()) {
                 if (m.getRole() == null) {
                     continue;
                 }
                 switch (m.getRole()) {
-                    case "system" -> {
-                        messages.add(new SystemMessage(m.getContentAsString()));
-                    }
-                    case "user" ->
-                        messages.add(new UserMessage(m.getContentAsString()));
-                    case "assistant" -> {
-                        messages.add(new AssistantMessage(m.getContentAsString()));
-                    }
-                    default ->
-                        messages.add(new UserMessage(m.getContentAsString()));
+                    case SYSTEM -> messages.add(new SystemMessage(m.getContentAsString()));
+                    case USER -> messages.add(new UserMessage(m.getContentAsString()));
+                    case ASSISTANT -> messages.add(new AssistantMessage(m.getContentAsString()));
+                    case TOOL -> messages.add(new UserMessage(m.getContentAsString()));
+                    default -> messages.add(new UserMessage(m.getContentAsString()));
                 }
             }
         }

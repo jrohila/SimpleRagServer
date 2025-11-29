@@ -1,6 +1,5 @@
 package io.github.jrohila.simpleragserver.service;
 
-import io.github.jrohila.simpleragserver.chat.ChatStreamConsumer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

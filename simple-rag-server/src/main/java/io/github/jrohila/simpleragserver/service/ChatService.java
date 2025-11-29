@@ -1,5 +1,8 @@
-package io.github.jrohila.simpleragserver.chat;
+package io.github.jrohila.simpleragserver.service;
 
+import io.github.jrohila.simpleragserver.dto.OpenAiChatRequestDTO;
+import io.github.jrohila.simpleragserver.dto.OpenAiChatResponseDTO;
+import io.github.jrohila.simpleragserver.dto.OpenAiChatStreamChunkDTO;
 import io.github.jrohila.simpleragserver.chat.util.TokenGenerator;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
 
@@ -33,6 +36,7 @@ import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe.Opera
 import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.chat.util.GraniteHelper;
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.service.ChatResponsePostProcessor;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.lang.reflect.InvocationTargetException;
@@ -73,12 +77,12 @@ public class ChatService {
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
-    private Pair<ChatProcessResult, List<Message>> handleMessage(OpenAiChatRequest request, ChatEntity chatEntity) {
+    private Pair<ChatProcessResult, List<Message>> handleMessage(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         ChatProcessResult result = ChatProcessResult.MESSAGES_HANDLED;
 
         String firstUserContent = null;
         if (request.getMessages() != null) {
-            for (OpenAiChatRequest.Message m : request.getMessages()) {
+            for (MessageDTO m : request.getMessages()) {
                 if ("user".equals(m.getRole())) {
                     firstUserContent = m.getContentAsString();
                     break;
@@ -126,21 +130,21 @@ public class ChatService {
         return Pair.of(result, springMessages);
     }
 
-    public OpenAiChatResponse chat(OpenAiChatRequest request, ChatEntity chatEntity) {
+    public OpenAiChatResponseDTO chat(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
         Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
         if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
             String outOfScopeMsg = chatEntity.getDefaultOutOfScopeMessage();
             log.info("[ChatService] Prompt out of scope. Returning default out-of-scope message: {}", outOfScopeMsg);
-            OpenAiChatResponse out = new OpenAiChatResponse();
+            OpenAiChatResponseDTO out = new OpenAiChatResponseDTO();
             out.setId("chatcmpl-" + java.util.UUID.randomUUID());
             out.setModel(request.getModel());
-            OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
+            OpenAiChatResponseDTO.Choice choice = new OpenAiChatResponseDTO.Choice();
             choice.setIndex(0);
             choice.setFinishReason("stop");
-            choice.setMessage(new OpenAiChatRequest.Message("assistant", outOfScopeMsg));
+            choice.setMessage(new MessageDTO("assistant", outOfScopeMsg));
             out.setChoices(java.util.List.of(choice));
-            OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
+            OpenAiChatResponseDTO.Usage usage = new OpenAiChatResponseDTO.Usage();
             usage.setPromptTokens(0);
             usage.setCompletionTokens(outOfScopeMsg != null ? outOfScopeMsg.length() : 0);
             usage.setTotalTokens(usage.getPromptTokens() + usage.getCompletionTokens());
@@ -192,18 +196,18 @@ public class ChatService {
                 log.debug("[ChatService] Token count (completion) failed: {}", e.getMessage());
             }
 
-            OpenAiChatResponse out = new OpenAiChatResponse();
+            OpenAiChatResponseDTO out = new OpenAiChatResponseDTO();
             out.setId("chatcmpl-" + UUID.randomUUID());
             out.setModel(request.getModel());
 
-            OpenAiChatResponse.Choice choice = new OpenAiChatResponse.Choice();
+            OpenAiChatResponseDTO.Choice choice = new OpenAiChatResponseDTO.Choice();
             choice.setIndex(0);
             choice.setFinishReason("stop");
-            choice.setMessage(new OpenAiChatRequest.Message("assistant", assistantContent));
+            choice.setMessage(new MessageDTO("assistant", assistantContent));
             out.setChoices(List.of(choice));
 
             // Usage counts using jtokkit
-            OpenAiChatResponse.Usage usage = new OpenAiChatResponse.Usage();
+            OpenAiChatResponseDTO.Usage usage = new OpenAiChatResponseDTO.Usage();
             int promptTokens = 0;
             try {
                 promptTokens = this.chatHelper.countTokensForMessages(springMessages);
@@ -220,7 +224,7 @@ public class ChatService {
     /**
      * Streaming version returning a Flux of OpenAI-compatible streaming chunks.
      */
-    public Flux<OpenAiChatStreamChunk> chatStream(OpenAiChatRequest request, ChatEntity chatEntity) {
+    public Flux<OpenAiChatStreamChunkDTO> chatStream(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
         Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
         if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
@@ -228,13 +232,13 @@ public class ChatService {
             log.info("[ChatService] Prompt out of scope (stream). Returning default out-of-scope message: {}", outOfScopeMsg);
             String id = "chatcmpl-" + java.util.UUID.randomUUID();
             String model = request.getModel();
-            OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
+            OpenAiChatStreamChunkDTO chunk = new OpenAiChatStreamChunkDTO();
             chunk.setId(id);
             chunk.setModel(model);
-            OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+            OpenAiChatStreamChunkDTO.ChoiceDelta choice = new OpenAiChatStreamChunkDTO.ChoiceDelta();
             choice.setIndex(0);
             choice.setFinishReason("stop");
-            OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+            OpenAiChatStreamChunkDTO.Delta delta = new OpenAiChatStreamChunkDTO.Delta();
             delta.setRole("assistant");
             delta.setContent(outOfScopeMsg);
             choice.setDelta(delta);
@@ -299,12 +303,12 @@ public class ChatService {
                             } catch (Exception ignore) {
                             }
                         }
-                        OpenAiChatStreamChunk chunk = new OpenAiChatStreamChunk();
+                        OpenAiChatStreamChunkDTO chunk = new OpenAiChatStreamChunkDTO();
                         chunk.setId(id);
                         chunk.setModel(model);
-                        OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+                        OpenAiChatStreamChunkDTO.ChoiceDelta choice = new OpenAiChatStreamChunkDTO.ChoiceDelta();
                         choice.setIndex(index.get());
-                        OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+                        OpenAiChatStreamChunkDTO.Delta delta = new OpenAiChatStreamChunkDTO.Delta();
                         if (first.getAndSet(false)) {
                             delta.setRole("assistant");
                         }
@@ -328,13 +332,13 @@ public class ChatService {
                             }
                         } catch (Exception ignore) {
                         }
-                        OpenAiChatStreamChunk done = new OpenAiChatStreamChunk();
+                        OpenAiChatStreamChunkDTO done = new OpenAiChatStreamChunkDTO();
                         done.setId(id);
                         done.setModel(model);
-                        OpenAiChatStreamChunk.ChoiceDelta choice = new OpenAiChatStreamChunk.ChoiceDelta();
+                        OpenAiChatStreamChunkDTO.ChoiceDelta choice = new OpenAiChatStreamChunkDTO.ChoiceDelta();
                         choice.setIndex(index.get());
                         choice.setFinishReason("stop");
-                        OpenAiChatStreamChunk.Delta delta = new OpenAiChatStreamChunk.Delta();
+                        OpenAiChatStreamChunkDTO.Delta delta = new OpenAiChatStreamChunkDTO.Delta();
                         delta.setContent("");
                         choice.setDelta(delta);
                         done.setChoices(List.of(choice));
@@ -344,13 +348,13 @@ public class ChatService {
     }
 
     /**
-     * Build OllamaOptions from OpenAiChatRequest parameters.
-     * Maps all available LLM parameters to Ollama-specific options.
-     * Supports both standard OpenAI parameters and extended Ollama parameters.
+     * Build OllamaOptions from OpenAiChatRequest parameters. Maps all available
+     * LLM parameters to Ollama-specific options. Supports both standard OpenAI
+     * parameters and extended Ollama parameters.
      */
-    private OllamaOptions buildOllamaOptions(OpenAiChatRequest request) {
+    private OllamaOptions buildOllamaOptions(OpenAiChatRequestDTO request) {
         OllamaOptions.Builder builder = OllamaOptions.builder();
-        
+
         // Core generation parameters
         if (request.getTemperature() != null) {
             builder.temperature(request.getTemperature());
@@ -361,17 +365,17 @@ public class ChatService {
         if (request.getTopK() != null) {
             builder.topK(request.getTopK());
         }
-        
+
         // Token limits
         if (request.getMaxTokens() != null) {
             builder.numPredict(request.getMaxTokens());
         }
-        
+
         // Penalty parameters (control repetition)
         if (request.getFrequencyPenalty() != null) {
             builder.frequencyPenalty(request.getFrequencyPenalty());
         }
-        
+
         // Additional Ollama-specific parameters that can be added:
         // - repeatPenalty: penalize repetitions (similar to frequencyPenalty but Ollama-native)
         // - presencePenalty: penalize tokens based on presence in context
@@ -391,15 +395,13 @@ public class ChatService {
         // - ropeFrequencyBase: RoPE frequency base
         // - ropeFrequencyScale: RoPE frequency scale
         // - numThread: number of threads to use
-        
         // Note: minTokens and doSample are not directly supported by OllamaOptions
         // minTokens could be handled by post-processing or custom prompting
         // doSample is implicitly controlled by temperature (0 = greedy, >0 = sampling)
-        
         log.debug("Built OllamaOptions: temp={}, topP={}, topK={}, maxTokens={}, freqPenalty={}",
-            request.getTemperature(), request.getTopP(), request.getTopK(), 
-            request.getMaxTokens(), request.getFrequencyPenalty());
-        
+                request.getTemperature(), request.getTopP(), request.getTopK(),
+                request.getMaxTokens(), request.getFrequencyPenalty());
+
         return builder.build();
     }
 }

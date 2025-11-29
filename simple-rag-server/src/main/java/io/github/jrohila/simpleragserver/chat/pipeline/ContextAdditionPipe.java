@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.chat.pipeline;
 
-import io.github.jrohila.simpleragserver.chat.ChatService;
+import io.github.jrohila.simpleragserver.service.ChatService;
 import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
 import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
