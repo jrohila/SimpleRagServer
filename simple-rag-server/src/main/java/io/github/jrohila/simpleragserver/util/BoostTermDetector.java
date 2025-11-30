@@ -2,8 +2,9 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.chat.util;
+package io.github.jrohila.simpleragserver.util;
 
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.service.NlpService;
 import io.github.jrohila.simpleragserver.service.NlpService.NlpEngine;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
@@ -14,8 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +28,7 @@ public class BoostTermDetector {
     @Autowired
     private NlpService nlpService;
 
-    public List<SearchTerm> buildSearchTerms(String query, List<Message> messages, Double queryTermWeight, Double userMessageWeight, Double assistantMessageWeight) {
+    public List<SearchTerm> buildSearchTerms(String query, List<MessageDTO> messages, Double queryTermWeight, Double userMessageWeight, Double assistantMessageWeight) {
         Set<String> terms = new HashSet<>();
         Map<String, SearchTerm> queryTermMap = new LinkedHashMap<>();
         Map<String, SearchTerm> userMessageTermMap = new LinkedHashMap<>();
@@ -49,9 +48,9 @@ public class BoostTermDetector {
         termsFromQueryThread.start();
 
         Thread termsFromUserMessagesThread = new Thread(() -> {
-            for (Message message : messages) {
-                if (MessageType.USER.equals(message.getMessageType())) {
-                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
+            for (MessageDTO message : messages) {
+                if (MessageDTO.Role.USER.equals(message.getRole())) {
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString(), NlpEngine.STANFORD_CORE_NLP);
                     for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);
@@ -65,9 +64,9 @@ public class BoostTermDetector {
         termsFromUserMessagesThread.start();
 
         Thread termsFromAssistantMessagesThread = new Thread(() -> {
-            for (Message message : messages) {
-                if (MessageType.ASSISTANT.equals(message.getMessageType())) {
-                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
+            for (MessageDTO message : messages) {
+                if (MessageDTO.Role.ASSISTANT.equals(message.getRole())) {
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString(), NlpEngine.STANFORD_CORE_NLP);
                     for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);
@@ -103,29 +102,6 @@ public class BoostTermDetector {
         }
 
         return queryTermMap.values().stream().toList();
-    }
-
-    public List<String> popularNouns(List<Message> messages) {
-        Map<String, Integer> terms = new HashMap<>();
-
-        for (Message message : messages) {
-            if (MessageType.USER.equals(message.getMessageType()) || MessageType.ASSISTANT.equals(message.getMessageType())) {
-                List<String> candidates = nlpService.extractCandidateTerms(message.getText(), NlpEngine.STANFORD_CORE_NLP);
-                if (candidates == null) {
-                    continue;
-                }
-                for (String candidate : candidates) {
-                    if (candidate == null || candidate.isBlank()) {
-                        continue;
-                    }
-                    terms.merge(candidate, 1, Integer::sum);
-                }
-            }
-        }
-        // Order terms by highest count first
-        List<String> ordered = new ArrayList<>(terms.keySet());
-        ordered.sort((a, b) -> Integer.compare(terms.getOrDefault(b, 0), terms.getOrDefault(a, 0)));
-        return ordered;
     }
 
 }

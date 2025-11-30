@@ -9,8 +9,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -23,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactsDTO;
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.util.LlmOutputCleaner;
 
 @Service
@@ -30,7 +29,7 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(ChatResponsePostProcessor.class);
 
-    public Map<String, Pair<List<Message>, List<Integer>>> contexts = new HashMap<>();
+    public Map<String, Pair<List<MessageDTO>, List<Integer>>> contexts = new HashMap<>();
 
     @Autowired(required = false)
     private ChatModel chatModel;
@@ -44,7 +43,7 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
     @Value("${processing.post.chat.fact.extractor.append:}")
     private String factExtractorTemplate;
 
-    public void addContext(String streamId, List<Message> messages, List<Integer> tokens) {
+    public void addContext(String streamId, List<MessageDTO> messages, List<Integer> tokens) {
         contexts.put(streamId, Pair.of(messages, tokens));
     }
 
@@ -59,14 +58,14 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
         if (fullResponse == null) {
             log.debug("[StreamCapture] {} complete (empty response)", streamId);
         } else {
-            Pair<List<Message>, List<Integer>> context = contexts.get(streamId);
+            Pair<List<MessageDTO>, List<Integer>> context = contexts.get(streamId);
             if (context != null) {
-                List<Message> original = context.getLeft();
-                List<Message> reversed = new ArrayList<>(original);
+                List<MessageDTO> original = context.getLeft();
+                List<MessageDTO> reversed = new ArrayList<>(original);
                 Collections.reverse(reversed);
-                for (Message message : reversed) {
-                    if (MessageType.USER.equals(message.getMessageType())) {
-                        String userText = message.getText();
+                for (MessageDTO message : reversed) {
+                    if (MessageDTO.Role.USER.equals(message.getRole())) {
+                        String userText = message.getContentAsString();
                         log.info("[PostProcessor] Latest USER message: {}", userText);
 
                         // Build system prompt from template if available

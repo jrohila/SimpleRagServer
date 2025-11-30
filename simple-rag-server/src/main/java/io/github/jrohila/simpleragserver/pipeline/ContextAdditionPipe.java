@@ -2,14 +2,15 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.chat.pipeline;
+package io.github.jrohila.simpleragserver.pipeline;
 
 import io.github.jrohila.simpleragserver.service.ChatService;
-import io.github.jrohila.simpleragserver.chat.util.BoostTermDetector;
-import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
+import io.github.jrohila.simpleragserver.util.BoostTermDetector;
+import io.github.jrohila.simpleragserver.util.ChatHelper;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.UserFactsService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
@@ -20,9 +21,6 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -67,7 +65,7 @@ public class ContextAdditionPipe {
     @Autowired
     private ChunkSearchService chunkSearchService;
 
-    public List<Message> appendMemory(List<Message> springMessages, List<Integer> fingerprints, ChatEntity chatEntity) {
+    public List<MessageDTO> appendMemory(List<MessageDTO> springMessages, List<Integer> fingerprints, ChatEntity chatEntity) {
         List<ExtractedFactDTO> facts = userFactsService.getFacts(fingerprints);
         if ((facts != null) && (!facts.isEmpty())) {
             try {
@@ -75,9 +73,9 @@ public class ContextAdditionPipe {
                 if (!memory.isBlank()) {
                     String prefix = (chatEntity.getDefaultMemoryPrompt() != null ? chatEntity.getDefaultMemoryPrompt().trim() : "");
                     if (!prefix.isEmpty()) {
-                        springMessages.add(0, new SystemMessage(prefix + "\n" + memory));
+                        springMessages.add(0, new MessageDTO(MessageDTO.Role.SYSTEM,(prefix + "\n" + memory)));
                     } else {
-                        springMessages.add(0, new SystemMessage(memory));
+                        springMessages.add(0, new MessageDTO(MessageDTO.Role.SYSTEM, memory));
                     }
                 }
             } catch (Exception e) {
@@ -87,20 +85,20 @@ public class ContextAdditionPipe {
         return springMessages;
     }
 
-    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity) {
+    public Pair<OperationResult, List<MessageDTO>> process(List<MessageDTO> springMessages, ChatEntity chatEntity) {
         return this.process(springMessages, chatEntity, maxContextTokens, reserveCompletionTokens, reserveHeadroomTokens, ModifyChatHistory.KEEP);
     }
     
-    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLength, int completionLength, int headroomLength) {
+    public Pair<OperationResult, List<MessageDTO>> process(List<MessageDTO> springMessages, ChatEntity chatEntity, int maxContextLength, int completionLength, int headroomLength) {
         return this.process(springMessages, chatEntity, maxContextLength, completionLength, headroomLength, ModifyChatHistory.KEEP);
     }
 
-    public Pair<OperationResult, List<Message>> process(List<Message> springMessages, ChatEntity chatEntity, int maxContextLenght, int completionLength, int headroomLength, ModifyChatHistory modifyChatHistory) {
+    public Pair<OperationResult, List<MessageDTO>> process(List<MessageDTO> springMessages, ChatEntity chatEntity, int maxContextLenght, int completionLength, int headroomLength, ModifyChatHistory modifyChatHistory) {
         String userPrompt = null;
         if (springMessages != null) {
-            for (Message m : springMessages) {
-                if (MessageType.USER.equals(m.getMessageType())) {
-                    userPrompt = m.getText();
+            for (MessageDTO m : springMessages) {
+                if (MessageDTO.Role.USER.equals(m.getRole())) {
+                    userPrompt = m.getContentAsString();
                 }
             }
         }
@@ -141,14 +139,14 @@ public class ContextAdditionPipe {
                     // Keep only the most recent SYSTEM message (defines the Assistant) and USER message
                     // All other messages will be dropped to maximize space for RAG context
                     // The new SYSTEM message with RAG context will be added later at position 0
-                    Message lastSystemMessage = null;
-                    Message lastUserMessage = null;
+                    MessageDTO lastSystemMessage = null;
+                    MessageDTO lastUserMessage = null;
                     
                     for (int i = springMessages.size() - 1; i >= 0; i--) {
-                        Message msg = springMessages.get(i);
-                        if (MessageType.USER.equals(msg.getMessageType()) && lastUserMessage == null) {
+                        MessageDTO msg = springMessages.get(i);
+                        if (MessageDTO.Role.USER.equals(msg.getRole()) && lastUserMessage == null) {
                             lastUserMessage = msg;
-                        } else if (MessageType.SYSTEM.equals(msg.getMessageType()) && lastSystemMessage == null) {
+                        } else if (MessageDTO.Role.SYSTEM.equals(msg.getRole()) && lastSystemMessage == null) {
                             lastSystemMessage = msg;
                         }
                         
@@ -159,7 +157,7 @@ public class ContextAdditionPipe {
                     }
                     
                     // Create new list with the latest SYSTEM and USER messages
-                    List<Message> filteredMessages = new ArrayList<>();
+                    List<MessageDTO> filteredMessages = new ArrayList<>();
                     if (lastSystemMessage != null) {
                         filteredMessages.add(lastSystemMessage);
                     }
@@ -255,9 +253,9 @@ public class ContextAdditionPipe {
         // Add context as a system message if found
         if (!context.isBlank()) {
             if (!prefix.isEmpty()) {
-                springMessages.add(0, new SystemMessage(prefix + "\n" + context));
+                springMessages.add(0, new MessageDTO(MessageDTO.Role.SYSTEM, prefix + "\n" + context));
             } else {
-                springMessages.add(0, new SystemMessage(context));
+                springMessages.add(0, new MessageDTO(MessageDTO.Role.SYSTEM, context));
             }
         } else if (context.isBlank()) {
             log.info("[ChatService] No context found for prompt: '{}'. RAG enabled but no relevant chunks found.", userPrompt);

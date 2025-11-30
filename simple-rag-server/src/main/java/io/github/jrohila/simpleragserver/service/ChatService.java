@@ -3,7 +3,7 @@ package io.github.jrohila.simpleragserver.service;
 import io.github.jrohila.simpleragserver.dto.OpenAiChatRequestDTO;
 import io.github.jrohila.simpleragserver.dto.OpenAiChatResponseDTO;
 import io.github.jrohila.simpleragserver.dto.OpenAiChatStreamChunkDTO;
-import io.github.jrohila.simpleragserver.chat.util.TokenGenerator;
+import io.github.jrohila.simpleragserver.util.TokenGenerator;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
 
 import org.slf4j.Logger;
@@ -31,13 +31,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional; // added
 // Add detector import
 import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
-import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
-import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe.OperationResult;
-import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
-import io.github.jrohila.simpleragserver.chat.util.ChatHelper;
-import io.github.jrohila.simpleragserver.chat.util.GraniteHelper;
+import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe;
+import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe.OperationResult;
+import io.github.jrohila.simpleragserver.pipeline.MessageListPreProcessPipe;
+import io.github.jrohila.simpleragserver.util.ChatHelper;
+import io.github.jrohila.simpleragserver.util.GraniteHelper;
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
-import io.github.jrohila.simpleragserver.service.ChatResponsePostProcessor;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import java.lang.reflect.InvocationTargetException;
 import org.apache.commons.lang3.tuple.Pair;
@@ -77,13 +76,13 @@ public class ChatService {
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
-    private Pair<ChatProcessResult, List<Message>> handleMessage(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
+    private Pair<ChatProcessResult, List<MessageDTO>> handleMessage(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         ChatProcessResult result = ChatProcessResult.MESSAGES_HANDLED;
 
         String firstUserContent = null;
         if (request.getMessages() != null) {
             for (MessageDTO m : request.getMessages()) {
-                if ("user".equals(m.getRole())) {
+                if (MessageDTO.Role.USER.equals(m.getRole())) {
                     firstUserContent = m.getContentAsString();
                     break;
                 }
@@ -93,13 +92,13 @@ public class ChatService {
                 && titleRequestDetector != null
                 && titleRequestDetector.isTitleRequest(firstUserContent);
 
-        List<Message> springMessages = new ArrayList<>();
+        List<MessageDTO> springMessages = new ArrayList<>();
         if (isTitleRequest) {
             if (log.isDebugEnabled()) {
                 log.debug("[ChatService] Title request detected (stream); sending only first user message to LLM (no systemAppend, no RAG).");
             }
-            List<Message> only = new ArrayList<>();
-            only.add(new UserMessage(firstUserContent));
+            List<MessageDTO> only = new ArrayList<>();
+            only.add(new MessageDTO(MessageDTO.Role.USER, firstUserContent));
             springMessages = only;
             if (log.isDebugEnabled()) {
                 log.debug("[ChatService] Streaming: sending to LLM ({} messages):", only.size());
@@ -109,12 +108,11 @@ public class ChatService {
             log.info("[ChatService] chatStream invoked: msgs={} model={} ", (request.getMessages() == null ? 0 : request.getMessages().size()), request.getModel());
             List<Integer> rollingTokens = TokenGenerator.createTokens(springMessages);
 
-            springMessages = this.messageListPreProcessPipe.transform(request);
-            Pair<OperationResult, List<Message>> contextResult = this.contextAdditionPipe.process(springMessages, chatEntity);
+            Pair<OperationResult, List<MessageDTO>> contextResult = this.contextAdditionPipe.process(request.getMessages(), chatEntity);
             if (OperationResult.CONTEXT_ADDED.equals(contextResult.getKey())) {
-                springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
+                springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
             } else {
-                springMessages = this.contextAdditionPipe.appendMemory(springMessages, rollingTokens, chatEntity);
+                springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
                 result = ChatProcessResult.PROMPT_OUT_OF_SCOPE;
             }
 
@@ -122,8 +120,8 @@ public class ChatService {
             if (log.isDebugEnabled()) {
                 log.debug("[ChatService] Streaming: sending to LLM ({} messages):", springMessages.size());
                 int i = 0;
-                for (Message msg : springMessages) {
-                    log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), this.chatHelper.extractMessageText(msg));
+                for (MessageDTO msg : springMessages) {
+                    log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), msg.getContentAsString());
                 }
             }
         }
@@ -132,7 +130,7 @@ public class ChatService {
 
     public OpenAiChatResponseDTO chat(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
+        Pair<ChatProcessResult, List<MessageDTO>> processResult = this.handleMessage(request, chatEntity);
         if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
             String outOfScopeMsg = chatEntity.getDefaultOutOfScopeMessage();
             log.info("[ChatService] Prompt out of scope. Returning default out-of-scope message: {}", outOfScopeMsg);
@@ -151,9 +149,9 @@ public class ChatService {
             out.setUsage(usage);
             return out;
         } else {
-            List<Message> springMessages = processResult.getValue();
+            List<MessageDTO> springMessages = processResult.getValue();
 
-            Prompt prompt = GraniteHelper.toGranitePrompt(springMessages, buildOllamaOptions(request));
+            String prompt = GraniteHelper.toGranitePrompt(springMessages);
             // Log prompt token length using jtokkit
             try {
                 int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
@@ -162,7 +160,7 @@ public class ChatService {
                 log.debug("[ChatService] Token count (prompt) failed: {}", e.getMessage());
             }
 
-            ChatResponse resp = chatModel.call(prompt);
+            ChatResponse resp = chatModel.call(new Prompt(prompt));
 
             String assistantContent = "";
             if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
@@ -226,7 +224,7 @@ public class ChatService {
      */
     public Flux<OpenAiChatStreamChunkDTO> chatStream(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
         // Detect title request from the first user message, and short-circuit
-        Pair<ChatProcessResult, List<Message>> processResult = this.handleMessage(request, chatEntity);
+        Pair<ChatProcessResult, List<MessageDTO>> processResult = this.handleMessage(request, chatEntity);
         if (ChatProcessResult.PROMPT_OUT_OF_SCOPE.equals(processResult.getKey())) {
             String outOfScopeMsg = chatEntity.getDefaultOutOfScopeMessage();
             log.info("[ChatService] Prompt out of scope (stream). Returning default out-of-scope message: {}", outOfScopeMsg);
@@ -245,7 +243,7 @@ public class ChatService {
             chunk.setChoices(java.util.List.of(choice));
             return Flux.just(chunk);
         } else {
-            List<Message> springMessages = processResult.getValue();
+            List<MessageDTO> springMessages = processResult.getValue();
 
             // Compute and log rolling tokens (based on newest-first last up to 5 USER messages only)
             List<Integer> rollingTokens = new ArrayList<>();
@@ -272,7 +270,8 @@ public class ChatService {
             StringBuilder cumulative = new StringBuilder();
             AtomicInteger index = new AtomicInteger(0);
 
-            Prompt granitePrompt = GraniteHelper.toGranitePrompt(springMessages, buildOllamaOptions(request));
+            Prompt granitePrompt = new Prompt(GraniteHelper.toGranitePrompt(springMessages));
+            
             return chatModel.stream(granitePrompt)
                     .flatMap(resp -> Flux.fromIterable(resp.getResults()))
                     .map(result -> {

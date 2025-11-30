@@ -1,24 +1,17 @@
 package io.github.jrohila.simpleragserver.controller;
 
-import io.github.jrohila.simpleragserver.chat.pipeline.ContextAdditionPipe;
-import io.github.jrohila.simpleragserver.chat.pipeline.MessageListPreProcessPipe;
-import io.github.jrohila.simpleragserver.controller.dto.MessageDto;
+import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe;
+import io.github.jrohila.simpleragserver.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.repository.ChatManagerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -35,7 +28,7 @@ public class WebGpuController {
      */
     public record ProcessMessagesRequest(
             String publicName,
-            List<MessageDto> messages,
+            List<MessageDTO> messages,
             int maxContextLength,
             int completionLength,
             int headroomLength
@@ -49,7 +42,7 @@ public class WebGpuController {
      * @return Optimized message list with RAG context added
      */
     @PostMapping("/process-messages")
-    public ResponseEntity<List<MessageDto>> processMessageListBeforeLLM(
+    public ResponseEntity<List<MessageDTO>> processMessageListBeforeLLM(
             @RequestBody ProcessMessagesRequest request
     ) {
         log.info("Processing messages for WebGPU LLM. PublicName: {}, Message count: {}",
@@ -74,26 +67,13 @@ public class WebGpuController {
                 chatEntity = chatEntityOpt.get();
             }
 
-            // Convert MessageDto to Spring AI Message format
-            List<Message> springMessages = request.messages().stream()
-                    .map(dto -> {
-                        String content = dto.getContent();
-                        return switch (dto.getRole().toLowerCase()) {
-                            case "system" -> new SystemMessage(content);
-                            case "user" -> new UserMessage(content);
-                            case "assistant" -> new AssistantMessage(content);
-                            default -> throw new IllegalArgumentException("Invalid role: " + dto.getRole());
-                        };
-                    })
-                    .collect(Collectors.toList());
-
             // Process messages through ContextAdditionPipe if chat entity exists
-            List<Message> processedMessages = this.messageListPreProcessPipe.process(springMessages, chatEntity);
+            List<MessageDTO> processedMessages = this.messageListPreProcessPipe.process(request.messages(), chatEntity);
                     
             if (chatEntity != null) {
                 try {
                     // Use ContextAdditionPipe to add RAG context with client-specified limits
-                    Pair<ContextAdditionPipe.OperationResult, List<Message>> result = 
+                    Pair<ContextAdditionPipe.OperationResult, List<MessageDTO>> result = 
                             contextAdditionPipe.process(processedMessages, chatEntity, 
                                     request.maxContextLength(), 
                                     request.completionLength(), 
@@ -110,17 +90,9 @@ public class WebGpuController {
             }
 
             // Convert back to DTOs
-            List<MessageDto> outputMessages = processedMessages.stream()
-                    .map(msg -> {
-                        String role = msg.getMessageType().getValue();
-                        String content = msg.getText();
-                        return new MessageDto(role, content);
-                    })
-                    .collect(Collectors.toList());
+            log.info("Message processing complete. Output messages: {}", processedMessages.size());
 
-            log.info("Message processing complete. Output messages: {}", outputMessages.size());
-
-            return ResponseEntity.ok(outputMessages);
+            return ResponseEntity.ok(processedMessages);
 
         } catch (Exception e) {
             log.error("Error processing messages for WebGPU LLM", e);

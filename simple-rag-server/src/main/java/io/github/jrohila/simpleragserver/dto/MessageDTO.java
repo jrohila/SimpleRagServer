@@ -24,6 +24,11 @@ public class MessageDTO {
     private JsonNode content; // Can be string or array
     private Map<String, Object> additionalProperties = new HashMap<>();
 
+    public MessageDTO(Role role, String content) {
+        this.role = role;
+        this.content = new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(content);
+    }
+
     // Keep a convenience constructor that accepts role as string for existing call sites
     public MessageDTO(String role, String content) {
         this.role = Role.fromValue(role);
