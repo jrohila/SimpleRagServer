@@ -10,14 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // removed unused jtokkit imports (token counting handled via ChatHelper)
 
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.output.Response;
+import io.github.jrohila.simpleragserver.client.LlmClient;
+import io.github.jrohila.simpleragserver.client.LlmClientFactory;
+import io.github.jrohila.simpleragserver.client.LlmRequestOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,12 +33,9 @@ import java.util.Optional; // added
 import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
 import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe;
 import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe.OperationResult;
-import io.github.jrohila.simpleragserver.pipeline.MessageListPreProcessPipe;
 import io.github.jrohila.simpleragserver.util.ChatHelper;
-import io.github.jrohila.simpleragserver.util.GraniteHelper;
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
-import java.lang.reflect.InvocationTargetException;
 import org.apache.commons.lang3.tuple.Pair;
 
 @Service
@@ -51,15 +48,12 @@ public class ChatService {
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     @Autowired
-    private MessageListPreProcessPipe messageListPreProcessPipe;
-
-    @Autowired
     private ContextAdditionPipe contextAdditionPipe;
 
     @Autowired
     private ChatHelper chatHelper;
 
-    private final ChatModel chatModel;
+    private final LlmClientFactory llmClientFactory;
     private final TitleRequestDetector titleRequestDetector; // added
 
     @Autowired
@@ -69,10 +63,10 @@ public class ChatService {
     private ChatResponsePostProcessor postProcessor;
 
     @Autowired
-    public ChatService(ChatModel chatModel, ChunkSearchService chunkSearchService,
+    public ChatService(LlmClientFactory llmClientFactory, ChunkSearchService chunkSearchService,
             // detector is optional to avoid failing if bean not present
             Optional<TitleRequestDetector> titleRequestDetector) {
-        this.chatModel = chatModel;
+        this.llmClientFactory = llmClientFactory;
         this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
@@ -151,7 +145,6 @@ public class ChatService {
         } else {
             List<MessageDTO> springMessages = processResult.getValue();
 
-            String prompt = GraniteHelper.toGranitePrompt(springMessages);
             // Log prompt token length using jtokkit
             try {
                 int promptTokens = this.chatHelper.countTokensForMessages(springMessages);
@@ -160,30 +153,17 @@ public class ChatService {
                 log.debug("[ChatService] Token count (prompt) failed: {}", e.getMessage());
             }
 
-            ChatResponse resp = chatModel.call(new Prompt(prompt));
+            // Convert MessageDTO to langchain4j ChatMessage
+            List<ChatMessage> chatMessages = convertToChatMessages(springMessages);
+            
+            // Build request options
+            LlmRequestOptions options = buildLlmRequestOptions(request);
+            
+            // Get LLM client and make the call
+            LlmClient client = llmClientFactory.getDefaultClient();
+            Response<String> resp = client.chat(chatMessages, options);
 
-            String assistantContent = "";
-            if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
-                var outMsg = resp.getResults().get(0).getOutput();
-                if (outMsg instanceof AssistantMessage am) {
-                    assistantContent = am.getText();
-                } else if (outMsg != null) {
-                    // fallback: attempt reflective text/content retrieval, else toString
-                    try {
-                        var mText = outMsg.getClass().getMethod("getText");
-                        Object v = mText.invoke(outMsg);
-                        assistantContent = v != null ? v.toString() : "";
-                    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e1) {
-                        try {
-                            var mContent = outMsg.getClass().getMethod("getContent");
-                            Object v2 = mContent.invoke(outMsg);
-                            assistantContent = v2 != null ? v2.toString() : "";
-                        } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e2) {
-                            assistantContent = outMsg.toString();
-                        }
-                    }
-                }
-            }
+            String assistantContent = resp != null && resp.content() != null ? resp.content() : "";
 
             // Log completion token length using jtokkit
             int completionTokensCount = 0;
@@ -270,38 +250,30 @@ public class ChatService {
             StringBuilder cumulative = new StringBuilder();
             AtomicInteger index = new AtomicInteger(0);
 
-            Prompt granitePrompt = new Prompt(GraniteHelper.toGranitePrompt(springMessages));
+            // Convert MessageDTO to langchain4j ChatMessage
+            List<ChatMessage> chatMessages = convertToChatMessages(springMessages);
             
-            return chatModel.stream(granitePrompt)
-                    .flatMap(resp -> Flux.fromIterable(resp.getResults()))
-                    .map(result -> {
-                        String assistantContent = "";
-                        var outMsg = result.getOutput();
-                        if (outMsg instanceof AssistantMessage am) {
-                            try {
-                                assistantContent = am.getText();
-                            } catch (Exception ignored) {
-                                assistantContent = am.toString();
+            // Build request options
+            LlmRequestOptions options = buildLlmRequestOptions(request);
+            
+            // Get LLM client
+            LlmClient client = llmClientFactory.getDefaultClient();
+            
+            return Flux.<OpenAiChatStreamChunkDTO>create(sink -> {
+                log.info("[ChatService] Creating Flux for streaming response");
+                client.streamChat(chatMessages, options, 
+                    // Token handler
+                    token -> {
+                        log.debug("[ChatService] Received token from LlmClient: '{}'", token);
+                        cumulative.append(token);
+                        // Optional capture of per-delta content
+                        try {
+                            if (streamConsumer != null) {
+                                streamConsumer.onDelta(id, token);
                             }
+                        } catch (Exception ignore) {
                         }
-                        // Determine delta vs previous cumulative
-                        String newDelta;
-                        if (assistantContent.startsWith(cumulative.toString())) {
-                            newDelta = assistantContent.substring(cumulative.length());
-                        } else {
-                            // fallback (model may already send only delta)
-                            newDelta = assistantContent;
-                        }
-                        if (!newDelta.isEmpty()) {
-                            cumulative.append(newDelta);
-                            // Optional capture of per-delta content
-                            try {
-                                if (streamConsumer != null) {
-                                    streamConsumer.onDelta(id, newDelta);
-                                }
-                            } catch (Exception ignore) {
-                            }
-                        }
+                        
                         OpenAiChatStreamChunkDTO chunk = new OpenAiChatStreamChunkDTO();
                         chunk.setId(id);
                         chunk.setModel(model);
@@ -311,11 +283,24 @@ public class ChatService {
                         if (first.getAndSet(false)) {
                             delta.setRole("assistant");
                         }
-                        delta.setContent(newDelta);
+                        delta.setContent(token);
                         choice.setDelta(delta);
                         chunk.setChoices(List.of(choice));
-                        return chunk;
-                    })
+                        log.debug("[ChatService] Emitting chunk to Flux sink");
+                        sink.next(chunk);
+                    },
+                    // Completion handler
+                    () -> {
+                        log.info("[ChatService] Stream completed, calling sink.complete()");
+                        sink.complete();
+                    },
+                    // Error handler
+                    error -> {
+                        log.error("[ChatService] Stream error, calling sink.error()", error);
+                        sink.error(error);
+                    }
+                );
+            })
                     .concatWith(Mono.fromSupplier(() -> {
                         // On stream completion, log completion tokens using accumulated content
                         try {
@@ -347,60 +332,36 @@ public class ChatService {
     }
 
     /**
-     * Build OllamaOptions from OpenAiChatRequest parameters. Maps all available
-     * LLM parameters to Ollama-specific options. Supports both standard OpenAI
-     * parameters and extended Ollama parameters.
+     * Build LlmRequestOptions from OpenAiChatRequest parameters.
+     * Note: model parameter from request is ignored - client uses its configured default model.
      */
-    private OllamaOptions buildOllamaOptions(OpenAiChatRequestDTO request) {
-        OllamaOptions.Builder builder = OllamaOptions.builder();
-
-        // Core generation parameters
-        if (request.getTemperature() != null) {
-            builder.temperature(request.getTemperature());
+    private LlmRequestOptions buildLlmRequestOptions(OpenAiChatRequestDTO request) {
+        return LlmRequestOptions.builder()
+                .temperature(request.getTemperature())
+                .maxTokens(request.getMaxTokens())
+                .topP(request.getTopP())
+                .topK(request.getTopK())
+                .frequencyPenalty(request.getFrequencyPenalty())
+                .build();
+    }
+    
+    /**
+     * Convert MessageDTO list to langchain4j ChatMessage list.
+     */
+    private List<ChatMessage> convertToChatMessages(List<MessageDTO> messageDTOs) {
+        List<ChatMessage> chatMessages = new ArrayList<>();
+        for (MessageDTO dto : messageDTOs) {
+            String content = dto.getContentAsString();
+            if (content == null) continue;
+            
+            ChatMessage message = switch (dto.getRole()) {
+                case SYSTEM -> new SystemMessage(content);
+                case USER -> new UserMessage(content);
+                case ASSISTANT -> new AiMessage(content);
+                case TOOL -> new UserMessage(content); // Map tool to user for now
+            };
+            chatMessages.add(message);
         }
-        if (request.getTopP() != null) {
-            builder.topP(request.getTopP());
-        }
-        if (request.getTopK() != null) {
-            builder.topK(request.getTopK());
-        }
-
-        // Token limits
-        if (request.getMaxTokens() != null) {
-            builder.numPredict(request.getMaxTokens());
-        }
-
-        // Penalty parameters (control repetition)
-        if (request.getFrequencyPenalty() != null) {
-            builder.frequencyPenalty(request.getFrequencyPenalty());
-        }
-
-        // Additional Ollama-specific parameters that can be added:
-        // - repeatPenalty: penalize repetitions (similar to frequencyPenalty but Ollama-native)
-        // - presencePenalty: penalize tokens based on presence in context
-        // - stop: stop sequences
-        // - seed: for reproducible generation
-        // - numCtx: context window size
-        // - numBatch: batch size for prompt evaluation
-        // - numGpu: number of layers to offload to GPU
-        // - mainGpu: primary GPU to use
-        // - lowVram: reduce VRAM usage
-        // - f16Kv: use fp16 for key/value cache
-        // - logitsAll: return logits for all tokens
-        // - vocabOnly: only load vocabulary
-        // - useMmap: use memory mapping
-        // - useMlock: lock model in memory
-        // - embeddingOnly: only return embeddings
-        // - ropeFrequencyBase: RoPE frequency base
-        // - ropeFrequencyScale: RoPE frequency scale
-        // - numThread: number of threads to use
-        // Note: minTokens and doSample are not directly supported by OllamaOptions
-        // minTokens could be handled by post-processing or custom prompting
-        // doSample is implicitly controlled by temperature (0 = greedy, >0 = sampling)
-        log.debug("Built OllamaOptions: temp={}, topP={}, topK={}, maxTokens={}, freqPenalty={}",
-                request.getTemperature(), request.getTopP(), request.getTopK(),
-                request.getMaxTokens(), request.getFrequencyPenalty());
-
-        return builder.build();
+        return chatMessages;
     }
 }
