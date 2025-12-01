@@ -25,7 +25,7 @@ public class ChatController {
     private final ChatService chatService;
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
-    @Value("${spring.ai.ollama.chat.options.model}")
+    @Value("${llm.ollama.model}")
     private String defaultModel;
 
     public ChatController(ChatService chatService) {

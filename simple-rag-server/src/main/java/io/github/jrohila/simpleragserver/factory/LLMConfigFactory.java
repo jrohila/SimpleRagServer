@@ -20,7 +20,7 @@ public class LLMConfigFactory {
 
         switch (useCase) {
             case RAG_QA -> {
-                cfg.setMaxNewTokens(384);
+                cfg.setMaxNewTokens(2048);
                 cfg.setTemperature(0.1);
                 cfg.setDoSample(false);
                 cfg.setTopK(20);
@@ -30,7 +30,7 @@ public class LLMConfigFactory {
             }
 
             case RAG_CONVERSATIONAL -> {
-                cfg.setMaxNewTokens(768);
+                cfg.setMaxNewTokens(2048);
                 cfg.setTemperature(0.5);
                 cfg.setDoSample(true);
                 cfg.setTopK(50);
