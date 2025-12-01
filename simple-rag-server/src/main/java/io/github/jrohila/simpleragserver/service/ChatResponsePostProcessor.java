@@ -8,11 +8,6 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +18,12 @@ import io.github.jrohila.simpleragserver.domain.ExtractedFactDTO;
 import io.github.jrohila.simpleragserver.domain.ExtractedFactsDTO;
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.util.LlmOutputCleaner;
+import io.github.jrohila.simpleragserver.client.LlmClientFactory;
+import io.github.jrohila.simpleragserver.client.LlmClient;
+import io.github.jrohila.simpleragserver.client.LlmRequestOptions;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.model.output.Response;
 
 @Service
 public class ChatResponsePostProcessor implements ChatStreamConsumer {
@@ -32,7 +33,7 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
     public Map<String, Pair<List<MessageDTO>, List<Integer>>> contexts = new HashMap<>();
 
     @Autowired(required = false)
-    private ChatModel chatModel;
+    private LlmClientFactory llmClientFactory;
 
     @Autowired(required = false)
     private ObjectMapper objectMapper;
@@ -69,27 +70,29 @@ public class ChatResponsePostProcessor implements ChatStreamConsumer {
                         log.info("[PostProcessor] Latest USER message: {}", userText);
 
                         // Build system prompt from template if available
-                        if (chatModel == null) {
-                            log.debug("[PostProcessor] ChatModel not available, skipping fact extraction");
-                            break;
-                        }
                         if (factExtractorTemplate == null || factExtractorTemplate.isBlank()) {
                             log.debug("[PostProcessor] fact extractor template is blank, property processing.post.chat.fact.extractor.append");
                             break;
                         }
                         String systemPrompt = factExtractorTemplate.replace("{{user_message}}", userText == null ? "" : userText);
 
+                        // Get default LLM client
+                        LlmClient client = null;
                         try {
-                            ChatResponse resp = chatModel.call(new Prompt(List.of(new SystemMessage(systemPrompt))));
-                            String assistantOut = "";
-                            if (resp != null && resp.getResults() != null && !resp.getResults().isEmpty()) {
-                                var outMsg = resp.getResults().get(0).getOutput();
-                                if (outMsg instanceof AssistantMessage am) {
-                                    assistantOut = am.getText();
-                                } else if (outMsg != null) {
-                                    assistantOut = outMsg.toString();
-                                }
-                            }
+                            client = llmClientFactory.getDefaultClient();
+                        } catch (Exception e) {
+                            log.debug("[PostProcessor] No LLM client available: {}", e.getMessage());
+                        }
+                        if (client == null) {
+                            log.debug("[PostProcessor] LlmClient not available, skipping fact extraction");
+                            break;
+                        }
+
+                        try {
+                            List<ChatMessage> msgs = List.of(new SystemMessage(systemPrompt));
+                            LlmRequestOptions opts = LlmRequestOptions.defaults();
+                            Response<String> resp = client.chat(msgs, opts);
+                            String assistantOut = resp != null && resp.content() != null ? resp.content() : "";
                             log.info("[PostProcessor] Fact extractor response: {}", assistantOut);
 
                             assistantOut = LlmOutputCleaner.getJson(assistantOut);

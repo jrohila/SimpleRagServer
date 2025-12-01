@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.repository;
 
-import io.github.jrohila.simpleragserver.client.EmbedClient;
+import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 // Removed ChunkRepository import
 import org.apache.commons.codec.digest.DigestUtils;
@@ -29,7 +29,7 @@ public class ChunkService {
     }
 
     @Autowired
-    private EmbedClient embedService;
+    private EmbeddingClientFactory embedService;
     
     public ChunkEntity create(String collectionId, ChunkEntity chunk) {
         String now = java.time.Instant.now().toString();
@@ -120,7 +120,7 @@ public class ChunkService {
         }
         chunk.setId(id);
         chunk.setHash(newHash);
-        chunk.setEmbedding(this.embedService.getEmbeddingAsList(chunk.getText()));
+        chunk.setEmbedding(this.embedService.getDefaultClient().embedAsList(chunk.getText()));
         if (chunk.getCreated() == null) {
             chunk.setCreated(now);
         }

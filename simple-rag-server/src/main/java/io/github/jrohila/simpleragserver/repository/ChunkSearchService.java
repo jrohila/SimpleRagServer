@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.repository;
 
-import io.github.jrohila.simpleragserver.client.EmbedClient;
+import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.service.SummarizerService;
 import java.util.ArrayList;
@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
-import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -24,11 +23,9 @@ import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 import org.opensearch.client.opensearch._types.FieldValue;
-import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch.core.search.Hit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 // Note: NativeSearchQueryBuilder isn't available in this project's dependencies; we'll use StringQuery.
 
 /**
@@ -44,7 +41,7 @@ public class ChunkSearchService {
     private static final Logger log = LoggerFactory.getLogger(ChunkSearchService.class);
 
     @Autowired
-    private EmbedClient embedClient;
+    private EmbeddingClientFactory embedClient;
 
     @Autowired
     private SummarizerService summarizerService;
@@ -62,7 +59,7 @@ public class ChunkSearchService {
     public List<SearchResult<ChunkEntity>> vectorSearch(String collectionId, String query, List<SearchTerm> terms, int size, String language) {
         try {
             // Build embedding for kNN
-            List<Float> embedding = embedClient.getEmbeddingAsList(query);
+            List<Float> embedding = embedClient.getDefaultClient().embedAsList(query);
             int k = Math.max(1, size);
 
             // Build filter queries from language and mandatory terms
@@ -150,7 +147,7 @@ public class ChunkSearchService {
     public Pair<List<SearchResult<ChunkEntity>>, List<Float>> hybridSearchWithEmbedding(String collectionId, String query, MatchType matchType, List<SearchTerm> terms, int size, boolean enableFuzziness, String language) {
         try {
             // Build embedding for kNN
-            List<Float> embedding = embedClient.getEmbeddingAsList(query);
+            List<Float> embedding = embedClient.getDefaultClient().embedAsList(query);
             int k = Math.max(1, size);
 
             // Build lexical clause as an OpenSearch Query using the selected matchType
