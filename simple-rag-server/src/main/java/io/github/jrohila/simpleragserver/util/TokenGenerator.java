@@ -2,17 +2,16 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package io.github.jrohila.simpleragserver.chat.util;
+package io.github.jrohila.simpleragserver.util;
 
+import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.ai.chat.messages.Message;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.zip.CRC32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.MessageType;
 
 /**
  *
@@ -32,10 +31,10 @@ public class TokenGenerator {
      * integer tokens (0..5 items) - Stable hashing: CRC32 (int) over UTF-8
      * concatenation with separator
      */
-    public static List<Integer> createTokens(List<Message> messages) {
-        List<Message> userMessages = new ArrayList<>();
-        for (Message message : messages) {
-            if (MessageType.USER.equals(message.getMessageType())) {
+    public static List<Integer> createTokens(List<MessageDTO> messages) {
+        List<MessageDTO> userMessages = new ArrayList<>();
+        for (MessageDTO message : messages) {
+            if (MessageDTO.Role.USER.equals(message.getRole())) {
                 userMessages.add(message);
             }
         }
@@ -60,11 +59,11 @@ public class TokenGenerator {
                 windowLen = size;
             }
             for (int i = start; i < windowLen; i++) {
-                Message m = userMessages.get(i);
+                MessageDTO m = userMessages.get(i);
                 if (m == null) {
                     continue;
                 }
-                String text = m.getText();
+                String text = m.getContentAsString();
                 if (text == null) {
                     text = "";
                 }
@@ -85,24 +84,6 @@ public class TokenGenerator {
         crc.update(bytes, 0, bytes.length);
         long value = crc.getValue();
         return (int) (value & 0xFFFFFFFFL);
-    }
-
-    private static String normalizeWs(String s) {
-        if (s == null) {
-            return "";
-        }
-        String t = s.replaceAll("\\s+", " ").trim();
-        return t;
-    }
-
-    private static String abbreviate(String s, int maxLen) {
-        if (s == null) {
-            return "";
-        }
-        if (s.length() <= maxLen) {
-            return s;
-        }
-        return s.substring(0, Math.max(0, maxLen)) + "…(" + s.length() + ")";
     }
 
 }

@@ -1,4 +1,4 @@
-package io.github.jrohila.simpleragserver.chat;
+package io.github.jrohila.simpleragserver.service;
 
 /**
  * Optional hook to capture streamed assistant output.

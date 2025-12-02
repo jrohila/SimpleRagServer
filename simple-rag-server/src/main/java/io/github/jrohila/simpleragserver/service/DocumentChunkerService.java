@@ -11,8 +11,8 @@ import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkingTaskEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.event.DocumentUploadEvent;
-import io.github.jrohila.simpleragserver.client.EmbedClient;
 import io.github.jrohila.simpleragserver.client.DoclingAsyncClient;
+import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.pipeline.ChunkQualityGate;
@@ -37,7 +37,7 @@ public class DocumentChunkerService {
     private static final Logger LOGGER = Logger.getLogger(DocumentChunkerService.class.getName());
 
     @Autowired
-    private EmbedClient embedService;
+    private EmbeddingClientFactory embedService;
 
     @Autowired
     private DoclingAsyncClient doclingAsyncClient;
@@ -238,7 +238,7 @@ public class DocumentChunkerService {
                 chunk.setPageNumber(chunk.getPageNumber());
                 chunk.setSectionTitle(chunk.getSectionTitle());
                 
-                chunk.setEmbedding(embedService.getEmbeddingAsList(embedInput));
+                chunk.setEmbedding(embedService.getDefaultClient().embedAsList(embedInput));
 
                 // Persist via service; on validation failure, skip and continue
                 try {

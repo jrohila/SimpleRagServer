@@ -318,12 +318,20 @@ opensearch.port=9200
 opensearch.scheme=http
 ```
 
-#### Ollama
+#### LLM Provider (langchain4j)
 ```properties
-# LLM and embedding endpoints
-spring.ai.ollama.base-url=http://localhost:11434
-spring.ai.ollama.embedding.model=nomic-embed-text
-spring.ai.ollama.chat.model=granite3.3:2b
+# Default provider
+llm.defaultProvider=ollama
+
+# Ollama configuration
+llm.ollama.baseUrl=http://localhost:11434
+llm.ollama.model=ibm/granite4:micro-h
+llm.ollama.timeout=300
+
+# Ollama embedding configuration
+llm.ollama.embedding.model=embeddinggemma:300m
+llm.ollama.embedding.dimension=768
+llm.ollama.embedding.timeout=60
 ```
 
 ### Environment Variables
@@ -455,11 +463,16 @@ The UI is built automatically during Maven build (via frontend-maven-plugin) and
 ### Backend
 - **Java 21** - Modern Java LTS
 - **Spring Boot 3.5.5** - Application framework
-- **Spring AI 1.0.1** - LLM integration
-- **OpenSearch 3.x** - Hybrid search (BM25 + kNN)
+- **langchain4j 1.9.1** - LLM integration framework
+- **langchain4j-ollama 1.9.1** - Ollama provider for chat and embeddings
+- **OpenSearch 3.2.0** - Hybrid search (BM25 + kNN)
 - **Apache Tika 3.2.2** - Document parsing
 - **Apache PDFBox 2.0.30** - PDF processing
 - **Apache OpenNLP 2.5.6** - NLP utilities
+- **Project Lombok** - Boilerplate reduction
+- **Jsoup 1.17.2** - HTML/XHTML parsing
+- **jtokkit 1.1.0** - Token counting
+- **SpringDoc OpenAPI 2.3.0** - API documentation
 
 ### Frontend
 - **React 19.1.0** - Modern React with concurrent features
