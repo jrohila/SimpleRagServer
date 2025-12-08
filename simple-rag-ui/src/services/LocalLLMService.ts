@@ -1,6 +1,7 @@
 import { LLMMessage, LLMServiceConfig, StreamCallback } from './RemoteLLMService';
 import { WebGpuMessageService } from './WebGpuMessageService';
 import { Platform } from 'react-native';
+import config from '../config/ui';
 
 // LLMConfig interface for local WebGPU generation
 // (Note: RemoteLLMService doesn't need this since backend overrides with server-side ChatEntity.llmConfig)
@@ -27,16 +28,13 @@ declare global {
   }
 }
 
-// Feature flag - enable now with Vite bundler
-const ENABLE_LOCAL_LLM = true;
-
 export class LocalLLMService {
   private generator: any = null;
   private isInitialized = false;
   private isInitializing = false;
   private initializationPromise: Promise<void> | null = null;
   private isGenerating = false;
-  private modelName = 'onnx-community/granite-4.0-micro-ONNX-web';
+  private modelName = config.LOCAL_LLM_MODEL_NAME;
   private downloadProgressCallback?: (progress: { loaded: number; total: number; percentage: number }) => void;
   private webGpuMessageService = new WebGpuMessageService();
 
@@ -64,7 +62,7 @@ export class LocalLLMService {
   }
 
   async initialize(): Promise<void> {
-    if (!ENABLE_LOCAL_LLM) {
+    if (!config.ENABLE_LOCAL_LLM) {
       throw new Error('Local LLM is currently disabled due to bundling configuration. This feature will be available in a future update.');
     }
 
@@ -100,7 +98,7 @@ export class LocalLLMService {
         
         // Configure transformers.js to use browser cache
         // @ts-ignore
-        env.useBrowserCache = true;
+        env.useBrowserCache = config.LOCAL_LLM_USE_BROWSER_CACHE;
         // @ts-ignore
         env.allowLocalModels = false;
         // @ts-ignore
@@ -111,8 +109,8 @@ export class LocalLLMService {
         const progressCallback = (progress: any) => {
           if (progress.status === 'progress' && progress.file) {
             const percentage = Math.round((progress.loaded / progress.total) * 100);
-            // Only update on significant changes (every 5%)
-            if (percentage - lastProgress >= 5) {
+            // Only update on significant changes
+            if (percentage - lastProgress >= config.DOWNLOAD_PROGRESS_THRESHOLD_PERCENT) {
               lastProgress = percentage;
               console.log(`Downloading ${progress.file}: ${percentage}%`);
               if (this.downloadProgressCallback) {
@@ -130,7 +128,7 @@ export class LocalLLMService {
           'text-generation',
           this.modelName,
           { 
-            device: 'webgpu',
+            device: config.LOCAL_LLM_DEVICE,
             progress_callback: progressCallback
           }
         );
@@ -248,11 +246,11 @@ export class LocalLLMService {
   }
 
   async sendMessage(
-    config: LocalLLMServiceConfig,
+    serviceConfig: LocalLLMServiceConfig,
     messages: LLMMessage[],
     callbacks: StreamCallback
   ): Promise<void> {
-    if (!ENABLE_LOCAL_LLM) {
+    if (!config.ENABLE_LOCAL_LLM) {
       callbacks.onError(new Error('Local LLM is currently disabled due to bundling configuration'));
       return;
     }
@@ -284,7 +282,7 @@ export class LocalLLMService {
       
       // Check if we need to rewrite the user's prompt
       let processedConversationMessages = conversationMessages;
-      if (config.useUserPromptRewriting && config.userPromptRewritingPrompt) {
+      if (serviceConfig.useUserPromptRewriting && serviceConfig.userPromptRewritingPrompt) {
         // Get the last user message and last assistant message
         const lastUserMessage = [...conversationMessages].reverse().find(m => m.role === 'user');
         const lastAssistantMessage = [...conversationMessages].reverse().find(m => m.role === 'assistant');
@@ -312,8 +310,8 @@ export class LocalLLMService {
             const rewrittenContent = await this.rewriteUserPrompt(
               lastUserMessage.content,
               lastAssistantMessage.content,
-              config.userPromptRewritingPrompt,
-              config.llmConfig
+              serviceConfig.userPromptRewritingPrompt,
+              serviceConfig.llmConfig
             );
             
             console.log('----------------------------------------');
@@ -344,24 +342,17 @@ export class LocalLLMService {
 
       // Process messages through backend if publicName is provided and RAG is enabled
       let processedMessages = limitedMessages;
-      if (config.useRag && config.publicName) {
+      if (serviceConfig.useRag && serviceConfig.publicName) {
         try {
           console.log('Fetching RAG context from backend...', { 
-            publicName: config.publicName, 
+            publicName: serviceConfig.publicName, 
             messageCount: limitedMessages.length 
           });
           
-          // WebGPU client capabilities for context sizing
-          const maxContextLength = 4096;  // Total context window
-          const completionLength = 1024;  // Reserved for model output
-          const headroomLength = 1024;    // Safety buffer
-          
+          // WebGPU client capabilities for context sizing come from config defaults
           const response = await this.webGpuMessageService.processMessagesForWebGPU(
-            config.publicName,
-            limitedMessages,
-            maxContextLength,
-            completionLength,
-            headroomLength
+            serviceConfig.publicName,
+            limitedMessages
           );
 
           console.log('Backend response:', { 
@@ -462,14 +453,14 @@ export class LocalLLMService {
       ];
 
       // Generate response with configurable parameters from llmConfig
-      const llmConfig = config.llmConfig;
+      const llmConfig = serviceConfig.llmConfig;
       await this.generator(graniteMessages, {
-        max_new_tokens: llmConfig?.maxNewTokens || 2048,
-        temperature: llmConfig?.temperature !== undefined ? llmConfig.temperature : (config.temperature || 0.7),
-        do_sample: llmConfig?.doSample !== undefined ? llmConfig.doSample : (config.temperature ? config.temperature > 0 : false),
-        top_k: llmConfig?.topK || 50,
-        top_p: llmConfig?.topP || 0.95,
-        repetition_penalty: llmConfig?.repetitionPenalty || 1.1,
+        max_new_tokens: llmConfig?.maxNewTokens || config.DEFAULT_GENERATION.maxNewTokens,
+        temperature: llmConfig?.temperature !== undefined ? llmConfig.temperature : (serviceConfig.temperature || config.DEFAULT_GENERATION.temperature),
+        do_sample: llmConfig?.doSample !== undefined ? llmConfig.doSample : (serviceConfig.temperature ? serviceConfig.temperature > 0 : false),
+        top_k: llmConfig?.topK || config.DEFAULT_GENERATION.topK,
+        top_p: llmConfig?.topP || config.DEFAULT_GENERATION.topP,
+        repetition_penalty: llmConfig?.repetitionPenalty || config.DEFAULT_GENERATION.repetitionPenalty,
         min_new_tokens: llmConfig?.minNewTokens || 1,
         streamer,
       });
@@ -485,7 +476,7 @@ export class LocalLLMService {
 
   async isAvailable(): Promise<boolean> {
     // Check feature flag first
-    if (!ENABLE_LOCAL_LLM) {
+    if (!config.ENABLE_LOCAL_LLM) {
       return false;
     }
     // Check if WebGPU is available

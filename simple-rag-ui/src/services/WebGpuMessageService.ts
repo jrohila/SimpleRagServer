@@ -1,4 +1,5 @@
 import { LLMMessage } from './RemoteLLMService';
+import config from '../config/ui';
 
 export interface ProcessMessagesRequest {
   publicName: string;
@@ -16,8 +17,6 @@ export type ProcessMessagesResponse = Array<{
   content: string;
 }>;
 
-const API_BASE_URL = 'http://localhost:8080/api/webgpu';
-
 export class WebGpuMessageService {
   /**
    * Process messages through backend to add RAG context before sending to WebGPU LLM
@@ -25,12 +24,12 @@ export class WebGpuMessageService {
   async processMessagesForWebGPU(
     publicName: string,
     messages: LLMMessage[],
-    maxContextLength: number = 4096,
-    completionLength: number = 1024,
-    headroomLength: number = 1024
+    maxContextLength: number = config.WEBGPU.maxContextLength,
+    completionLength: number = config.WEBGPU.completionLength,
+    headroomLength: number = config.WEBGPU.headroomLength
   ): Promise<ProcessMessagesResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/process-messages`, {
+      const response = await fetch(`${config.WEBGPU.apiBase}/process-messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
