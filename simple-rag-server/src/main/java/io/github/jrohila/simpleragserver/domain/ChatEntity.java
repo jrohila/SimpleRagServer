@@ -53,4 +53,6 @@ public class ChatEntity {
     
     private LLMConfig llmConfig;
 
+    private WebGpuConfig webGpuConfig;
+
 }
