@@ -236,6 +236,7 @@
   "webgpu": {
     "maxSizeMb": "Maksimikoko (MB)",
     "maxSizePlaceholder": "esim. 1000",
+    "onnxWebNote": "Huom: Vain ONNX web-yhteensopivat mallit toimivat WebGPU:n kanssa",
     "modelId": "Malli",
     "searchModelPlaceholder": "Hae ja valitse malli...",
     "overrideSystemPrompt": "Ohita järjestelmäkehote",

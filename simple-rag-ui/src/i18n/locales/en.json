@@ -237,6 +237,7 @@
   "webgpu": {
     "maxSizeMb": "Max Size (MB)",
     "maxSizePlaceholder": "e.g., 1000",
+    "onnxWebNote": "Note: Only ONNX web-compatible models work with WebGPU",
     "modelId": "Model",
     "searchModelPlaceholder": "Search and select model...",
     "overrideSystemPrompt": "Override System Prompt",

@@ -16,9 +16,29 @@ export interface LLMConfig {
   minNewTokens?: number;
 }
 
-// Extended config for LocalLLMService that includes llmConfig
+// WebGpuConfig interface for chat-specific WebGPU model configuration
+export interface WebGpuConfig {
+  modelId?: string;
+  maxSizeMb?: string;
+  overrideParentSystemPrompt?: boolean;
+  systemPrompt?: string;
+  overrideParentSystemPromptAppend?: boolean;
+  systemPromptAppend?: string;
+  overrideParentContextPrompt?: boolean;
+  contextPrompt?: string;
+  overrideParentMemoryPrompt?: boolean;
+  memoryPrompt?: string;
+  overrideParentExtractorPrompt?: boolean;
+  extractorPrompt?: string;
+  usePromptRewriting?: boolean;
+  overrideParentUserPromptRewriting?: boolean;
+  userPromptRewriting?: string;
+}
+
+// Extended config for LocalLLMService that includes llmConfig and webGpuConfig
 export interface LocalLLMServiceConfig extends LLMServiceConfig {
   llmConfig?: LLMConfig;
+  webGpuConfig?: WebGpuConfig;
 }
 
 // Extend Navigator interface to include gpu property for WebGPU
@@ -61,15 +81,29 @@ export class LocalLLMService {
     }
   }
 
-  async initialize(): Promise<void> {
+  async initialize(modelId?: string): Promise<void> {
     if (!config.ENABLE_LOCAL_LLM) {
       throw new Error('Local LLM is currently disabled due to bundling configuration. This feature will be available in a future update.');
     }
 
-    // If already initialized, resolve immediately
-    if (this.isInitialized) {
+    // Use provided model ID or default
+    const targetModel = modelId || this.modelName;
+    
+    // If already initialized with the same model, resolve immediately
+    if (this.isInitialized && this.modelName === targetModel) {
+      console.log(`Local LLM already initialized with model: ${this.modelName}`);
       return;
     }
+    
+    // If requesting a different model, need to reinitialize
+    if (this.isInitialized && this.modelName !== targetModel) {
+      console.log(`Switching model from ${this.modelName} to ${targetModel}`);
+      this.isInitialized = false;
+      this.generator = null;
+    }
+    
+    // Update the model name
+    this.modelName = targetModel;
 
     // If initialization is already running, return the promise so callers can await it
     if (this.isInitializing && this.initializationPromise) {
@@ -134,7 +168,12 @@ export class LocalLLMService {
         );
 
         this.isInitialized = true;
-        console.log('Local LLM initialized successfully - model cached for future use');
+        console.log('=== Local LLM Initialized Successfully ===');
+        console.log('Model ID:', this.modelName);
+        console.log('Device:', config.LOCAL_LLM_DEVICE);
+        console.log('Browser Cache Enabled:', config.LOCAL_LLM_USE_BROWSER_CACHE);
+        console.log('Model cached for future use');
+        console.log('=========================================');
       } catch (error) {
         console.error('Failed to initialize local LLM:', error);
         // Rethrow so callers can observe initialization failures
@@ -264,15 +303,26 @@ export class LocalLLMService {
     try {
       this.isGenerating = true;
       
-      if (!this.isInitialized) {
+      // Check if we need to use a specific model from webGpuConfig
+      const requestedModelId = serviceConfig.webGpuConfig?.modelId;
+      
+      if (requestedModelId) {
+        console.log('=== WebGPU Configuration Detected ===');
+        console.log('Requested Model ID:', requestedModelId);
+        console.log('====================================');
+      }
+      
+      if (!this.isInitialized || (requestedModelId && this.modelName !== requestedModelId)) {
         console.log('Local model not ready - waiting for initialization...');
         try {
-          await this.initialize();
+          await this.initialize(requestedModelId);
         } catch (initError) {
           console.error('Initialization failed while waiting in sendMessage():', initError);
           callbacks.onError(initError as Error);
           return;
         }
+      } else {
+        console.log('Using initialized model:', this.modelName);
       }
 
       // Limit to 10 most recent messages to avoid context overflow
@@ -280,9 +330,27 @@ export class LocalLLMService {
       const MAX_MESSAGES = 10;
       const conversationMessages = messages.filter(m => m.role !== 'system');
       
+      // Determine prompt rewriting settings - WebGPU config overrides parent settings
+      const webGpuConfig = serviceConfig.webGpuConfig;
+      let shouldUseRewriting = serviceConfig.useUserPromptRewriting || false;
+      let rewritingPrompt = serviceConfig.userPromptRewritingPrompt || '';
+      
+      // If WebGPU config is present, check for overrides
+      if (webGpuConfig) {
+        if (webGpuConfig.usePromptRewriting !== undefined) {
+          shouldUseRewriting = webGpuConfig.usePromptRewriting;
+          console.log('Using WebGPU usePromptRewriting override:', shouldUseRewriting);
+        }
+        
+        if (webGpuConfig.overrideParentUserPromptRewriting && webGpuConfig.userPromptRewriting) {
+          rewritingPrompt = webGpuConfig.userPromptRewriting;
+          console.log('Using WebGPU userPromptRewriting override');
+        }
+      }
+      
       // Check if we need to rewrite the user's prompt
       let processedConversationMessages = conversationMessages;
-      if (serviceConfig.useUserPromptRewriting && serviceConfig.userPromptRewritingPrompt) {
+      if (shouldUseRewriting && rewritingPrompt) {
         // Get the last user message and last assistant message
         const lastUserMessage = [...conversationMessages].reverse().find(m => m.role === 'user');
         const lastAssistantMessage = [...conversationMessages].reverse().find(m => m.role === 'assistant');
@@ -310,7 +378,7 @@ export class LocalLLMService {
             const rewrittenContent = await this.rewriteUserPrompt(
               lastUserMessage.content,
               lastAssistantMessage.content,
-              serviceConfig.userPromptRewritingPrompt,
+              rewritingPrompt,
               serviceConfig.llmConfig
             );
             
@@ -455,7 +523,7 @@ export class LocalLLMService {
       // Generate response with configurable parameters from llmConfig
       const llmConfig = serviceConfig.llmConfig;
       await this.generator(graniteMessages, {
-        max_new_tokens: llmConfig?.maxNewTokens || config.DEFAULT_GENERATION.maxNewTokens,
+        max_new_tokens: config.DEFAULT_GENERATION.maxNewTokens,
         temperature: llmConfig?.temperature !== undefined ? llmConfig.temperature : (serviceConfig.temperature || config.DEFAULT_GENERATION.temperature),
         do_sample: llmConfig?.doSample !== undefined ? llmConfig.doSample : (serviceConfig.temperature ? serviceConfig.temperature > 0 : false),
         top_k: llmConfig?.topK || config.DEFAULT_GENERATION.topK,

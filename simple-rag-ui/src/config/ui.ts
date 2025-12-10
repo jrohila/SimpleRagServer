@@ -9,7 +9,7 @@ export const LOCAL_LLM_DEVICE = env.VITE_LOCAL_LLM_DEVICE || 'webgpu';
 export const LOCAL_LLM_USE_BROWSER_CACHE = env.VITE_LOCAL_LLM_USE_BROWSER_CACHE !== 'false';
 
 export const DEFAULT_GENERATION = {
-  maxNewTokens: Number(env.VITE_DEFAULT_MAX_NEW_TOKENS || 2048),
+  maxNewTokens: Number(env.VITE_DEFAULT_MAX_NEW_TOKENS || 8192), // High limit for WebGPU - no API costs
   temperature: Number(env.VITE_DEFAULT_TEMPERATURE || 0.7),
   topK: Number(env.VITE_DEFAULT_TOP_K || 50),
   topP: Number(env.VITE_DEFAULT_TOP_P || 0.95),

@@ -359,7 +359,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
           <List.Accordion
             title={t('sections.webgpu', 'WebGPU Configuration')}
             left={(props: any) => (
-              <List.Icon {...props} icon={() => <MaterialCommunityIcons name="gpu" size={props.size} color={props.color} />} />
+              <List.Icon {...props} icon={() => <MaterialCommunityIcons name="hardware-chip" size={props.size} color={props.color} />} />
             )}
             right={(props: any) => (
               <MaterialCommunityIcons name={expandedAccordion === 'webgpu' ? 'chevron-up' : 'chevron-down'} size={props.size} color={props.color} />
@@ -371,6 +371,9 @@ export const ChatForm: React.FC<ChatFormProps> = ({
             <View style={styles.accordionContent}>
               {/* Max Size Filter */}
               <Text style={styles.label}>{t('webgpu.maxSizeMb', 'Max Size (MB)')}</Text>
+              <Text style={[styles.label, { fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 4 }]}>
+                {t('webgpu.onnxWebNote', 'Note: Only ONNX web-compatible models work with WebGPU')}
+              </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
                 value={hfSearchSize}

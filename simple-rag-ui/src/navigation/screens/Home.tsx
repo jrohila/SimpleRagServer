@@ -29,6 +29,23 @@ type Chat = {
     repetitionPenalty?: number;
     minNewTokens?: number;
   };
+  webGpuConfig?: {
+    modelId?: string;
+    maxSizeMb?: string;
+    overrideParentSystemPrompt?: boolean;
+    systemPrompt?: string;
+    overrideParentSystemPromptAppend?: boolean;
+    systemPromptAppend?: string;
+    overrideParentContextPrompt?: boolean;
+    contextPrompt?: string;
+    overrideParentMemoryPrompt?: boolean;
+    memoryPrompt?: string;
+    overrideParentExtractorPrompt?: boolean;
+    extractorPrompt?: string;
+    usePromptRewriting?: boolean;
+    overrideParentUserPromptRewriting?: boolean;
+    userPromptRewriting?: string;
+  };
 };
 
 export function Home() {
@@ -218,11 +235,12 @@ export function Home() {
         useRag: llmMode === 'local' ? !!selectedChatId : llmMode === 'remote', // Enable RAG for local mode if chat is selected
       };
       
-      // Add prompt rewriting configuration and llmConfig if available from full chat details
+      // Add prompt rewriting configuration, llmConfig, and webGpuConfig if available from full chat details
       if (selectedChatDetails) {
         config.useUserPromptRewriting = selectedChatDetails.useUserPromptRewriting;
         config.userPromptRewritingPrompt = selectedChatDetails.userPromptRewritingPrompt;
         config.llmConfig = selectedChatDetails.llmConfig;
+        config.webGpuConfig = selectedChatDetails.webGpuConfig;
       }
       
       await service.sendMessage(
@@ -373,12 +391,35 @@ export function Home() {
           setDownloadProgress(progress);
         });
 
-        // If already loaded, clear initializing flag; otherwise start init
+        // Get model ID from webGpuConfig if available
+        const modelId = selectedChatDetails?.webGpuConfig?.modelId;
+        if (modelId) {
+          console.log('Using WebGPU model from chat configuration:', modelId);
+        }
+
+        // If already loaded with correct model, clear initializing flag; otherwise start init with model ID
         if (localLLM.isModelLoaded && localLLM.isModelLoaded()) {
-          setIsInitializingLocalLLM(false);
+          // If we have a different model ID, reinitialize
+          if (modelId) {
+            setIsInitializingLocalLLM(true);
+            localLLM.initialize(modelId).catch(err => {
+              console.error('Failed to initialize with custom model:', err);
+              setIsInitializingLocalLLM(false);
+            });
+          } else {
+            setIsInitializingLocalLLM(false);
+          }
         } else {
           setIsInitializingLocalLLM(true);
-          localLLM.startInitialization();
+          // Pass modelId if available from webGpuConfig
+          if (modelId) {
+            localLLM.initialize(modelId).catch(err => {
+              console.error('Failed to initialize with custom model:', err);
+              setIsInitializingLocalLLM(false);
+            });
+          } else {
+            localLLM.startInitialization();
+          }
         }
       }
     } else {
