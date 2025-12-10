@@ -121,7 +121,7 @@ export const ChatForm: React.FC<ChatFormProps> = ({
     setHfLoading(true);
     try {
       const sizeMb = hfSearchSize ? parseFloat(hfSearchSize) : null;
-      const response = await searchHfModels(nameQuery, sizeMb, 50);
+      const response = await searchHfModels(nameQuery, sizeMb as any, 50);
       setHfModels(response.data || []);
     } catch (error) {
       console.error('Failed to search HF models:', error);

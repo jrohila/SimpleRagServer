@@ -145,6 +145,7 @@ public class HfModelService {
      */
     public List<HfModelEntity> search(String name, Double maxSizeMb, int limit) {
         try {
+            // TODO: multi term search does not work at all, need to fix
             log.info("Searching HF models name={} maxSizeMb={} limit={}", name, maxSizeMb, limit);
             String indexName = indicesManager.createIfNotExist(null, HfModelEntity.class);
 
@@ -155,7 +156,22 @@ public class HfModelService {
                 query = Query.of(q -> q
                         .bool(b -> {
                             if (name != null && !name.isBlank()) {
-                                b.must(List.of(Query.of(q2 -> q2.wildcard(w -> w.field("id").value("*" + name + "*")))));
+                                // Split search into multiple terms (space-separated) for multi-term search
+                                // Trim each term and filter out terms with length <= 1
+                                String[] terms = name.trim().split("\\s+");
+                                List<Query> termQueries = new ArrayList<>();
+                                for (String term : terms) {
+                                    String trimmedTerm = term.trim();
+                                    if (trimmedTerm.length() > 1) {
+                                        termQueries.add(Query.of(q2 -> q2.wildcard(w -> w
+                                                .field("id")
+                                                .value("*" + trimmedTerm + "*")
+                                                .caseInsensitive(true))));
+                                    }
+                                }
+                                if (!termQueries.isEmpty()) {
+                                    b.must(termQueries);
+                                }
                             }
                             if (maxSizeMb != null) {
                                 b.filter(List.of(Query.of(q2 -> q2.range(r -> r.field("totalWeightMB").lte(JsonData.of(maxSizeMb))))));
