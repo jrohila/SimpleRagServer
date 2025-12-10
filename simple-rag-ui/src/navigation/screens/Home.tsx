@@ -492,22 +492,20 @@ export function Home() {
           <>
             <Ionicons name="chatbubbles" size={24} color="#007aff" style={styles.chatIcon} />
 
-            {/* Chat Selector - Only show in remote mode */}
-            {llmMode === 'remote' && (
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={selectedChatId}
-                  onValueChange={(value) => setSelectedChatId(value)}
-                  style={styles.picker}
-                  dropdownIconColor="#666"
-                >
-                  <Picker.Item label={t('basic.selectChat')} value="" />
-                  {chats.map((chat) => (
-                    <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
-                  ))}
-                </Picker>
-              </View>
-            )}
+            {/* Chat Selector - Always show for both remote and local modes */}
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedChatId}
+                onValueChange={(value) => setSelectedChatId(value)}
+                style={styles.picker}
+                dropdownIconColor="#666"
+              >
+                <Picker.Item label={t('basic.selectChat')} value="" />
+                {chats.map((chat) => (
+                  <Picker.Item key={chat.id} label={chat.publicName} value={chat.id} />
+                ))}
+              </Picker>
+            </View>
 
             {/* Local AI indicator */}
             {llmMode === 'local' && (
