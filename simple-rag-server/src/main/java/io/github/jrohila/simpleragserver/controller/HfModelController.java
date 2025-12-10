@@ -88,4 +88,20 @@ public class HfModelController {
         }
     }
 
+    /**
+     * Search stored HF models by optional name (substring of model id) and optional max size in MB.
+     * Returns up to 25 results by default when no filters are provided.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<HfModelEntity>> search(@RequestParam(value = "name", required = false) String name,
+                                                     @RequestParam(value = "sizeMb", required = false) Double sizeMb,
+                                                     @RequestParam(value = "limit", defaultValue = "25") int limit) {
+        try {
+            List<HfModelEntity> results = hfModelService.search(name, sizeMb, limit);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
 }

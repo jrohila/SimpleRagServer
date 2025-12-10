@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.opensearch.client.json.JsonData;
+import org.opensearch.client.opensearch._types.query_dsl.Query;
 
 @Service
 public class HfModelService {
@@ -134,6 +136,50 @@ public class HfModelService {
         } catch (Exception e) {
             log.error("Failed to list HF models page={} size={}", page, size, e);
             throw new RuntimeException("Failed to list HF models", e);
+        }
+    }
+
+    /**
+     * Search stored HF models by optional name substring (searched against the model id)
+     * and optional maximum size in megabytes. Returns up to `limit` results.
+     */
+    public List<HfModelEntity> search(String name, Double maxSizeMb, int limit) {
+        try {
+            log.info("Searching HF models name={} maxSizeMb={} limit={}", name, maxSizeMb, limit);
+            String indexName = indicesManager.createIfNotExist(null, HfModelEntity.class);
+
+            Query query;
+            if ((name == null || name.isBlank()) && maxSizeMb == null) {
+                query = Query.of(q -> q.matchAll(m -> m));
+            } else {
+                query = Query.of(q -> q
+                        .bool(b -> {
+                            if (name != null && !name.isBlank()) {
+                                b.must(List.of(Query.of(q2 -> q2.wildcard(w -> w.field("id").value("*" + name + "*")))));
+                            }
+                            if (maxSizeMb != null) {
+                                b.filter(List.of(Query.of(q2 -> q2.range(r -> r.field("totalWeightMB").lte(JsonData.of(maxSizeMb))))));
+                            }
+                            return b;
+                        })
+                );
+            }
+
+            SearchResponse<HfModelEntity> resp = openSearchClient.search(SearchRequest.of(s -> s
+                    .index(indexName)
+                    .size(limit)
+                    .query(query)
+            ), HfModelEntity.class);
+
+            List<HfModelEntity> results = new ArrayList<>();
+            for (var hit : resp.hits().hits()) {
+                HfModelEntity e = hit.source();
+                results.add(e);
+            }
+            return results;
+        } catch (Exception e) {
+            log.error("Failed to search HF models name={} maxSizeMb={}", name, maxSizeMb, e);
+            throw new RuntimeException("Failed to search HF models", e);
         }
     }
 
