@@ -75,6 +75,7 @@ export function Chats() {
     overrideAssistantMessage: false,
     useUserPromptRewriting: false,
     userPromptRewritingPrompt: '',
+    webGpuConfig: null,
   });
   
   // Accordion state - Basic is expanded by default
@@ -127,6 +128,7 @@ export function Chats() {
             overrideAssistantMessage: !!data.overrideAssistantMessage,
             useUserPromptRewriting: !!data.useUserPromptRewriting,
             userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+            webGpuConfig: data.webGpuConfig || null,
           });
           setLoading(false);
         })
@@ -151,6 +153,7 @@ export function Chats() {
         overrideAssistantMessage: false,
         useUserPromptRewriting: false,
         userPromptRewritingPrompt: '',
+        webGpuConfig: null,
       });
     }
   }, [selectedChatId]);
@@ -158,7 +161,9 @@ export function Chats() {
   // Check if any field has changed
   const hasChanges = () => {
     if (!chatDetails) return false;
-    return (
+    
+    // Check basic fields
+    const basicFieldsChanged = (
       formData.publicName !== (chatDetails.publicName || '') ||
       formData.internalName !== (chatDetails.internalName || '') ||
       formData.internalDescription !== (chatDetails.internalDescription || '') ||
@@ -175,6 +180,37 @@ export function Chats() {
       formData.useUserPromptRewriting !== (chatDetails.useUserPromptRewriting || false) ||
       formData.userPromptRewritingPrompt !== (chatDetails.userPromptRewritingPrompt || '') ||
       formData.defaultCollectionId !== (chatDetails.defaultCollectionId || '')
+    );
+    
+    if (basicFieldsChanged) return true;
+    
+    // Check webGpuConfig changes
+    const formWebGpu = formData.webGpuConfig;
+    const detailsWebGpu = chatDetails.webGpuConfig;
+    
+    // If one is null and the other isn't, there's a change
+    if (!formWebGpu !== !detailsWebGpu) return true;
+    
+    // If both are null, no change
+    if (!formWebGpu && !detailsWebGpu) return false;
+    
+    // Compare webGpuConfig fields
+    return (
+      formWebGpu.modelId !== (detailsWebGpu?.modelId || '') ||
+      formWebGpu.maxSizeMb !== (detailsWebGpu?.maxSizeMb || '') ||
+      formWebGpu.overrideParentSystemPrompt !== (detailsWebGpu?.overrideParentSystemPrompt || false) ||
+      formWebGpu.systemPrompt !== (detailsWebGpu?.systemPrompt || '') ||
+      formWebGpu.overrideParentSystemPromptAppend !== (detailsWebGpu?.overrideParentSystemPromptAppend || false) ||
+      formWebGpu.systemPromptAppend !== (detailsWebGpu?.systemPromptAppend || '') ||
+      formWebGpu.overrideParentContextPrompt !== (detailsWebGpu?.overrideParentContextPrompt || false) ||
+      formWebGpu.contextPrompt !== (detailsWebGpu?.contextPrompt || '') ||
+      formWebGpu.overrideParentMemoryPrompt !== (detailsWebGpu?.overrideParentMemoryPrompt || false) ||
+      formWebGpu.memoryPrompt !== (detailsWebGpu?.memoryPrompt || '') ||
+      formWebGpu.overrideParentExtractorPrompt !== (detailsWebGpu?.overrideParentExtractorPrompt || false) ||
+      formWebGpu.extractorPrompt !== (detailsWebGpu?.extractorPrompt || '') ||
+      formWebGpu.usePromptRewriting !== (detailsWebGpu?.usePromptRewriting || false) ||
+      formWebGpu.overrideParentUserPromptRewriting !== (detailsWebGpu?.overrideParentUserPromptRewriting || false) ||
+      formWebGpu.userPromptRewriting !== (detailsWebGpu?.userPromptRewriting || '')
     );
   };
 
@@ -208,6 +244,7 @@ export function Chats() {
       useUserPromptRewriting: formData.useUserPromptRewriting,
       userPromptRewritingPrompt: formData.userPromptRewritingPrompt,
       defaultCollectionId: formData.defaultCollectionId,
+      webGpuConfig: formData.webGpuConfig,
     };
     updateChat(selectedChatId, updatedChat)
       .then(() => {
@@ -267,6 +304,7 @@ export function Chats() {
             overrideAssistantMessage: data.overrideAssistantMessage || false,
             useUserPromptRewriting: !!data.useUserPromptRewriting,
             userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+            webGpuConfig: data.webGpuConfig || null,
           });
         })
         .catch(() => {

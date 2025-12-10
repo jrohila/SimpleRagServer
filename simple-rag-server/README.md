@@ -66,6 +66,7 @@ simple-rag-server/
 │   │   ├── DocumentService.java
 │   │   ├── ChunkService.java
 │   │   ├── ChunkSearchService.java
+│   │   ├── HfModelService.java
 │   │   └── IndicesManager.java
 │   ├── domain/                  # Domain entities and DTOs
 │   │   ├── ChatEntity.java
@@ -133,6 +134,14 @@ The RAG pipeline processes chat requests through several stages:
 - **LLM configuration**: Per-chat model, temperature, and parameter overrides
 - **Prompt customization**: System, context, memory, and out-of-scope prompts
 - **Override control**: Server-side enforcement of LLM settings
+- **WebGPU configuration**: Per-chat WebGPU settings for local browser-based inference
+
+### WebGPU Support
+- **Client-side inference**: Frontend can run LLM models locally using WebGPU
+- **Model search**: HuggingFace model repository search with multi-term filtering
+- **Per-chat configuration**: Each chat can specify its own WebGPU model and settings
+- **Hybrid RAG**: Backend provides document retrieval while frontend handles inference
+- **Case-insensitive search**: Multi-term model search with automatic term filtering
 
 ---
 
@@ -234,6 +243,20 @@ Creates a new chat with associated collection and optional document uploads.
 **PUT** `/api/chats/{id}` - Update chat configuration  
 **DELETE** `/api/chats/{id}` - Delete chat
 
+**Chat Entity WebGPU Configuration:**
+Each chat entity can include a `webGpuConfig` object:
+```json
+{
+  "modelId": "onnx-community/Llama-3.2-1B-Instruct-onnx-web-gqa",
+  "maxSizeMb": 2000.0,
+  "systemPrompt": "Custom system prompt",
+  "overrideParentSystemPrompt": true,
+  "usePromptRewriting": true,
+  "userPromptRewritingPrompt": "Rewrite the user's query...",
+  "overrideParentUserPromptRewriting": true
+}
+```
+
 ---
 
 ### Collection Management
@@ -286,9 +309,39 @@ Creates a new chat with associated collection and optional document uploads.
 
 ### WebGPU Support (Frontend Integration)
 
-**POST** `/api/webgpu/search` - Search endpoint for WebGPU local LLM mode
+**GET** `/internal/hf/models/search` - Search HuggingFace ONNX models
 
-When the frontend uses local WebGPU inference, it still calls backend search APIs to retrieve RAG context. The backend returns document chunks which the frontend then injects into the local LLM prompt.
+Search for compatible WebGPU models from HuggingFace.
+
+**Query Parameters:**
+- `name` (optional) - Multi-term search string (space-separated, case-insensitive)
+- `sizeMb` (optional) - Maximum model size in megabytes
+- `limit` (optional, default: 25) - Maximum number of results
+
+**Example:**
+```bash
+curl "http://localhost:8080/internal/hf/models/search?name=llama%201b&sizeMb=2000&limit=10"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "onnx-community/Llama-3.2-1B-Instruct-onnx-web-gqa",
+    "totalWeightMB": 1250.5,
+    "downloads": 15000,
+    "likes": 120
+  }
+]
+```
+
+**Search Features:**
+- **Multi-term search**: Space-separated terms (e.g., "phi onnx") match all terms
+- **Case-insensitive**: Searches ignore case differences
+- **Term filtering**: Terms shorter than 2 characters are automatically excluded
+- **Size filtering**: Limit results by maximum model size
+
+When the frontend uses local WebGPU inference, it calls backend search APIs to retrieve RAG context. The backend returns document chunks which the frontend injects into the local LLM prompt running in the browser.
 
 ---
 

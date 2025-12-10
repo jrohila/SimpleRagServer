@@ -24,6 +24,36 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
   const isUser = message.user._id === 1;
   const isAssistant = message.user._id === 2;
 
+  // Convert common HTML tags to markdown equivalents
+  const convertHtmlToMarkdown = (text: string): string => {
+    return text
+      // Line breaks - use two spaces + newline for soft breaks (works in tables)
+      .replace(/<br\s*\/?>/gi, '  \n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p>/gi, '')
+      // Bold
+      .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<b>(.*?)<\/b>/gi, '**$1**')
+      // Italic
+      .replace(/<em>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<i>(.*?)<\/i>/gi, '*$1*')
+      // Code
+      .replace(/<code>(.*?)<\/code>/gi, '`$1`')
+      // Links
+      .replace(/<a\s+href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+      // Lists
+      .replace(/<li>(.*?)<\/li>/gi, '- $1\n')
+      .replace(/<ul>|<\/ul>/gi, '\n')
+      .replace(/<ol>|<\/ol>/gi, '\n')
+      // Headers
+      .replace(/<h1>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<h4>(.*?)<\/h4>/gi, '#### $1\n')
+      // Remove other HTML tags
+      .replace(/<[^>]+>/g, '');
+  };
+
   // Format timestamp
   const formatTimestamp = (date: Date): string => {
     const messageDate = new Date(date);
@@ -72,7 +102,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, showUsername 
           </View>
         ) : (
           <Markdown style={isAssistant ? markdownStyles.assistant : markdownStyles.user}>
-            {message.text || ''}
+            {convertHtmlToMarkdown(message.text || '')}
           </Markdown>
         )}
       </View>

@@ -40,6 +40,9 @@ const styles = StyleSheet.create({
     ...GlobalStyles.input,
     marginVertical: Spacing.sm,
   },
+  inputDisabled: GlobalStyles.inputDisabled,
+  textareaDisabled: GlobalStyles.textareaDisabled,
+  pickerWrapperDisabled: GlobalStyles.pickerWrapperDisabled,
   label: GlobalStyles.label,
   checkboxRow: {
     flexDirection: 'row',

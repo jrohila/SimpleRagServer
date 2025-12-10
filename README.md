@@ -12,8 +12,10 @@ SimpleRagServer is a self-hosted, OpenAI-compatible Retrieval-Augmented Generati
 - **Docling-powered document parsing**: Advanced document chunking and parsing with heading detection
 - **Local LLM support**: Full integration with Ollama for local/private LLM and embedding models
 - **WebGPU in-browser LLM**: Optional client-side inference using transformers.js with WebGPU acceleration for local, private inference without backend dependencies
+- **Per-chat WebGPU configuration**: Each chat can have its own WebGPU model settings, prompts, and size limits
+- **HuggingFace model search**: Multi-term case-insensitive search for ONNX web-compatible models with size filtering
 - **Streaming & non-streaming**: Real-time streaming chat and traditional request/response modes
-- **Modern web UI**: React Native web application (Vite-powered) with real-time chat, markdown rendering, search capabilities, and multi-language support (i18n)
+- **Modern web UI**: React Native web application (Vite-powered) with real-time chat, markdown rendering, HTML-to-markdown conversion, and multi-language support (English/Finnish)
 - **Dual inference modes**: Choose between remote backend LLM (Ollama) or local in-browser LLM (WebGPU) with RAG support in both modes
 
 ### Architecture Features
@@ -168,23 +170,29 @@ java -jar simple-rag-server/target/simple-rag-server-0.0.1-SNAPSHOT.jar
 ### Web UI
 
 The React Native web UI (built with Vite + react-native-web) provides:
-- **Chat Interface**: Real-time streaming chat with markdown rendering
+- **Chat Interface**: Real-time streaming chat with markdown rendering and HTML-to-markdown conversion
 - **Dual LLM Modes**: Toggle between remote backend LLM (Ollama) or local in-browser LLM (WebGPU with transformers.js)
 - **RAG in Both Modes**: Retrieval-Augmented Generation works with both remote and local inference
-- **Chat Management**: Admin/power-user features for managing chats, collections, and documents
+- **Chat Management**: Create, edit, and delete chats with per-chat configuration including WebGPU settings
+- **Model Search**: Search HuggingFace for ONNX web-compatible models with multi-term, case-insensitive search
+- **WebGPU Configuration**: Per-chat settings for model selection, size limits, and custom prompts
 - **Search Interface**: Hybrid, semantic, and keyword search capabilities
-- **Multi-language Support**: i18n with language switcher for internationalization
-- **Markdown Support**: Code syntax highlighting, tables, lists, and formatting
+- **Multi-language Support**: i18n with English and Finnish translations
+- **Markdown Support**: Full markdown rendering with code syntax highlighting, tables, lists, and HTML tag conversion
 - **Responsive Design**: Works on desktop and mobile browsers
+- **Chat Selector**: Switch between chats in both remote and local modes
 
 Access at: http://localhost:8080/
 
 **Local WebGPU Mode:**
-- Opt-in feature enabled from the UI
-- Uses transformers.js with WebGPU acceleration when available
-- Downloads model and WASM runtime on-demand (~tens of MB)
-- Enables fully local, private inference without backend dependencies
+- Opt-in feature enabled from the UI home screen
+- Uses transformers.js with WebGPU acceleration (requires Chrome 113+, Edge 113+)
+- Downloads model and WASM runtime on-demand (1-10GB+ depending on model)
+- Each chat can specify its own WebGPU model via HuggingFace model ID
+- Supports custom system prompts, prompt rewriting, and parameter overrides per chat
+- Enables fully local, private inference without backend dependencies or API costs
 - Ideal for offline use, low-latency responses, and privacy-sensitive scenarios
+- No token limits for local inference (configurable, default 8192 max tokens)
 
 ### Onboarding API (Create New Chat)
 
@@ -385,16 +393,25 @@ export OLLAMA_BASE_URL=http://my-ollama:11434
 
 ### Web UI Features
 - **Dual inference modes**: Choose between remote backend (Ollama) or local browser-based (WebGPU) LLM
+- **Per-chat WebGPU configuration**: Each chat maintains its own WebGPU settings:
+  - Model selection from HuggingFace with multi-term search
+  - Maximum model size limits (MB)
+  - Custom system prompts with override control
+  - Prompt rewriting configuration
+  - Independent settings without affecting other chats
+- **HuggingFace model search**: Multi-term, case-insensitive search with automatic term filtering (min 2 chars)
 - **RAG integration**: Both remote and local modes support Retrieval-Augmented Generation
-- **Real-time streaming**: Server-Sent Events (SSE) for live chat responses
-- **Markdown rendering**: Full markdown support with code syntax highlighting
-- **Chat management**: Switch between multiple chat sessions with admin capabilities
+- **Real-time streaming**: Server-Sent Events (SSE) for live chat responses (remote mode)
+- **Markdown rendering**: Full markdown support with code syntax highlighting and HTML-to-markdown conversion
+- **Chat management**: Create, edit, delete, and switch between multiple chat sessions
+- **Chat selector**: Always visible in both remote and local modes for easy switching
 - **Search interface**: Hybrid, semantic, and keyword search capabilities
-- **Multi-language support**: i18n with language switcher (English, and extensible)
+- **Multi-language support**: i18n with language switcher (English/Finnish)
 - **Responsive design**: Works on desktop and mobile browsers
 - **Loading states**: Skeleton animations and progress indicators
 - **Error handling**: User-friendly error messages and retry logic
 - **Modern build**: Vite-powered development and production builds with optimized bundles
+- **WebGPU browser support**: Chrome 113+, Edge 113+ for hardware acceleration
 
 ## Build & Development
 
@@ -475,17 +492,18 @@ The UI is built automatically during Maven build (via frontend-maven-plugin) and
 - **SpringDoc OpenAPI 2.3.0** - API documentation
 
 ### Frontend
-- **React 19.1.0** - Modern React with concurrent features
-- **React Native 0.81.4** - Cross-platform UI framework
-- **react-native-web 0.21.0** - React Native for web
-- **Vite 7.2.4** - Fast build tool with HMR
-- **TypeScript 5.9** - Type-safe JavaScript
-- **React Navigation 7.x** - Routing (drawer, stack, tabs)
-- **transformers.js 3.8.0** - In-browser ML with WebGPU support
-- **i18next 25.6.3** - Internationalization framework
-- **react-icons 4.10.1** - Icon library
-- **GiftedChat 2.8.1** - Chat UI components
-- **Markdown Display 7.0.2** - Markdown rendering
+- **React 18.x** - Modern React with concurrent features
+- **React Native 0.76+** - Cross-platform UI framework
+- **react-native-web** - React Native for web
+- **Vite 6.x** - Fast build tool with HMR
+- **TypeScript 5.x** - Type-safe JavaScript
+- **React Navigation 7.x** - Routing (stack, tab navigators)
+- **transformers.js 3.x** - In-browser ML with WebGPU support
+- **i18next 25.x** - Internationalization framework
+- **React Native Paper** - Material Design UI components
+- **react-native-markdown-display** - Markdown rendering
+- **Axios** - HTTP client for API communication
+- **Ionicons & MaterialCommunityIcons** - Icon libraries
 
 ### Infrastructure
 - **Docker Compose** - Service orchestration

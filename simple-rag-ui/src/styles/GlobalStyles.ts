@@ -201,9 +201,19 @@ export const GlobalStyles = StyleSheet.create({
     fontSize: FontSizes.base,
     color: Colors.text,
   },
+  inputDisabled: {
+    backgroundColor: Colors.gray100,
+    borderColor: Colors.gray400,
+    color: Colors.textDisabled,
+  },
   textarea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  textareaDisabled: {
+    backgroundColor: Colors.gray100,
+    borderColor: Colors.gray400,
+    color: Colors.textDisabled,
   },
   
   // Label styles (unified)
@@ -222,10 +232,17 @@ export const GlobalStyles = StyleSheet.create({
     backgroundColor: Colors.white,
     overflow: 'hidden',
   },
+  pickerWrapperDisabled: {
+    backgroundColor: Colors.gray100,
+    borderColor: Colors.gray400,
+  },
   picker: {
     height: 40,
     backgroundColor: 'transparent',
     borderRadius: BorderRadius.md,
+  },
+  pickerDisabled: {
+    color: Colors.textDisabled,
   },
   
   // Dropdown container

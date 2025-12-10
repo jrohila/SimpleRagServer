@@ -6,10 +6,10 @@
 package io.github.jrohila.simpleragserver.repository;
 
 import io.github.jrohila.simpleragserver.domain.ChatEntity;
+import io.github.jrohila.simpleragserver.domain.HfModelEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.domain.ChunkingTaskEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
-import io.github.jrohila.simpleragserver.startup.OpenSearchSetup;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -56,6 +56,8 @@ public class IndicesManager {
                 this.createChunksIndex(collectionId);
             } else if (ChatEntity.class.equals(type)) {
                 this.createChatIndex();
+            } else if (HfModelEntity.class.equals(type)) {
+                this.createHfModelsIndex();
             } else if (ChunkingTaskEntity.class.equals(type)) {
                 this.createChunkingTaskIndex();
             }
@@ -106,6 +108,23 @@ public class IndicesManager {
                         .properties("topP", pp -> pp.double_(d -> d))
                         .properties("repetitionPenalty", pp -> pp.double_(d -> d))
                         .properties("minNewTokens", pp -> pp.integer(i -> i))
+                ))
+                // Nested WebGpuConfig object
+                .properties("webGpuConfig", p -> p.object(o -> o
+                    .properties("modelId", pp -> pp.keyword(k -> k))
+                    .properties("systemPrompt", pp -> pp.text(t -> t))
+                    .properties("overrideParentSystemPrompt", pp -> pp.boolean_(b -> b))
+                    .properties("systemPromptAppend", pp -> pp.text(t -> t))
+                    .properties("overrideParentSystemPromptAppend", pp -> pp.boolean_(b -> b))
+                    .properties("contextPrompt", pp -> pp.text(t -> t))
+                    .properties("overrideParentContextPrompt", pp -> pp.boolean_(b -> b))
+                    .properties("memoryPrompt", pp -> pp.text(t -> t))
+                    .properties("overrideParentMemoryPrompt", pp -> pp.boolean_(b -> b))
+                    .properties("extractorPrompt", pp -> pp.text(t -> t))
+                    .properties("overrideParentExtractorPrompt", pp -> pp.boolean_(b -> b))
+                    .properties("usePromptRewriting", pp -> pp.boolean_(b -> b))
+                    .properties("userPromptRewritingPrompt", pp -> pp.text(t -> t))
+                    .properties("overrideParentUserPromptRewriting", pp -> pp.boolean_(b -> b))
                 ))
                 )
                 .build();
@@ -183,6 +202,48 @@ public class IndicesManager {
 
         LOGGER.log(Level.INFO, "OpenSearchSetup: created index {0}", indexName);
     }
+
+        private void createHfModelsIndex() throws Exception {
+        String indexName = this.getIndexName(null, HfModelEntity.class);
+
+        BooleanResponse exists = client.indices().exists(b -> b.index(indexName));
+        if (exists.value()) {
+            LOGGER.log(Level.FINEST, "OpenSearchSetup: index already exists: {0}", indexName);
+            return;
+        }
+
+        CreateIndexRequest req = new CreateIndexRequest.Builder()
+            .index(indexName)
+            .settings(s -> s.index(i -> i
+            .numberOfShards(1)
+            .numberOfReplicas(0)
+        ))
+            .mappings(m -> m
+            .properties("id", p -> p.keyword(k -> k))
+            .properties("author", p -> p.keyword(k -> k))
+            .properties("tags", p -> p.text(t -> t))
+            .properties("pipelineTags", p -> p.text(t -> t))
+            .properties("files", p -> p.nested(n -> n
+                .properties("filename", pp -> pp.keyword(k -> k))
+                .properties("url", pp -> pp.keyword(k -> k))
+            ))
+            .properties("totalWeightBytes", p -> p.long_(l -> l))
+            .properties("totalWeightMB", p -> p.double_(d -> d))
+            .properties("hasOnnx", p -> p.boolean_(b -> b))
+            .properties("downloads", p -> p.integer(i -> i))
+            .properties("likes", p -> p.integer(i -> i))
+            .properties("lastModified", p -> p.date(d -> d))
+            .properties("repoType", p -> p.keyword(k -> k))
+            .properties("gated", p -> p.boolean_(b -> b))
+            .properties("privateRepo", p -> p.boolean_(b -> b))
+            .properties("availableInferenceProviders", p -> p.text(t -> t))
+            )
+            .build();
+
+        client.indices().create(req);
+        this.existingIndices.add(indexName);
+        LOGGER.log(Level.INFO, "OpenSearchSetup: created hf models index {0}", indexName);
+        }
 
     private String getIndexName(String collectionId, Class<?> type) {
         String indexName;

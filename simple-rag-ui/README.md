@@ -1,8 +1,8 @@
 # simple-rag-ui
 
-Frontend for the SimpleRagServer project — a lightweight React web UI
-that works with the SimpleRagServer backend to provide RAG (Retrieval-Augmented
-Generation) features, local inference options, and document onboarding.
+Frontend for the SimpleRagServer project — a React Native Web application
+that provides RAG (Retrieval-Augmented Generation) features with support for
+both remote and local WebGPU-based LLM inference.
 
 This README focuses on how to develop, build and integrate the frontend
 in this mono-repo.
@@ -10,6 +10,7 @@ in this mono-repo.
 **Contents**
 - **Project**: brief overview
 - **Quick Start**: dev commands
+- **Features**: key capabilities including WebGPU support
 - **Production Build**: build & package steps
 - **Backend Integration**: how to repackage Spring Boot with new assets
 - **WASM & Performance Notes**: large asset handling and recommendations
@@ -53,32 +54,58 @@ Notes:
 ---
 
 **Features**
-- **Admin & Power User UI**: the interface exposes lightweight admin and
-  power-user capabilities such as managing chats, selecting active chat
-  conversations, viewing chat metadata, and performing administrative
-  actions (delete, export, or archive chats).
-- **Chat interaction**: users can select a chat, enter prompts, and receive
-  LLM-generated responses. The chat UI supports streaming responses and
-  markdown rendering where applicable.
-- **Remote LLM mode**: by default the UI connects to a remote, OpenAI-compatible
-  backend API (configurable via the server). In this mode the UI sends prompt
-  + context to the backend, which performs inference and returns responses.
-- **Local WebGPU LLM mode**: users can enable a local LLM mode where the UI
-  uses `transformers.js` with WebGPU (when available) to load and run an
-  LLM model in the browser. This mode downloads a model runtime and a
-  potentially large WASM/WebGPU asset — see the "WASM & Performance Notes"
-  section for guidance on offloading or lazy-loading these files.
-- **Retrieval-Augmented Generation (RAG)**: in both remote and local modes the
-  UI integrates RAG: documents and uploaded content expand the knowledge base
-  used to construct retrieval context for prompts. The client collects
-  retrieval results and sends them to the LLM (remote or local) as context
-  to improve answer relevance.
+
+**Core Capabilities**
+- **Chat Management**: Create, edit, and delete chat configurations with support
+  for multiple simultaneous conversations. Each chat maintains its own settings,
+  collections, and conversation history.
+- **Multi-Language Support**: Built-in internationalization with English and Finnish
+  translations (i18next). Language can be switched from the UI header.
+- **Markdown & HTML Rendering**: Chat messages support full markdown rendering with
+  automatic HTML-to-markdown conversion for proper display of formatted content.
+
+**LLM Integration**
+- **Remote LLM Mode**: Connect to remote OpenAI-compatible backends or custom
+  LLM providers. Supports streaming responses and configurable model parameters.
+- **Local WebGPU LLM Mode**: Run LLM models entirely in the browser using
+  `transformers.js` with WebGPU acceleration (when available). This mode:
+  - Loads ONNX-format models optimized for web (e.g., from HuggingFace)
+  - Downloads models on-demand with progress tracking
+  - Runs inference locally with no API costs or data privacy concerns
+  - Supports per-chat WebGPU configuration including model selection and size limits
+  - Allows custom prompt templates and system prompts per chat
+
+**WebGPU Configuration**
+Each chat can have its own WebGPU settings:
+- **Model Selection**: Search and select from HuggingFace ONNX web-compatible models
+  with multi-term case-insensitive search
+- **Size Limits**: Configure maximum model size (in MB) to control downloads
+- **Prompt Customization**: Override system prompts, context prompts, memory prompts,
+  and extractor prompts at the chat level
+- **Prompt Rewriting**: Enable automatic user prompt enhancement with custom templates
+- **Independent Settings**: Each chat maintains separate WebGPU config without
+  affecting other chats
+
+**Retrieval-Augmented Generation (RAG)**
+- **Document Collections**: Organize documents into collections for targeted retrieval
+- **Context Integration**: Both remote and local modes use retrieved document chunks
+  to augment LLM context and improve answer relevance
+- **Document Onboarding**: Upload and process documents through the backend for
+  indexing and retrieval
+
+**Additional Features**
+- **Chat Entity Settings**: Configure model parameters (temperature, max tokens, top-p)
+  per chat
+- **Streaming Responses**: Real-time token-by-token response display
+- **Mode Switching**: Toggle between remote and local LLM modes from the home screen
+- **Responsive UI**: Works on desktop and mobile browsers with React Native Web
 
 Notes:
-- Local (transformers.js) mode is opt-in and can be toggled from the UI; when
-  enabled the large runtime/model assets are fetched on demand.
-- Remote mode requires a compatible backend endpoint; the project supports
-  OpenAI-compatible APIs and custom backend implementations.
+- Local WebGPU mode requires a modern browser with WebGPU support (Chrome 113+,
+  Edge 113+) and downloads models on first use
+- Remote mode requires configured backend endpoints; see backend documentation
+  for setup
+- WebGPU models can be 1-10GB+; ensure adequate bandwidth and storage
 
 ---
 
@@ -184,77 +211,26 @@ Notes:
 
 ---
 
+**Technology Stack**
+- **React Native Web**: Write once, run on web with native-like components
+- **Vite**: Fast build tool with HMR for development
+- **TypeScript**: Type-safe development
+- **React Native Paper**: Material Design UI components
+- **Transformers.js**: WebGPU-accelerated LLM inference in browser
+- **i18next**: Internationalization framework
+- **Axios**: HTTP client for backend API communication
+- **React Navigation**: Navigation structure (stack + tab navigators)
+
+---
+
 **Contributing**
 - Fork, create a topic branch, and open a PR. Keep changes focused and
   run the frontend build locally before opening the PR.
+- Ensure translations are updated for both English and Finnish when adding new UI text
+- Test both remote and local WebGPU modes before submitting
 
 ---
 
 **License & Contact**
 - See the repository root `LICENSE` file for project licensing.
 - For questions or issues, open an issue in the repository or contact the maintainer.
-# Starter Template with React Navigation
-
-This is a minimal starter template for React Native apps using Expo and React Navigation.
-
-It includes the following:
-
-- Example [Native Stack](https://reactnavigation.org/docs/native-stack-navigator) with a nested [Bottom Tab](https://reactnavigation.org/docs/bottom-tab-navigator)
-- Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
-- TypeScript support and configured for React Navigation
-- Automatic [deep link](https://reactnavigation.org/docs/deep-linking) and [URL handling configuration](https://reactnavigation.org/docs/configuring-links)
-- Theme support [based on system appearance](https://reactnavigation.org/docs/themes/#using-the-operating-system-preferences)
-- Expo [Development Build](https://docs.expo.dev/develop/development-builds/introduction/) with [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)
-
-## Getting Started
-
-1. Create a new project using this template:
-
-   ```sh
-   npx create-expo-app@latest --template react-navigation/template
-   ```
-
-2. Edit the `app.json` file to configure the `name`, `slug`, `scheme` and bundle identifiers (`ios.bundleIdentifier` and `android.bundleIdentifier`) for your app.
-
-3. Edit the `src/App.tsx` file to start working on your app.
-
-## Running the app
-
-- Install the dependencies:
-
-  ```sh
-  npm install
-  ```
-
-- Start the development server:
-
-  ```sh
-  npm start
-  ```
-
-- Build and run iOS and Android development builds:
-
-  ```sh
-  npm run ios
-  # or
-  npm run android
-  ```
-
-- In the terminal running the development server, press `i` to open the iOS simulator, `a` to open the Android device or emulator, or `w` to open the web browser.
-
-## Notes
-
-This project uses a [development build](https://docs.expo.dev/develop/development-builds/introduction/) and cannot be run with [Expo Go](https://expo.dev/go). To run the app with Expo Go, edit the `package.json` file, remove the `expo-dev-client` package and `--dev-client` flag from the `start` script.
-
-We highly recommend using the development builds for normal development and testing.
-
-The `ios` and `android` folder are gitignored in the project by default as they are automatically generated during the build process ([Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)). This means that you should not edit these folders directly and use [config plugins](https://docs.expo.dev/config-plugins/) instead. However, if you need to edit these folders, you can remove them from the `.gitignore` file so that they are tracked by git.
-
-## Resources
-
-- [React Navigation documentation](https://reactnavigation.org/)
-- [Expo documentation](https://docs.expo.dev/)
-
----
-
-Demo assets are from [lucide.dev](https://lucide.dev/)
