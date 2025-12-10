@@ -230,6 +230,26 @@
   "sections": {
     "basic": "Perus",
     "prompts": "Kehotteet",
-    "advanced": "Lisäasetukset"
+    "advanced": "Lisäasetukset",
+    "webgpu": "WebGPU-kokoonpano"
+  },
+  "webgpu": {
+    "maxSizeMb": "Maksimikoko (MB)",
+    "maxSizePlaceholder": "esim. 1000",
+    "modelId": "Malli",
+    "searchModelPlaceholder": "Hae ja valitse malli...",
+    "overrideSystemPrompt": "Ohita järjestelmäkehote",
+    "systemPromptPlaceholder": "Syötä järjestelmäkehote...",
+    "overrideSystemPromptAppend": "Ohita lisäjärjestelmäkehote",
+    "systemPromptAppendPlaceholder": "Syötä lisäjärjestelmäkehote...",
+    "overrideContextPrompt": "Ohita kontekstikehote",
+    "contextPromptPlaceholder": "Syötä kontekstikehote...",
+    "overrideMemoryPrompt": "Ohita muistikehote",
+    "memoryPromptPlaceholder": "Syötä muistikehote...",
+    "overrideExtractorPrompt": "Ohita erotinkehote",
+    "extractorPromptPlaceholder": "Syötä erotinkehote...",
+    "usePromptRewriting": "Käytä kehotteen uudelleenkirjoitusta",
+    "overrideUserPromptRewriting": "Ohita käyttäjän kehotteen uudelleenkirjoitus",
+    "userPromptRewritingPlaceholder": "Syötä käyttäjän kehotteen uudelleenkirjoituskehote..."
   }
 }

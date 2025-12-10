@@ -231,6 +231,26 @@
   "sections": {
     "basic": "Basic",
     "prompts": "Prompts",
-    "advanced": "Advanced Prompts"
+    "advanced": "Advanced Prompts",
+    "webgpu": "WebGPU Configuration"
+  },
+  "webgpu": {
+    "maxSizeMb": "Max Size (MB)",
+    "maxSizePlaceholder": "e.g., 1000",
+    "modelId": "Model",
+    "searchModelPlaceholder": "Search and select model...",
+    "overrideSystemPrompt": "Override System Prompt",
+    "systemPromptPlaceholder": "Enter system prompt...",
+    "overrideSystemPromptAppend": "Override System Prompt Append",
+    "systemPromptAppendPlaceholder": "Enter system prompt append...",
+    "overrideContextPrompt": "Override Context Prompt",
+    "contextPromptPlaceholder": "Enter context prompt...",
+    "overrideMemoryPrompt": "Override Memory Prompt",
+    "memoryPromptPlaceholder": "Enter memory prompt...",
+    "overrideExtractorPrompt": "Override Extractor Prompt",
+    "extractorPromptPlaceholder": "Enter extractor prompt...",
+    "usePromptRewriting": "Use Prompt Rewriting",
+    "overrideUserPromptRewriting": "Override User Prompt Rewriting",
+    "userPromptRewritingPlaceholder": "Enter user prompt rewriting prompt..."
   }
 }

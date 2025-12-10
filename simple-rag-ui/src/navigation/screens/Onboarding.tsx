@@ -48,6 +48,7 @@ export function Onboarding() {
     overrideAssistantMessage: true,
     useUserPromptRewriting: true,
     userPromptRewritingPrompt: DEFAULT_PROMPTS.userPromptRewriting,
+    webGpuConfig: null,
   });
 
   // Collection data - separate from chat form data
@@ -87,7 +88,10 @@ export function Onboarding() {
       collectionName: DEFAULT_ONBOARDING_COLLECTION.name,
       collectionDescription: DEFAULT_ONBOARDING_COLLECTION.description,
       overrideAssistantMessage: true,
+      overrideSystemMessage: true,
+      useUserPromptRewriting: true,
       userPromptRewritingPrompt: DEFAULT_PROMPTS.userPromptRewriting,
+      webGpuConfig: null,
     });
     setSelectedFiles([]);
   };

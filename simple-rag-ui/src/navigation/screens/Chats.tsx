@@ -75,6 +75,7 @@ export function Chats() {
     overrideAssistantMessage: false,
     useUserPromptRewriting: false,
     userPromptRewritingPrompt: '',
+    webGpuConfig: null,
   });
   
   // Accordion state - Basic is expanded by default
@@ -127,6 +128,7 @@ export function Chats() {
             overrideAssistantMessage: !!data.overrideAssistantMessage,
             useUserPromptRewriting: !!data.useUserPromptRewriting,
             userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+            webGpuConfig: data.webGpuConfig || null,
           });
           setLoading(false);
         })
@@ -151,6 +153,7 @@ export function Chats() {
         overrideAssistantMessage: false,
         useUserPromptRewriting: false,
         userPromptRewritingPrompt: '',
+        webGpuConfig: null,
       });
     }
   }, [selectedChatId]);
@@ -208,6 +211,7 @@ export function Chats() {
       useUserPromptRewriting: formData.useUserPromptRewriting,
       userPromptRewritingPrompt: formData.userPromptRewritingPrompt,
       defaultCollectionId: formData.defaultCollectionId,
+      webGpuConfig: formData.webGpuConfig,
     };
     updateChat(selectedChatId, updatedChat)
       .then(() => {
@@ -267,6 +271,7 @@ export function Chats() {
             overrideAssistantMessage: data.overrideAssistantMessage || false,
             useUserPromptRewriting: !!data.useUserPromptRewriting,
             userPromptRewritingPrompt: data.userPromptRewritingPrompt || '',
+            webGpuConfig: data.webGpuConfig || null,
           });
         })
         .catch(() => {
