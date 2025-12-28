@@ -257,10 +257,9 @@ export function Home() {
             // Ensure final message state is set before clearing ref
             if (assistantMessageRef.current) {
               setMessages((prev) => {
-                const safeMessages = Array.isArray(prev) ? prev.filter(msg => msg != null && msg._id != null) : [];
+                const safeMessages = Array.isArray(prev) ? prev.filter((msg): msg is Message => msg != null && msg._id != null) : [];
                 return safeMessages.map(msg => {
-                  if (!msg || !msg._id) return msg;
-                  if (msg._id === assistantMessageRef.current!._id) {
+                  if (msg._id === assistantMessageRef.current?._id) {
                     return { 
                       ...msg, 
                       isLoading: false,
@@ -268,7 +267,7 @@ export function Home() {
                     };
                   }
                   return msg;
-                }).filter((msg): msg is Message => msg != null && msg._id != null);
+                });
               });
             }
             setIsGenerating(false);

@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "vite"
+    "start": "vite",
+    "postinstall": "node patch-transformers.js"
   },
   "dependencies": {
     "@flyerhq/react-native-chat-ui": "^1.4.3",
-    "@huggingface/transformers": "^3.8.0",
+    "@huggingface/transformers": "huggingface/transformers.js#v4",
     "@react-native-picker/picker": "^2.11.4",
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/drawer": "^7.7.2",

@@ -131,11 +131,9 @@ export class LocalLLMService {
         const { pipeline, env } = await import('@huggingface/transformers');
         
         // Configure transformers.js to use browser cache
-        // @ts-ignore
+        // Version 3.11+ env configuration
         env.useBrowserCache = config.LOCAL_LLM_USE_BROWSER_CACHE;
-        // @ts-ignore
         env.allowLocalModels = false;
-        // @ts-ignore
         env.allowRemoteModels = true;
 
         // Set up progress callback if available
