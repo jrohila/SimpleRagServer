@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import io.github.jrohila.simpleragserver.service.SummarizerService;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
@@ -136,37 +135,6 @@ public class SearchController {
             out.add(SearchResultDtoMapper.mapChunkEntity(hit.getContent(), (float) hit.getScore()));
         });
         return out;
-    }
-
-    // Summary endpoint using summarySearch in ChunkSearchService
-    @PostMapping(path = "/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public String summary(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
-        if (req == null) {
-            throw new IllegalArgumentException("Request must not be null");
-        }
-        String query = req.getQuery();
-        ChunkSearchService.MatchType matchType = (req.getMatchType() == null)
-                ? ChunkSearchService.MatchType.MATCH
-                : req.getMatchType();
-        int size = (req.getSize() == null || req.getSize() <= 0) ? 25 : req.getSize();
-        boolean enableFuzziness = Boolean.TRUE.equals(req.getEnableFuzziness());
-        String language = req.getLanguage();
-
-        List<SearchTerm> svcTerms = new ArrayList<>();
-        if (req.getTerms() != null) {
-            for (Term t : req.getTerms()) {
-                if (t == null || t.getTerm() == null || t.getTerm().isBlank()) {
-                    continue;
-                }
-                SearchTerm st = new SearchTerm();
-                st.setTerm(t.getTerm());
-                st.setBoostWeight(t.getBoostWeight());
-                st.setMandatory(Boolean.TRUE.equals(t.getMandatory()));
-                svcTerms.add(st);
-            }
-        }
-
-        return chunkSearchService.summarySearch(collectionId, query, matchType, svcTerms, size, enableFuzziness, language);
     }
 
 }

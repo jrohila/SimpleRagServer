@@ -25,7 +25,79 @@
 
     <modules>
         <module>simple-rag-ui</module>
-        <module>simple-rag-nlp</module>
         <module>simple-rag-server</module>
     </modules>
+    <profiles>
+        <profile>
+            <id>graalvm</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <!-- default native image name; child POMs may override or use this -->
+                <graalvm.native.image.name>${project.artifactId}</graalvm.native.image.name>
+            </properties>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>exec-maven-plugin</artifactId>
+                            <version>3.1.0</version>
+                            <executions>
+                                <execution>
+                                    <id>native-image</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>native-image</executable>
+                                        <arguments>
+                                            <argument>--no-fallback</argument>
+                                            <argument>-jar</argument>
+                                            <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                                            <argument>-H:Name=${graalvm.native.image.name}</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build-native-image</id>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <imageName>${graalvm.native.image.name}</imageName>
+                            <buildArgs>
+                                <arg>--no-fallback</arg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        
+        <profile>
+            <id>non-graal</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <!-- When this profile is explicitly selected it indicates we want a non-native-image build -->
+                <graalvm.enabled>false</graalvm.enabled>
+            </properties>
+        </profile>
+    </profiles>
 </project>

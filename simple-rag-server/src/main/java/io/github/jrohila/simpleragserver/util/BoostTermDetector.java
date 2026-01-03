@@ -6,10 +6,7 @@ package io.github.jrohila.simpleragserver.util;
 
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.service.NlpService;
-import io.github.jrohila.simpleragserver.service.NlpService.NlpEngine;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,7 +32,7 @@ public class BoostTermDetector {
         Map<String, SearchTerm> assistantMessageTermMap = new LinkedHashMap<>();    
 
         Thread termsFromQueryThread = new Thread(() -> {
-            List<String> queryTerms = nlpService.extractCandidateTerms(query, NlpEngine.STANFORD_CORE_NLP);
+            List<String> queryTerms = nlpService.extractCandidateTerms(query);
             for (String queryTerm : queryTerms) {
                 SearchTerm term = new SearchTerm();
                 term.setTerm(queryTerm);
@@ -50,7 +47,7 @@ public class BoostTermDetector {
         Thread termsFromUserMessagesThread = new Thread(() -> {
             for (MessageDTO message : messages) {
                 if (MessageDTO.Role.USER.equals(message.getRole())) {
-                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString(), NlpEngine.STANFORD_CORE_NLP);
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString());
                     for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);
@@ -66,7 +63,7 @@ public class BoostTermDetector {
         Thread termsFromAssistantMessagesThread = new Thread(() -> {
             for (MessageDTO message : messages) {
                 if (MessageDTO.Role.ASSISTANT.equals(message.getRole())) {
-                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString(), NlpEngine.STANFORD_CORE_NLP);
+                    List<String> messageTerms = nlpService.extractCandidateTerms(message.getContentAsString());
                     for (String messageTerm : messageTerms) {
                         SearchTerm term = new SearchTerm();
                         term.setTerm(messageTerm);

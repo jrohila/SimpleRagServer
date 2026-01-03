@@ -30,7 +30,6 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional; // added
 // Add detector import
-import io.github.jrohila.simpleragnlp.TitleRequestDetector; // assumes detector is in this package
 import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe;
 import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe.OperationResult;
 import io.github.jrohila.simpleragserver.util.ChatHelper;
@@ -54,7 +53,6 @@ public class ChatService {
     private ChatHelper chatHelper;
 
     private final LlmClientFactory llmClientFactory;
-    private final TitleRequestDetector titleRequestDetector; // added
 
     @Autowired
     private ChatStreamConsumer streamConsumer; // optional hook for streaming capture
@@ -63,11 +61,8 @@ public class ChatService {
     private ChatResponsePostProcessor postProcessor;
 
     @Autowired
-    public ChatService(LlmClientFactory llmClientFactory, ChunkSearchService chunkSearchService,
-            // detector is optional to avoid failing if bean not present
-            Optional<TitleRequestDetector> titleRequestDetector) {
+    public ChatService(LlmClientFactory llmClientFactory, ChunkSearchService chunkSearchService) {
         this.llmClientFactory = llmClientFactory;
-        this.titleRequestDetector = titleRequestDetector != null ? titleRequestDetector.orElse(null) : null;
     }
 
     private Pair<ChatProcessResult, List<MessageDTO>> handleMessage(OpenAiChatRequestDTO request, ChatEntity chatEntity) {
@@ -82,43 +77,29 @@ public class ChatService {
                 }
             }
         }
-        boolean isTitleRequest = firstUserContent != null
-                && titleRequestDetector != null
-                && titleRequestDetector.isTitleRequest(firstUserContent);
 
         List<MessageDTO> springMessages = new ArrayList<>();
-        if (isTitleRequest) {
-            if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Title request detected (stream); sending only first user message to LLM (no systemAppend, no RAG).");
-            }
-            List<MessageDTO> only = new ArrayList<>();
-            only.add(new MessageDTO(MessageDTO.Role.USER, firstUserContent));
-            springMessages = only;
-            if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Streaming: sending to LLM ({} messages):", only.size());
-                log.debug("  #0 [UserMessage] {}", firstUserContent);
-            }
+
+        log.info("[ChatService] chatStream invoked: msgs={} model={} ", (request.getMessages() == null ? 0 : request.getMessages().size()), request.getModel());
+        List<Integer> rollingTokens = TokenGenerator.createTokens(springMessages);
+
+        Pair<OperationResult, List<MessageDTO>> contextResult = this.contextAdditionPipe.process(request.getMessages(), chatEntity);
+        if (OperationResult.CONTEXT_ADDED.equals(contextResult.getKey())) {
+            springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
         } else {
-            log.info("[ChatService] chatStream invoked: msgs={} model={} ", (request.getMessages() == null ? 0 : request.getMessages().size()), request.getModel());
-            List<Integer> rollingTokens = TokenGenerator.createTokens(springMessages);
+            springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
+            result = ChatProcessResult.PROMPT_OUT_OF_SCOPE;
+        }
 
-            Pair<OperationResult, List<MessageDTO>> contextResult = this.contextAdditionPipe.process(request.getMessages(), chatEntity);
-            if (OperationResult.CONTEXT_ADDED.equals(contextResult.getKey())) {
-                springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
-            } else {
-                springMessages = this.contextAdditionPipe.appendMemory(request.getMessages(), rollingTokens, chatEntity);
-                result = ChatProcessResult.PROMPT_OUT_OF_SCOPE;
-            }
-
-            // DEBUG: log exactly what will be sent to the LLM (streaming)
-            if (log.isDebugEnabled()) {
-                log.debug("[ChatService] Streaming: sending to LLM ({} messages):", springMessages.size());
-                int i = 0;
-                for (MessageDTO msg : springMessages) {
-                    log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), msg.getContentAsString());
-                }
+        // DEBUG: log exactly what will be sent to the LLM (streaming)
+        if (log.isDebugEnabled()) {
+            log.debug("[ChatService] Streaming: sending to LLM ({} messages):", springMessages.size());
+            int i = 0;
+            for (MessageDTO msg : springMessages) {
+                log.debug("  #{} [{}] {}", i++, msg.getClass().getSimpleName(), msg.getContentAsString());
             }
         }
+
         return Pair.of(result, springMessages);
     }
 
@@ -155,10 +136,10 @@ public class ChatService {
 
             // Convert MessageDTO to langchain4j ChatMessage
             List<ChatMessage> chatMessages = convertToChatMessages(springMessages);
-            
+
             // Build request options
             LlmRequestOptions options = buildLlmRequestOptions(request);
-            
+
             // Get LLM client and make the call
             LlmClient client = llmClientFactory.getDefaultClient();
             Response<String> resp = client.chat(chatMessages, options);
@@ -252,53 +233,53 @@ public class ChatService {
 
             // Convert MessageDTO to langchain4j ChatMessage
             List<ChatMessage> chatMessages = convertToChatMessages(springMessages);
-            
+
             // Build request options
             LlmRequestOptions options = buildLlmRequestOptions(request);
-            
+
             // Get LLM client
             LlmClient client = llmClientFactory.getDefaultClient();
-            
+
             return Flux.<OpenAiChatStreamChunkDTO>create(sink -> {
                 log.info("[ChatService] Creating Flux for streaming response");
-                client.streamChat(chatMessages, options, 
-                    // Token handler
-                    token -> {
-                        log.debug("[ChatService] Received token from LlmClient: '{}'", token);
-                        cumulative.append(token);
-                        // Optional capture of per-delta content
-                        try {
-                            if (streamConsumer != null) {
-                                streamConsumer.onDelta(id, token);
+                client.streamChat(chatMessages, options,
+                        // Token handler
+                        token -> {
+                            log.debug("[ChatService] Received token from LlmClient: '{}'", token);
+                            cumulative.append(token);
+                            // Optional capture of per-delta content
+                            try {
+                                if (streamConsumer != null) {
+                                    streamConsumer.onDelta(id, token);
+                                }
+                            } catch (Exception ignore) {
                             }
-                        } catch (Exception ignore) {
+
+                            OpenAiChatStreamChunkDTO chunk = new OpenAiChatStreamChunkDTO();
+                            chunk.setId(id);
+                            chunk.setModel(model);
+                            OpenAiChatStreamChunkDTO.ChoiceDelta choice = new OpenAiChatStreamChunkDTO.ChoiceDelta();
+                            choice.setIndex(index.get());
+                            OpenAiChatStreamChunkDTO.Delta delta = new OpenAiChatStreamChunkDTO.Delta();
+                            if (first.getAndSet(false)) {
+                                delta.setRole("assistant");
+                            }
+                            delta.setContent(token);
+                            choice.setDelta(delta);
+                            chunk.setChoices(List.of(choice));
+                            log.debug("[ChatService] Emitting chunk to Flux sink");
+                            sink.next(chunk);
+                        },
+                        // Completion handler
+                        () -> {
+                            log.info("[ChatService] Stream completed, calling sink.complete()");
+                            sink.complete();
+                        },
+                        // Error handler
+                        error -> {
+                            log.error("[ChatService] Stream error, calling sink.error()", error);
+                            sink.error(error);
                         }
-                        
-                        OpenAiChatStreamChunkDTO chunk = new OpenAiChatStreamChunkDTO();
-                        chunk.setId(id);
-                        chunk.setModel(model);
-                        OpenAiChatStreamChunkDTO.ChoiceDelta choice = new OpenAiChatStreamChunkDTO.ChoiceDelta();
-                        choice.setIndex(index.get());
-                        OpenAiChatStreamChunkDTO.Delta delta = new OpenAiChatStreamChunkDTO.Delta();
-                        if (first.getAndSet(false)) {
-                            delta.setRole("assistant");
-                        }
-                        delta.setContent(token);
-                        choice.setDelta(delta);
-                        chunk.setChoices(List.of(choice));
-                        log.debug("[ChatService] Emitting chunk to Flux sink");
-                        sink.next(chunk);
-                    },
-                    // Completion handler
-                    () -> {
-                        log.info("[ChatService] Stream completed, calling sink.complete()");
-                        sink.complete();
-                    },
-                    // Error handler
-                    error -> {
-                        log.error("[ChatService] Stream error, calling sink.error()", error);
-                        sink.error(error);
-                    }
                 );
             })
                     .concatWith(Mono.fromSupplier(() -> {
@@ -332,8 +313,9 @@ public class ChatService {
     }
 
     /**
-     * Build LlmRequestOptions from OpenAiChatRequest parameters.
-     * Note: model parameter from request is ignored - client uses its configured default model.
+     * Build LlmRequestOptions from OpenAiChatRequest parameters. Note: model
+     * parameter from request is ignored - client uses its configured default
+     * model.
      */
     private LlmRequestOptions buildLlmRequestOptions(OpenAiChatRequestDTO request) {
         return LlmRequestOptions.builder()
@@ -344,7 +326,7 @@ public class ChatService {
                 .frequencyPenalty(request.getFrequencyPenalty())
                 .build();
     }
-    
+
     /**
      * Convert MessageDTO list to langchain4j ChatMessage list.
      */
@@ -352,13 +334,19 @@ public class ChatService {
         List<ChatMessage> chatMessages = new ArrayList<>();
         for (MessageDTO dto : messageDTOs) {
             String content = dto.getContentAsString();
-            if (content == null) continue;
-            
+            if (content == null) {
+                continue;
+            }
+
             ChatMessage message = switch (dto.getRole()) {
-                case SYSTEM -> new SystemMessage(content);
-                case USER -> new UserMessage(content);
-                case ASSISTANT -> new AiMessage(content);
-                case TOOL -> new UserMessage(content); // Map tool to user for now
+                case SYSTEM ->
+                    new SystemMessage(content);
+                case USER ->
+                    new UserMessage(content);
+                case ASSISTANT ->
+                    new AiMessage(content);
+                case TOOL ->
+                    new UserMessage(content); // Map tool to user for now
             };
             chatMessages.add(message);
         }
