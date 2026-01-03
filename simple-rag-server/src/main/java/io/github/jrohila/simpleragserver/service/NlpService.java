@@ -2,7 +2,6 @@ package io.github.jrohila.simpleragserver.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
@@ -30,27 +29,22 @@ public class NlpService {
     @Value("${nlp.pos-model-path:/models/pos/opennlp-en-ud-ewt-pos-1.3-2.5.4.bin}")
     private String enPosModelPath;
 
-    @Value("${nlp.lang-model-candidates:/models/lang/langdetect-183.bin,/models/lang/langdetect-187.bin,/models/lang/opennlp-langdetect-183-2.5.4.bin,/models/lang/opennlp-langdetect-187-2.5.4.bin}")
-    private String langModelCandidatesProperty;
+    @Value("${nlp.lang-model:/models/lang/langdetect-183.bin}")
+    private String langModel;
 
     private volatile SentenceDetectorME enSentenceDetector;
     private volatile POSTaggerME enPosTagger;
     private volatile LanguageDetectorME langDetector;
 
-    public NlpService() {
-        initialize();
-    }
-
     @PostConstruct
-    public void postConstruct() {
-        if (enSentenceDetector == null || langDetector == null) {
-            initialize();
-        }
-    }
-
-    private void initialize() {
+    public void initialize() {
+        // Initialize models after Spring injects @Value properties
+        log.info("Initializing NLP models: enSentModelPath={}, enPosModelPath={}, langModel={}", 
+                 enSentModelPath, enPosModelPath, langModel);
+        
         synchronized (this) {
             if (enSentenceDetector == null) {
+                log.info("Loading sentence model from: {}", enSentModelPath);
                 try (InputStream is = getClass().getResourceAsStream(enSentModelPath)) {
                     if (is == null) {
                         throw new IllegalStateException("English sentence model not found at " + enSentModelPath);
@@ -67,26 +61,19 @@ public class NlpService {
             if (langDetector != null) {
                 return;
             }
-            String chosenPath = null;
-            List<String> candidates = Arrays.asList(langModelCandidatesProperty.split("\\s*,\\s*"));
-            String chosen = null;
-            for (String candidate : candidates) {
-                try (InputStream is = getClass().getResourceAsStream(candidate)) {
-                    if (is == null) continue;
-                    LanguageDetectorModel model = new LanguageDetectorModel(is);
-                    langDetector = new LanguageDetectorME(model);
-                    chosen = candidate;
-                    break;
-                } catch (IOException e) {
-                    // try next
-                }
+
+            try (InputStream is = getClass().getResourceAsStream(langModel)) {
+                LanguageDetectorModel model = new LanguageDetectorModel(is);
+                langDetector = new LanguageDetectorME(model);
+            } catch (IOException e) {
+                // try next
             }
 
             if (langDetector == null) {
-                throw new IllegalStateException("OpenNLP language detector model not found on classpath. Tried: " + candidates);
+                throw new IllegalStateException("OpenNLP language detector model not found on classpath. Tried: " + langModel);
             }
             try {
-                log.info("OpenNLP language detector initialized (model={})", chosenPath);
+                log.info("OpenNLP language detector initialized (model={})", langModel);
             } catch (Exception ignore) {
             }
         }
