@@ -2,7 +2,10 @@ package io.github.jrohila.simpleragserver.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -32,6 +35,9 @@ public class NlpService {
     @Value("${nlp.lang-model:/models/lang/langdetect-183.bin}")
     private String langModel;
 
+    @Value("${nlp.model.path.type:classpath}")
+    private String nlpModelPathType;
+
     private volatile SentenceDetectorME enSentenceDetector;
     private volatile POSTaggerME enPosTagger;
     private volatile LanguageDetectorME langDetector;
@@ -45,7 +51,7 @@ public class NlpService {
         synchronized (this) {
             if (enSentenceDetector == null) {
                 log.info("Loading sentence model from: {}", enSentModelPath);
-                try (InputStream is = getClass().getResourceAsStream(enSentModelPath)) {
+                try (InputStream is = openModelStream(enSentModelPath)) {
                     if (is == null) {
                         throw new IllegalStateException("English sentence model not found at " + enSentModelPath);
                     }
@@ -62,9 +68,11 @@ public class NlpService {
                 return;
             }
 
-            try (InputStream is = getClass().getResourceAsStream(langModel)) {
-                LanguageDetectorModel model = new LanguageDetectorModel(is);
-                langDetector = new LanguageDetectorME(model);
+            try (InputStream is = openModelStream(langModel)) {
+                if (is != null) {
+                    LanguageDetectorModel model = new LanguageDetectorModel(is);
+                    langDetector = new LanguageDetectorME(model);
+                }
             } catch (IOException e) {
                 // try next
             }
@@ -96,18 +104,78 @@ public class NlpService {
             if (enPosTagger != null) {
                 return;
             }
-            try (InputStream is = getClass().getResourceAsStream(enPosModelPath)) {
+            try (InputStream is = openModelStream(enPosModelPath)) {
                 if (is == null) {
-                    log.warn("English POS model not found on classpath at {}", enPosModelPath);
+                    log.warn("English POS model not found at {}", enPosModelPath);
                     return;
                 }
                 opennlp.tools.postag.POSModel model = new opennlp.tools.postag.POSModel(is);
                 enPosTagger = new POSTaggerME(model);
-                log.info("Loaded English POS model from classpath: {}", enPosModelPath);
+                log.info("Loaded English POS model from: {}", enPosModelPath);
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to load English POS model: " + e.getMessage(), e);
             }
         }
+    }
+
+    private InputStream openModelStream(String path) throws IOException {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        String type = (nlpModelPathType == null) ? "auto" : nlpModelPathType.trim().toLowerCase(Locale.ROOT);
+
+        // classpath-only mode
+        if ("classpath".equals(type)) {
+            if (path.startsWith("classpath:")) {
+                String cp = path.substring("classpath:".length());
+                String cpPath = cp.startsWith("/") ? cp : ("/" + cp);
+                InputStream is = getClass().getResourceAsStream(cpPath);
+                if (is != null) return is;
+                return getClass().getClassLoader().getResourceAsStream(cp.startsWith("/") ? cp.substring(1) : cp);
+            }
+            InputStream is = getClass().getResourceAsStream(path);
+            if (is != null) return is;
+            String p = path.startsWith("/") ? path.substring(1) : path;
+            return getClass().getClassLoader().getResourceAsStream(p);
+        }
+
+        // filesystem-only mode
+        if ("filesystem".equals(type)) {
+            File f = new File(path);
+            String p = path.startsWith("/") ? path.substring(1) : path;
+            if (!f.exists() && path.startsWith("/")) {
+                f = new File(p);
+            }
+            if (f.exists() && f.isFile()) {
+                return new FileInputStream(f);
+            }
+            return null;
+        }
+
+        // auto: try classpath first, then filesystem (backwards compatible)
+        if (path.startsWith("classpath:")) {
+            String cp = path.substring("classpath:".length());
+            String cpPath = cp.startsWith("/") ? cp : ("/" + cp);
+            InputStream is = getClass().getResourceAsStream(cpPath);
+            if (is != null) return is;
+            is = getClass().getClassLoader().getResourceAsStream(cp.startsWith("/") ? cp.substring(1) : cp);
+            if (is != null) return is;
+        }
+
+        InputStream is = getClass().getResourceAsStream(path);
+        if (is != null) return is;
+        String p = path.startsWith("/") ? path.substring(1) : path;
+        is = getClass().getClassLoader().getResourceAsStream(p);
+        if (is != null) return is;
+
+        File f = new File(path);
+        if (!f.exists() && path.startsWith("/")) {
+            f = new File(p);
+        }
+        if (f.exists() && f.isFile()) {
+            return new FileInputStream(f);
+        }
+        return null;
     }
 
     public String detectLanguage(String text) {

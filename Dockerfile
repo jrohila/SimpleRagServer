@@ -8,7 +8,6 @@ WORKDIR /workspace
 # Copy only POMs first to take advantage of Docker layer caching for dependencies
 COPY pom.xml ./
 COPY simple-rag-server/pom.xml simple-rag-server/pom.xml
-COPY simple-rag-nlp/pom.xml simple-rag-nlp/pom.xml
 
 # Install system deps used during the build
 RUN apt-get update && apt-get install -y libatomic1 && rm -rf /var/lib/apt/lists/*
@@ -29,45 +28,38 @@ FROM ghcr.io/graalvm/native-image-community:21 AS native
 WORKDIR /workspace
 COPY --from=build /workspace/simple-rag-server/target/simple-rag-server-0.0.1-SNAPSHOT.jar /workspace/
 
+# Accept build args for exploded dir and binary name so Maven profiles can control destinations
+ARG NATIVE_EXPLODED_DIR=/workspace/exploded
+ARG NATIVE_BINARY_NAME=simple-rag-server-native
+
 # explode the Spring Boot fat jar and build native image using the image-provided native-image
-# If the simple-rag-nlp module has downloaded WordNet files into its target/classes, copy them first
-RUN mkdir -p exploded /workspace/wordnet \
- 	&& if [ -d /workspace/simple-rag-nlp/target/classes/wordnet/dict ]; then \
- 		cp -r /workspace/simple-rag-nlp/target/classes/wordnet/dict /workspace/wordnet/dict; \
- 	fi \
- 	&& (cd exploded && jar xf ../simple-rag-server-0.0.1-SNAPSHOT.jar) \
-		&& for jar in exploded/BOOT-INF/lib/simple-rag-nlp-*.jar; do \
-			 if [ -f "$jar" ]; then \
-				 mkdir -p /workspace/wordnet-temp && (cd /workspace/wordnet-temp && jar xf "$jar"); \
-				 if [ -d /workspace/wordnet-temp/wordnet/dict ]; then \
-					 mkdir -p /workspace/wordnet && mv /workspace/wordnet-temp/wordnet/dict /workspace/wordnet/dict; \
-				 fi; \
-				 rm -rf /workspace/wordnet-temp; \
-			 fi; \
-		 done \
-		&& mkdir -p /workspace/wordnet/dict \
-	 && native-image --no-fallback --verbose --report-unsupported-elements-at-runtime -H:+ReportExceptionStackTraces \
-		  -H:ClassInitialization=org.apache.commons.logging.LogFactory:build_time,org.apache.commons.logging.impl.SLF4JLogFactory:build_time \
-		  -cp exploded:exploded/BOOT-INF/classes:exploded/BOOT-INF/lib/* \
-	  io.github.jrohila.simpleragserver.SimpleRagServerApplication \
-	  -H:Name=simple-rag-server-native
+RUN mkdir -p ${NATIVE_EXPLODED_DIR} \
+  && (cd ${NATIVE_EXPLODED_DIR} && jar xf ../simple-rag-server-0.0.1-SNAPSHOT.jar) \
+  && native-image --no-fallback --verbose --report-unsupported-elements-at-runtime -H:+ReportExceptionStackTraces \
+      -H:ClassInitialization=org.apache.commons.logging.LogFactory:build_time,org.apache.commons.logging.impl.SLF4JLogFactory:build_time \
+      -cp ${NATIVE_EXPLODED_DIR}:${NATIVE_EXPLODED_DIR}/BOOT-INF/classes:${NATIVE_EXPLODED_DIR}/BOOT-INF/lib/* \
+    io.github.jrohila.simpleragserver.SimpleRagServerApplication \
+    -H:Name=${NATIVE_BINARY_NAME}
 
 # Stage 3: small runtime image
 FROM debian:stable-slim
+
+# Allow overriding model and binary destinations via build args (can be set from Maven profiles)
+ARG NATIVE_EXPLODED_DIR=/workspace/exploded
+ARG NATIVE_MODELS_DEST=/app/models
+ARG NATIVE_BINARY_SRC=/workspace/simple-rag-server-native
+ARG NATIVE_BINARY_DEST=/app/simple-rag-server
+
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends zlib1g libssl3 libstdc++6 ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
-COPY --from=native /workspace/simple-rag-server-native /app/simple-rag-server
-COPY --from=native /workspace/exploded /app/exploded
-RUN chmod +x /app/simple-rag-server
+  && apt-get install -y --no-install-recommends zlib1g libssl3 libstdc++6 ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=native ${NATIVE_BINARY_SRC} ${NATIVE_BINARY_DEST}
+COPY --from=native ${NATIVE_EXPLODED_DIR} /app/exploded
+RUN chmod +x ${NATIVE_BINARY_DEST}
 # Copy OpenNLP model files included in the exploded classes
-COPY --from=native /workspace/exploded/BOOT-INF/classes/models /app/models
+COPY --from=native ${NATIVE_EXPLODED_DIR}/BOOT-INF/classes/models ${NATIVE_MODELS_DEST}
 
-# If WordNet dict was extracted in the native stage, copy it into /opt/wordnet/dict
-COPY --from=native /workspace/wordnet/dict /opt/wordnet/dict
-RUN if [ -d /opt/wordnet/dict ]; then chmod -R a+r /opt/wordnet/dict; fi
-
-RUN chmod +x /app/simple-rag-server
 ENV WNHOME=/opt/wordnet
 EXPOSE 8080
 ENTRYPOINT ["/app/simple-rag-server"]

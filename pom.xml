@@ -25,6 +25,9 @@
         <nlp.sent-model-path>/models/sentences/opennlp-en-ud-ewt-sentence-1.3-2.5.4.bin</nlp.sent-model-path>
         <nlp.pos-model-path>/models/pos/opennlp-en-ud-ewt-pos-1.3-2.5.4.bin</nlp.pos-model-path>
         <nlp.lang-model>/models/lang/langdetect-183.bin</nlp.lang-model>
+        
+        <!-- How model paths should be interpreted: 'classpath' or 'filesystem' or 'auto' -->
+        <nlp.model.path.type>classpath</nlp.model.path.type>
     </properties>
 
     <modules>
@@ -40,6 +43,16 @@
             <properties>
                 <!-- default native image name; child POMs may override or use this -->
                 <graalvm.native.image.name>${project.artifactId}</graalvm.native.image.name>
+                <!-- Native image / Docker resource destinations (overrideable) -->
+                <native.exploded.dir>/workspace/exploded</native.exploded.dir>
+                <native.models.dest>/app/models</native.models.dest>
+                <nlp.model.path.type>filesystem</nlp.model.path.type>
+                <!-- Override NLP model classpath/filesystem locations for graal native builds -->
+                <nlp.sent-model-path>/models/sentences/opennlp-en-ud-ewt-sentence-1.3-2.5.4.bin</nlp.sent-model-path>
+                <nlp.pos-model-path>/models/pos/opennlp-en-ud-ewt-pos-1.3-2.5.4.bin</nlp.pos-model-path>
+                <nlp.lang-model>/models/lang/langdetect-183.bin</nlp.lang-model>
+                <native.binary.source>/workspace/simple-rag-server-native</native.binary.source>
+                <native.binary.dest>/app/simple-rag-server</native.binary.dest>
             </properties>
             <build>
                 <pluginManagement>
@@ -101,6 +114,7 @@
             <properties>
                 <!-- Standard (non-Graal) build -->
                 <graalvm.enabled>false</graalvm.enabled>
+                <nlp.model.path.type>classpath</nlp.model.path.type>
             </properties>
         </profile>
     </profiles>
