@@ -1,0 +1,14 @@
+[
+  {
+    "condition":{"typeReachable":"opennlp.tools.sentdetect.SentenceDetectorFactory"},
+    "name":"opennlp.tools.sentdetect.SentenceDetectorFactory"
+  },
+  {
+    "condition":{"typeReachable":"opennlp.tools.postag.POSTaggerFactory"},
+    "name":"opennlp.tools.postag.POSTaggerFactory"
+  },
+  {
+    "condition":{"typeReachable":"opennlp.tools.langdetect.LanguageDetectorFactory"},
+    "name":"opennlp.tools.langdetect.LanguageDetectorFactory"
+  }
+]

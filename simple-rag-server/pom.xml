@@ -78,12 +78,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.paulcwarren</groupId>
-            <artifactId>spring-content-fs-boot-starter</artifactId>
-            <version>3.0.13</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
             <version>3.6.1</version>
@@ -121,14 +115,6 @@
             <version>1.1.0</version>
         </dependency>
 
-        
-        <!-- Depend on local module that hosts summarizer code -->
-        <dependency>
-            <groupId>io.github.jrohila</groupId>
-            <artifactId>simple-rag-nlp</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        
         <!-- Depend on UI module to ensure it's built first -->
         <dependency>
             <groupId>io.github.jrohila</groupId>

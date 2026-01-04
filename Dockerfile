@@ -20,13 +20,14 @@ RUN apt-get update && apt-get install -y libatomic1 && rm -rf /var/lib/apt/lists
 # Copy remaining sources and perform the actual build using the cached Maven repo
 COPY . /workspace
 RUN --mount=type=cache,target=/root/.m2 \
-	mvn -Pgraalvm-deps -pl simple-rag-server -am -DskipTests install \
-	&& mvn -f simple-rag-server/pom.xml -Pgraalvm-deps -DskipTests spring-boot:process-aot package
+    mvn -Pgraalvm -DskipNativeBuild=true -Dexec.skip=true -pl simple-rag-server -am -DskipTests install \
+    && mvn -f simple-rag-server/pom.xml -Pgraalvm -DskipNativeBuild=true -Dexec.skip=true -DskipTests spring-boot:process-aot package
 
 # Stage 2: run GraalVM native-image to produce native executable
 FROM ghcr.io/graalvm/native-image-community:21 AS native
 WORKDIR /workspace
 COPY --from=build /workspace/simple-rag-server/target/simple-rag-server-0.0.1-SNAPSHOT.jar /workspace/
+COPY --from=build /workspace/simple-rag-server/target/spring-aot /workspace/spring-aot
 
 # Accept build args for exploded dir and binary name so Maven profiles can control destinations
 ARG NATIVE_EXPLODED_DIR=/workspace/exploded
@@ -37,7 +38,7 @@ RUN mkdir -p ${NATIVE_EXPLODED_DIR} \
   && (cd ${NATIVE_EXPLODED_DIR} && jar xf ../simple-rag-server-0.0.1-SNAPSHOT.jar) \
   && native-image --no-fallback --verbose --report-unsupported-elements-at-runtime -H:+ReportExceptionStackTraces \
       -H:ClassInitialization=org.apache.commons.logging.LogFactory:build_time,org.apache.commons.logging.impl.SLF4JLogFactory:build_time \
-      -cp ${NATIVE_EXPLODED_DIR}:${NATIVE_EXPLODED_DIR}/BOOT-INF/classes:${NATIVE_EXPLODED_DIR}/BOOT-INF/lib/* \
+      -cp /workspace/spring-aot/main/classes:${NATIVE_EXPLODED_DIR}:${NATIVE_EXPLODED_DIR}/BOOT-INF/classes:${NATIVE_EXPLODED_DIR}/BOOT-INF/lib/* \
     io.github.jrohila.simpleragserver.SimpleRagServerApplication \
     -H:Name=${NATIVE_BINARY_NAME}
 

@@ -1,9 +1,10 @@
 {
-  "resources": [
-    {
-      "includes": [
-        { "pattern": "models/.*" }
-      ]
-    }
-  ]
+  "resources": {
+    "includes": [
+      { "pattern": "models/.*" },
+      { "pattern": "META-INF/services/.*" },
+      { "pattern": "com/knuddels/jtokkit/.*" }
+    ]
+  }
 }
+

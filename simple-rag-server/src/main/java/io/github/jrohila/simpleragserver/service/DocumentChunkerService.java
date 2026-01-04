@@ -16,7 +16,6 @@ import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
 import io.github.jrohila.simpleragserver.pipeline.ChunkQualityGate;
-import io.github.jrohila.simpleragserver.repository.DocumentContentStore;
 // imports for ChunkService and NlpService are unnecessary since they're in the same package
 import java.io.IOException;
 import java.util.List;
@@ -49,7 +48,7 @@ public class DocumentChunkerService {
     private DocumentService documentService;
 
     @Autowired
-    private DocumentContentStore documentContentStore;
+    private FileStorageService fileStorageService;
 
     @Autowired
     private NlpService nlpService;
@@ -104,7 +103,7 @@ public class DocumentChunkerService {
             }
             var doc = docOpt.get();
 
-            var in = documentContentStore.getContent(doc);
+            var in = fileStorageService.getContent(doc);
             if (in == null) {
                 LOGGER.log(Level.WARNING, "DocumentChunker.process: no content for id={0}", documentId);
                 return DocumentEntity.ProcessingState.FAILED;

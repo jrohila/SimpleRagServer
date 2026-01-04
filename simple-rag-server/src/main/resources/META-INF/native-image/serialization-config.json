@@ -1,0 +1,11 @@
+[
+  {
+    "name": "opennlp.tools.sentdetect.SentenceDetectorME"
+  },
+  {
+    "name": "opennlp.tools.postag.POSTaggerME"
+  },
+  {
+    "name": "opennlp.tools.langdetect.LanguageDetectorME"
+  }
+]

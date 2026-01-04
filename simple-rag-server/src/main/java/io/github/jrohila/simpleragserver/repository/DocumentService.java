@@ -3,6 +3,7 @@ package io.github.jrohila.simpleragserver.repository;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.service.EventPublisherService;
+import io.github.jrohila.simpleragserver.service.FileStorageService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,16 +27,16 @@ public class DocumentService {
     private EventPublisherService eventPublisherService;
 
 
-    private final DocumentContentStore contentStore;
+    private final FileStorageService fileStorageService;
     private final ChunkService chunkService;
     private final IndicesManager indicesManager;
 
     public DocumentService(
-            DocumentContentStore contentStore,
+            FileStorageService fileStorageService,
             ChunkService chunkService,
             IndicesManager indicesManager
     ) {
-        this.contentStore = contentStore;
+        this.fileStorageService = fileStorageService;
         this.chunkService = chunkService;
         this.indicesManager = indicesManager;
     }
@@ -126,7 +127,7 @@ public class DocumentService {
         doc.setUpdatedTime(now);
 
         // Persist content and metadata
-        contentStore.setContent(doc, file.getInputStream());
+        fileStorageService.setContent(doc, file.getInputStream());
         indexDocument(collectionId, doc);
 
         this.eventPublisherService.publishDocumentUploadEvent(collectionId, doc.getId());
@@ -157,7 +158,7 @@ public class DocumentService {
         }
         doc.setContentLen(file.getSize());
 
-        contentStore.setContent(doc, file.getInputStream());
+        fileStorageService.setContent(doc, file.getInputStream());
         if (doc.getCreatedTime() == null) {
             doc.setCreatedTime(now);
         }
