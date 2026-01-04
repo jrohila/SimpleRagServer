@@ -112,7 +112,9 @@ public class DocumentService {
         // Only set fields that exist on DocumentEntity
         doc.setHash(hash);
         // Set id to a random UUID
-        doc.setId(java.util.UUID.randomUUID().toString());
+        String docId = java.util.UUID.randomUUID().toString();
+        doc.setId(docId);
+        doc.setContentId(docId); // Use same ID for content storage
         if (file.getOriginalFilename() != null) {
             doc.setOriginalFilename(file.getOriginalFilename());
         }

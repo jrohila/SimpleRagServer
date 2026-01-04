@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y libatomic1 && rm -rf /var/lib/apt/lists
 # Copy remaining sources and perform the actual build using the cached Maven repo
 COPY . /workspace
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -Pgraalvm -DskipNativeBuild=true -Dexec.skip=true -pl simple-rag-server -am -DskipTests install \
-    && mvn -f simple-rag-server/pom.xml -Pgraalvm -DskipNativeBuild=true -Dexec.skip=true -DskipTests spring-boot:process-aot package
+    mvn -Pgraalvm-dev -DskipNativeBuild=true -Dexec.skip=true -pl simple-rag-server -am -DskipTests install \
+    && mvn -f simple-rag-server/pom.xml -Pgraalvm-dev -DskipNativeBuild=true -Dexec.skip=true -DskipTests spring-boot:process-aot package
 
 # Stage 2: run GraalVM native-image to produce native executable
 FROM ghcr.io/graalvm/native-image-community:21 AS native

@@ -1,27 +1,43 @@
 package io.github.jrohila.simpleragserver.config;
 
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.core5.util.Timeout;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5Transport;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
+import org.opensearch.client.transport.rest_client.RestClientTransport;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.RestClientBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 @Configuration
 public class OpenSearchConfig {
 
-    // Build the HC5 transport (closed on shutdown)
+    private static final Logger log = LoggerFactory.getLogger(OpenSearchConfig.class);
+
+    @Autowired(required = false)
+    private ObjectMapper objectMapper;
+
+    // Build the RestClient transport (closed on shutdown)
     @Bean(name = "openSearchTransport", destroyMethod = "close")
-    public ApacheHttpClient5Transport openSearchTransport(
+    public RestClientTransport openSearchTransport(
             @Value("${opensearch.uris}") String osUri,
             @Value("${opensearch.username}") String username,
             @Value("${opensearch.password}") String password
     ) {
+        log.info("Configuring OpenSearch RestClient transport...");
+        log.info("OpenSearch URI: {}", osUri);
+        log.info("OpenSearch Username: {}", username);
+        log.info("Password provided: {}", password != null && !password.isBlank());
+        
         // Parse schema, host, and port from the URI
         java.net.URI uri = java.net.URI.create(osUri.trim());
         String schema = uri.getScheme();
@@ -29,37 +45,56 @@ public class OpenSearchConfig {
         int port = uri.getPort();
 
         if (schema == null || host == null) {
+            log.error("Invalid opensearch.uris value: {}", osUri);
             throw new IllegalArgumentException("Invalid opensearch.uris value: " + osUri);
         }
         if (port == -1) {
             port = "https".equalsIgnoreCase(schema) ? 443 : 9200;
         }
+        
+        log.info("Parsed OpenSearch connection - Schema: {}, Host: {}, Port: {}", schema, host, port);
 
-        ApacheHttpClient5TransportBuilder builder = ApacheHttpClient5TransportBuilder.builder(
-                        new org.apache.hc.core5.http.HttpHost(schema, host, port))
-                .setMapper(new JacksonJsonpMapper())
-                .setRequestConfigCallback(rc -> {
-                    rc.setConnectTimeout(Timeout.ofSeconds(30));
-                    rc.setResponseTimeout(Timeout.ofSeconds(60));
-                    return rc;
-                });
+        // Build RestClient
+        RestClientBuilder restClientBuilder = RestClient.builder(
+                new org.apache.hc.core5.http.HttpHost(schema, host, port));
 
+        // Configure timeouts
+        restClientBuilder.setRequestConfigCallback(rc -> {
+            rc.setConnectTimeout(org.apache.hc.core5.util.Timeout.ofSeconds(30));
+            rc.setResponseTimeout(org.apache.hc.core5.util.Timeout.ofSeconds(60));
+            return rc;
+        });
+
+        // Configure preemptive Basic authentication
         if (username != null && !username.isBlank()) {
-            BasicCredentialsProvider creds = new BasicCredentialsProvider();
-            creds.setCredentials(new AuthScope(null, -1),
-                    new UsernamePasswordCredentials(username, password == null ? new char[0] : password.toCharArray()));
-            builder.setHttpClientConfigCallback(hc -> {
-                hc.setDefaultCredentialsProvider(creds);
-                return hc;
+            log.info("Configuring preemptive Basic authentication for OpenSearch RestClient");
+            String auth = username + ":" + (password == null ? "" : password);
+            String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+            String authHeader = "Basic " + encodedAuth;
+            
+            restClientBuilder.setDefaultHeaders(new Header[]{
+                new BasicHeader("Authorization", authHeader)
             });
+            log.debug("RestClient configured with preemptive Authorization header");
+        } else {
+            log.warn("No username provided - OpenSearch authentication is disabled");
         }
 
-        return builder.build();
+        RestClient restClient = restClientBuilder.build();
+        
+        // Use Spring's ObjectMapper if available, otherwise create a default one
+        ObjectMapper mapper = (objectMapper != null) ? objectMapper : new ObjectMapper();
+        log.info("OpenSearch RestClient transport configured successfully with Jackson mapper");
+        
+        return new RestClientTransport(restClient, new JacksonJsonpMapper(mapper));
     }
 
-    // High-level OpenSearch client backed by the HC5 transport
+    // High-level OpenSearch client backed by the RestClient transport
     @Bean
-    public OpenSearchClient openSearchClient(ApacheHttpClient5Transport openSearchTransport) {
-        return new OpenSearchClient(openSearchTransport);
+    public OpenSearchClient openSearchClient(RestClientTransport openSearchTransport) {
+        log.info("Creating OpenSearchClient bean");
+        OpenSearchClient client = new OpenSearchClient(openSearchTransport);
+        log.info("OpenSearchClient created successfully");
+        return client;
     }
 }

@@ -31,3 +31,4 @@ replay_pid*
 /simple-rag-ui/nbproject/private/
 /simple-rag-nlp/target
 .vscode/settings.json
+/simple-rag-server/upload

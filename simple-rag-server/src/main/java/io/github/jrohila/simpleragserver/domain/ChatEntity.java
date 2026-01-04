@@ -1,10 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package io.github.jrohila.simpleragserver.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -21,24 +18,34 @@ public class ChatEntity {
 
     private String id;
 
+    @JsonProperty("publicName")
     private String publicName;
 
+    @JsonProperty("internalName")
     private String internalName;
 
+    @JsonProperty("internalDescription")
     private String internalDescription;
 
+    @JsonProperty("defaultLanguage")
     private String defaultLanguage;
 
+    @JsonProperty("defaultCollectionId")
     private String defaultCollectionId;
 
+    @JsonProperty("defaultSystemPrompt")
     private String defaultSystemPrompt;
 
+    @JsonProperty("defaultSystemPromptAppend")
     private String defaultSystemPromptAppend;
 
+    @JsonProperty("defaultContextPrompt")
     private String defaultContextPrompt;
 
+    @JsonProperty("defaultMemoryPrompt")
     private String defaultMemoryPrompt;
 
+    @JsonProperty("defaultExtractorPrompt")
     private String defaultExtractorPrompt;
 
     private boolean overrideSystemMessage;
@@ -47,6 +54,7 @@ public class ChatEntity {
     private boolean useUserPromptRewriting;
     private String userPromptRewritingPrompt;
 
+    @JsonProperty("defaultOutOfScopeMessage")
     private String defaultOutOfScopeMessage;
 
     private String welcomeMessage;
