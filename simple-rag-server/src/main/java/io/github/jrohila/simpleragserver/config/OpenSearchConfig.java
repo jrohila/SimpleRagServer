@@ -65,6 +65,16 @@ public class OpenSearchConfig {
             return rc;
         });
 
+        // Configure HTTP client (auth caching and authentication)
+        restClientBuilder.setHttpClientConfigCallback(hc -> {
+            // Disable AuthCache in GraalVM native image to avoid reflection issues
+            if (isGraalVmNativeImage()) {
+                log.info("GraalVM native image detected - disabling HTTP auth caching");
+                hc.disableAuthCaching();
+            }
+            return hc;
+        });
+
         // Configure preemptive Basic authentication
         if (username != null && !username.isBlank()) {
             log.info("Configuring preemptive Basic authentication for OpenSearch RestClient");
@@ -96,5 +106,13 @@ public class OpenSearchConfig {
         OpenSearchClient client = new OpenSearchClient(openSearchTransport);
         log.info("OpenSearchClient created successfully");
         return client;
+    }
+
+    /**
+     * Checks if the application is running in a GraalVM native image.
+     * @return true if running in native image, false otherwise
+     */
+    private boolean isGraalVmNativeImage() {
+        return "runtime".equals(System.getProperty("org.graalvm.nativeimage.imagecode"));
     }
 }
