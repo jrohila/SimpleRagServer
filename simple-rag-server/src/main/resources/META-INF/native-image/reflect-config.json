@@ -130,53 +130,5 @@
     "allPublicMethods": true,
     "queryAllDeclaredMethods": true,
     "queryAllPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$SnakeCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerCamelCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$UpperCamelCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$KebabCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerDotCaseStrategy",
-    "unsafeAllocated": true,
-    "allDeclaredFields": true,
-    "allPublicFields": true,
-    "allDeclaredMethods": true,
-    "allPublicMethods": true
   }
 ]

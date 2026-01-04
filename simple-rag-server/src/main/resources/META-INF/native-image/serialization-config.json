@@ -7,26 +7,5 @@
   },
   {
     "name": "opennlp.tools.langdetect.LanguageDetectorME"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$SnakeCaseStrategy"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerCamelCaseStrategy"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$UpperCamelCaseStrategy"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerCaseStrategy"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$KebabCaseStrategy"
-  },
-  {
-    "name": "com.fasterxml.jackson.databind.PropertyNamingStrategies$LowerDotCaseStrategy"
   }
 ]
