@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+// Jackson annotations removed for SimpleRagData module
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,7 +13,6 @@ import lombok.ToString;
 @Setter
 @ToString
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class WebGpuConfig {
 
     /** Model id to use for WebGPU (e.g. onnx-community/Model-Name) */

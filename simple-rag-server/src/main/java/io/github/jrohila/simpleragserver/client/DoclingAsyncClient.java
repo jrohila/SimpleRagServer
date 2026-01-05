@@ -7,19 +7,19 @@ import io.github.jrohila.simpleragserver.domain.DoclingConversionRequest;
 import io.github.jrohila.simpleragserver.domain.DoclingConversionResponse;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkRequest;
 import io.github.jrohila.simpleragserver.domain.DoclingChunkResponse;
+import io.github.jrohila.simpleragserver.domain.Options;
+import io.github.jrohila.simpleragserver.domain.SourceInput;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
+import io.micronaut.context.annotation.Property;
+import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.client.HttpClient;
+import io.micronaut.http.client.exceptions.HttpClientException;
+import jakarta.inject.Singleton;
+import io.micronaut.http.multipart.CompletedFileUpload;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,12 +32,12 @@ import java.util.Optional;
  * Async Docling client that starts conversion jobs and returns a polling handle.
  * This does NOT poll; it only starts the operation. The async path is configurable.
  */
-@Service
+@Singleton
 public class DoclingAsyncClient {
 
     private static final Logger logger = LoggerFactory.getLogger(DoclingAsyncClient.class);
 
-    private final RestTemplate restTemplate;
+    private final HttpClient httpClient;
     private final String doclingBaseUrl;
     private final String asyncConvertPath;
     private final ObjectMapper objectMapper;
@@ -47,12 +47,13 @@ public class DoclingAsyncClient {
     private final String statusPathTemplate;
 
     public DoclingAsyncClient(
-            @Value("${docling-serve.url}") String doclingBaseUrl,
-        @Value("${docling.async.convert-path:/v1/convert/source/async}") String asyncConvertPath,
-        @Value("${docling.async.status-path-template:/v1/status/poll/{id}}") String statusPathTemplate,
-            @Value("${docling.timeout.connect:10000}") int connectTimeoutMs,
-            @Value("${docling.timeout.read:600000}") int readTimeoutMs,
-            @Value("${docling.result.timeout.read:15000}") int resultReadTimeoutMs
+            @Property(name = "docling-serve.url") String doclingBaseUrl,
+            @Property(name = "docling.async.convert-path", defaultValue = "/v1/convert/source/async") String asyncConvertPath,
+            @Property(name = "docling.async.status-path-template", defaultValue = "/v1/status/poll/{id}") String statusPathTemplate,
+            @Property(name = "docling.timeout.connect", defaultValue = "10000") int connectTimeoutMs,
+            @Property(name = "docling.timeout.read", defaultValue = "600000") int readTimeoutMs,
+            @Property(name = "docling.result.timeout.read", defaultValue = "15000") int resultReadTimeoutMs,
+            HttpClient httpClient
     ) {
         this.doclingBaseUrl = doclingBaseUrl;
         this.asyncConvertPath = asyncConvertPath;
@@ -60,58 +61,8 @@ public class DoclingAsyncClient {
         this.connectTimeoutMs = connectTimeoutMs;
         this.readTimeoutMs = readTimeoutMs;
         this.resultReadTimeoutMs = resultReadTimeoutMs;
-        this.restTemplate = createRestTemplate();
+        this.httpClient = httpClient;
         this.objectMapper = new ObjectMapper().disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-    }
-
-    private RestTemplate createRestTemplate() {
-        org.springframework.http.client.SimpleClientHttpRequestFactory baseFactory =
-                new org.springframework.http.client.SimpleClientHttpRequestFactory();
-        baseFactory.setConnectTimeout(connectTimeoutMs);
-        baseFactory.setReadTimeout(readTimeoutMs);
-
-        org.springframework.http.client.BufferingClientHttpRequestFactory factory =
-                new org.springframework.http.client.BufferingClientHttpRequestFactory(baseFactory);
-
-        RestTemplate template = new RestTemplate();
-        template.setRequestFactory(factory);
-        template.getInterceptors().add((request, body, execution) -> {
-            try {
-                String bodyStr = new String(body, StandardCharsets.UTF_8);
-                try {
-                    JsonNode root = objectMapper.readTree(bodyStr);
-                    JsonNode sources = root.path("sources");
-                    if (sources.isArray() && sources.size() > 0) {
-                        JsonNode s0 = sources.get(0);
-                        String filename = s0.path("filename").asText(null);
-                        String b64 = s0.path("base64_string").asText(null);
-                        int len = b64 != null ? b64.length() : 0;
-                        logger.debug("Docling(ASYNC) HTTP payload (redacted): filename={} base64_length={}", filename, len);
-                    }
-                } catch (Exception jsonEx) {
-                    logger.debug("Docling(ASYNC) payload (raw, redacted omitted): {}", bodyStr.substring(0, Math.min(512, bodyStr.length())));
-                }
-            } catch (Exception ex) {
-                logger.debug("Docling(ASYNC) HTTP payload logging failed (non-fatal)");
-            }
-            return execution.execute(request, body);
-        });
-        return template;
-    }
-
-    private RestTemplate createRestTemplate(int connectTimeout, int readTimeout) {
-        org.springframework.http.client.SimpleClientHttpRequestFactory baseFactory =
-                new org.springframework.http.client.SimpleClientHttpRequestFactory();
-        baseFactory.setConnectTimeout(connectTimeout);
-        baseFactory.setReadTimeout(readTimeout);
-
-        org.springframework.http.client.BufferingClientHttpRequestFactory factory =
-                new org.springframework.http.client.BufferingClientHttpRequestFactory(baseFactory);
-
-        RestTemplate template = new RestTemplate();
-        template.setRequestFactory(factory);
-        template.getInterceptors().add((request, body, execution) -> execution.execute(request, body));
-        return template;
     }
 
     /**
@@ -125,9 +76,9 @@ public class DoclingAsyncClient {
     /**
      * Start async conversion from uploaded file.
      */
-    public StartOperationResult convertFromFile(MultipartFile file) throws IOException {
+    public StartOperationResult convertFromFile(CompletedFileUpload file) throws IOException {
         String base64 = Base64.getEncoder().encodeToString(file.getBytes());
-        DoclingConversionRequest req = DoclingConversionRequest.fromBase64(file.getOriginalFilename(), base64);
+        DoclingConversionRequest req = DoclingConversionRequest.fromBase64(file.getFilename(), base64);
         return executeAsyncConversion(req);
     }
 
@@ -142,12 +93,6 @@ public class DoclingAsyncClient {
 
     private StartOperationResult executeAsyncConversion(DoclingConversionRequest request) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Accept", "application/json");
-
-            HttpEntity<DoclingConversionRequest> entity = new HttpEntity<>(request, headers);
-
             String url = doclingBaseUrl + asyncConvertPath;
             try {
                 Object redacted = buildRedactedRequestLog(request);
@@ -157,16 +102,19 @@ public class DoclingAsyncClient {
                 logger.debug("Docling ASYNC request serialization for logging failed (payload redacted)");
             }
 
-            ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
+            HttpRequest<DoclingConversionRequest> httpReq = HttpRequest.POST(url, request)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON);
 
-            int status = response.getStatusCode().value();
-            URI loc = Optional.ofNullable(response.getHeaders().getLocation()).orElse(null);
-            String body = Optional.ofNullable(response.getBody()).orElse("");
+            HttpResponse<String> response = httpClient.toBlocking().exchange(httpReq, String.class);
+
+            int status = response.getStatus().getCode();
+                String locHeader = response.getHeaders().get("location");
+                URI loc = null;
+                if (locHeader != null && !locHeader.isBlank()) {
+                    try { loc = URI.create(locHeader); } catch (Exception ignore) {}
+                }
+            String body = response.getBody().orElse("");
             // Try to parse an operation id from body
             String opId = null;
             try {
@@ -184,10 +132,11 @@ public class DoclingAsyncClient {
 
             logger.info("Docling ASYNC started: status={} location={} operationId={} bodyLen={}", status, pollUrl, opId, body.length());
             return new StartOperationResult(opId, pollUrl, status, body);
-        } catch (HttpClientErrorException e) {
-            String body = e.getResponseBodyAsString();
-            logger.error("Docling ASYNC returned {} with body: {}", e.getStatusCode(), body);
-            throw new RuntimeException("Docling async 4xx error: " + e.getStatusCode() + " body=" + body, e);
+        } catch (io.micronaut.http.client.exceptions.HttpClientResponseException e) {
+            String body = "";
+            try { body = e.getResponse().getBody(String.class).orElse(""); } catch (Exception ex) {}
+            logger.error("Docling ASYNC returned {} with body: {}", e.getStatus(), body);
+            throw new RuntimeException("Docling async 4xx error: " + e.getStatus() + " body=" + body, e);
         } catch (Exception e) {
             logger.error("Failed to start async conversion using Docling service", e);
             throw new RuntimeException("Async conversion start failed: " + e.getMessage(), e);
@@ -204,7 +153,7 @@ public class DoclingAsyncClient {
             }
             var sources = new java.util.ArrayList<java.util.Map<String, Object>>();
             if (request.getSources() != null) {
-                for (DoclingConversionRequest.SourceInput s : request.getSources()) {
+                for (SourceInput s : request.getSources()) {
                     var m = new java.util.HashMap<String, Object>();
                     m.put("kind", s.getKind());
                     if (s.getUrl() != null) m.put("url", s.getUrl());
@@ -233,10 +182,10 @@ public class DoclingAsyncClient {
             DoclingChunkRequest.HybridChunkerOptions hybridOptions,
             Boolean includeConvertedDoc,
             String targetKind,
-            DoclingConversionRequest.Options convertOptionsOverride
+            Options convertOptionsOverride
     ) {
         DoclingChunkRequest req = new DoclingChunkRequest();
-        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        SourceInput src = new SourceInput();
         src.setKind("http");
         src.setUrl(url);
         req.setSources(List.of(src));
@@ -255,17 +204,17 @@ public class DoclingAsyncClient {
      * Start async Hybrid chunking from file upload.
      */
     public StartOperationResult hybridChunkFromFile(
-            MultipartFile file,
+            CompletedFileUpload file,
             DoclingChunkRequest.HybridChunkerOptions hybridOptions,
             Boolean includeConvertedDoc,
             String targetKind,
-            DoclingConversionRequest.Options convertOptionsOverride
+            Options convertOptionsOverride
     ) throws IOException {
         String base64 = Base64.getEncoder().encodeToString(file.getBytes());
         DoclingChunkRequest req = new DoclingChunkRequest();
-        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        SourceInput src = new SourceInput();
         src.setKind("file");
-        src.setFilename(file.getOriginalFilename());
+        src.setFilename(file.getFilename());
         src.setBase64String(base64);
         req.setSources(List.of(src));
         if (convertOptionsOverride != null) req.setConvertOptions(convertOptionsOverride);
@@ -288,11 +237,11 @@ public class DoclingAsyncClient {
             DoclingChunkRequest.HybridChunkerOptions hybridOptions,
             Boolean includeConvertedDoc,
             String targetKind,
-            DoclingConversionRequest.Options convertOptionsOverride
+            Options convertOptionsOverride
     ) {
         String base64 = Base64.getEncoder().encodeToString(content);
         DoclingChunkRequest req = new DoclingChunkRequest();
-        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        SourceInput src = new SourceInput();
         src.setKind("file");
         src.setFilename(filename);
         src.setBase64String(base64);
@@ -316,10 +265,10 @@ public class DoclingAsyncClient {
             DoclingChunkRequest.HierarchicalChunkerOptions hierarchicalOptions,
             Boolean includeConvertedDoc,
             String targetKind,
-            DoclingConversionRequest.Options convertOptionsOverride
+            Options convertOptionsOverride
     ) {
         DoclingChunkRequest req = new DoclingChunkRequest();
-        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        SourceInput src = new SourceInput();
         src.setKind("http");
         src.setUrl(url);
         req.setSources(List.of(src));
@@ -338,17 +287,17 @@ public class DoclingAsyncClient {
      * Start async Hierarchical chunking from file upload.
      */
     public StartOperationResult hierarchicalChunkFromFile(
-            MultipartFile file,
+            CompletedFileUpload file,
             DoclingChunkRequest.HierarchicalChunkerOptions hierarchicalOptions,
             Boolean includeConvertedDoc,
             String targetKind,
-            DoclingConversionRequest.Options convertOptionsOverride
+            Options convertOptionsOverride
     ) throws IOException {
         String base64 = Base64.getEncoder().encodeToString(file.getBytes());
         DoclingChunkRequest req = new DoclingChunkRequest();
-        DoclingConversionRequest.SourceInput src = new DoclingConversionRequest.SourceInput();
+        SourceInput src = new SourceInput();
         src.setKind("file");
-        src.setFilename(file.getOriginalFilename());
+        src.setFilename(file.getFilename());
         src.setBase64String(base64);
         req.setSources(List.of(src));
         if (convertOptionsOverride != null) req.setConvertOptions(convertOptionsOverride);
@@ -368,11 +317,6 @@ public class DoclingAsyncClient {
     private StartOperationResult executeAsyncStart(String path, Object payload) {
         try {
             String url = doclingBaseUrl + path;
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Accept", "application/json");
-
-            HttpEntity<Object> entity = new HttpEntity<>(payload, headers);
 
             // Minimal redacted logging
             try {
@@ -380,16 +324,19 @@ public class DoclingAsyncClient {
                 logger.info("Docling ASYNC start POST {} payload_size={}B", url, json.length());
             } catch (Exception ignore) {}
 
-            ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
+            HttpRequest<Object> httpReq = HttpRequest.POST(url, payload)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON);
 
-            int status = response.getStatusCode().value();
-            URI loc = Optional.ofNullable(response.getHeaders().getLocation()).orElse(null);
-            String body = Optional.ofNullable(response.getBody()).orElse("");
+            HttpResponse<String> response = httpClient.toBlocking().exchange(httpReq, String.class);
+
+            int status = response.getStatus().getCode();
+                String locHeader = response.getHeaders().get("location");
+                URI loc = null;
+                if (locHeader != null && !locHeader.isBlank()) {
+                    try { loc = URI.create(locHeader); } catch (Exception ignore) {}
+                }
+            String body = response.getBody().orElse("");
 
             String opId = null;
             try {
@@ -406,10 +353,11 @@ public class DoclingAsyncClient {
 
             logger.info("Docling ASYNC chunk started: status={} location={} operationId={} bodyLen={}", status, pollUrl, opId, body.length());
             return new StartOperationResult(opId, pollUrl, status, body);
-        } catch (HttpClientErrorException e) {
-            String body = e.getResponseBodyAsString();
-            logger.error("Docling ASYNC returned {} with body: {}", e.getStatusCode(), body);
-            throw new RuntimeException("Docling async 4xx error: " + e.getStatusCode() + " body=" + body, e);
+        } catch (io.micronaut.http.client.exceptions.HttpClientResponseException e) {
+            String body = "";
+            try { body = e.getResponse().getBody(String.class).orElse(""); } catch (Exception ex) {}
+            logger.error("Docling ASYNC returned {} with body: {}", e.getStatus(), body);
+            throw new RuntimeException("Docling async 4xx error: " + e.getStatus() + " body=" + body, e);
         } catch (Exception e) {
             logger.error("Failed to start async chunking using Docling service", e);
             throw new RuntimeException("Async chunk start failed: " + e.getMessage(), e);
@@ -462,11 +410,10 @@ public class DoclingAsyncClient {
 
     private OperationStatus getStatusByAbsoluteUrl(String absoluteUrl) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Accept", "application/json");
-            ResponseEntity<String> resp = restTemplate.exchange(absoluteUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), String.class);
-            int code = resp.getStatusCode().value();
-            String body = Optional.ofNullable(resp.getBody()).orElse("");
+            HttpRequest<?> req = HttpRequest.GET(absoluteUrl).accept(MediaType.APPLICATION_JSON);
+            HttpResponse<String> resp = httpClient.toBlocking().exchange(req, String.class);
+            int code = resp.getStatus().getCode();
+            String body = resp.getBody().orElse("");
             if (logger.isDebugEnabled()) {
                 logger.debug("Docling ASYNC status raw: code={} body={}", code, body.length() > 512 ? body.substring(0, 512) + "..." : body);
             }
@@ -557,19 +504,13 @@ public class DoclingAsyncClient {
             }
             // Else follow result URL
             if (status.resultUrl != null && !status.resultUrl.isBlank()) {
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Accept", "application/json");
-
-                // Use a shorter read-timeout for result fetch to avoid long blocking
-                RestTemplate shortTemplate = createRestTemplate(connectTimeoutMs, resultReadTimeoutMs);
-
+                HttpRequest<?> req = HttpRequest.GET(status.resultUrl).accept(MediaType.APPLICATION_JSON);
                 int attempts = 3; // small retry to bridge status/result race
                 for (int i = 0; i < attempts; i++) {
                     try {
-                        ResponseEntity<DoclingConversionResponse> resp = shortTemplate.exchange(
-                                status.resultUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), DoclingConversionResponse.class);
-                        if (resp.getStatusCode().is2xxSuccessful()) {
-                            return Optional.ofNullable(resp.getBody());
+                        HttpResponse<DoclingConversionResponse> resp = httpClient.toBlocking().exchange(req, DoclingConversionResponse.class);
+                        if (resp.getStatus().getCode() >= 200 && resp.getStatus().getCode() < 300) {
+                            return Optional.ofNullable(resp.getBody().orElse(null));
                         }
                         // If 404/425 etc., small wait and retry once or twice
                         Thread.sleep(250L);
@@ -605,19 +546,15 @@ public class DoclingAsyncClient {
             }
             // Else follow result URL
             if (status.resultUrl != null && !status.resultUrl.isBlank()) {
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Accept", "application/json");
-
-                RestTemplate shortTemplate = createRestTemplate(connectTimeoutMs, resultReadTimeoutMs);
+                HttpRequest<?> req = HttpRequest.GET(status.resultUrl).accept(MediaType.APPLICATION_JSON);
 
                 int attempts = 3;
                 for (int i = 0; i < attempts; i++) {
                     try {
                         logger.info("DoclingAsyncClient: Fetching chunk result from URL: {}", status.resultUrl);
-                        ResponseEntity<String> rawResp = shortTemplate.exchange(
-                                status.resultUrl, HttpMethod.GET, new HttpEntity<Void>((Void) null, headers), String.class);
-                        if (rawResp.getStatusCode().is2xxSuccessful()) {
-                            String rawBody = rawResp.getBody();
+                        HttpResponse<String> rawResp = httpClient.toBlocking().exchange(req, String.class);
+                        if (rawResp.getStatus().getCode() >= 200 && rawResp.getStatus().getCode() < 300) {
+                            String rawBody = rawResp.getBody().orElse("");
                             logger.debug("DoclingAsyncClient: Raw response body from result URL: {}", rawBody);
                             DoclingChunkResponse parsed = objectMapper.readValue(rawBody, DoclingChunkResponse.class);
                             logger.debug("DoclingAsyncClient: Deserialized DoclingChunkResponse from URL: chunks={}", parsed != null ? (parsed.getChunks() != null ? parsed.getChunks().size() : "null") : "null response");

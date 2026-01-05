@@ -21,45 +21,48 @@ import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
+import io.micronaut.context.event.ApplicationEventListener;
+import io.micronaut.scheduling.annotation.Scheduled;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Lenovo
  */
-@Component
-public class DocumentChunkerService {
+@Singleton
+public class DocumentChunkerService implements ApplicationEventListener<DocumentUploadEvent> {
 
     private static final Logger LOGGER = Logger.getLogger(DocumentChunkerService.class.getName());
 
-    @Autowired
-    private EmbeddingClientFactory embedService;
+    private final EmbeddingClientFactory embedService;
+    private final DoclingAsyncClient doclingAsyncClient;
+    private final ChunkService chunkService;
+    private final DocumentService documentService;
+    private final FileStorageService fileStorageService;
+    private final NlpService nlpService;
+    private final ChunkQualityGate qualityGate;
+    private final ChunkingTaskService chunkingTaskService;
 
-    @Autowired
-    private DoclingAsyncClient doclingAsyncClient;
+    public DocumentChunkerService(
+            EmbeddingClientFactory embedService,
+            DoclingAsyncClient doclingAsyncClient,
+            ChunkService chunkService,
+            DocumentService documentService,
+            FileStorageService fileStorageService,
+            NlpService nlpService,
+            ChunkQualityGate qualityGate,
+            ChunkingTaskService chunkingTaskService) {
+        this.embedService = embedService;
+        this.doclingAsyncClient = doclingAsyncClient;
+        this.chunkService = chunkService;
+        this.documentService = documentService;
+        this.fileStorageService = fileStorageService;
+        this.nlpService = nlpService;
+        this.qualityGate = qualityGate;
+        this.chunkingTaskService = chunkingTaskService;
+    }
 
-    @Autowired
-    private ChunkService chunkService;
-
-    @Autowired
-    private DocumentService documentService;
-
-    @Autowired
-    private FileStorageService fileStorageService;
-
-    @Autowired
-    private NlpService nlpService;
-
-    @Autowired
-    private ChunkQualityGate qualityGate;
-
-    @Autowired
-    private ChunkingTaskService chunkingTaskService;
-
-    @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelay = "60s")
     public void checkChunkingProcessState() {
         LOGGER.info("DocumentChunker: Running scheduled task");
 
@@ -86,8 +89,8 @@ public class DocumentChunkerService {
         }
     }
 
-    @EventListener
-    public void handleDocumentUpload(DocumentUploadEvent event) {
+    @Override
+    public void onApplicationEvent(DocumentUploadEvent event) {
         this.startChunkingProcess(event.getCollectionId(), event.getDocumentId());
     }
 

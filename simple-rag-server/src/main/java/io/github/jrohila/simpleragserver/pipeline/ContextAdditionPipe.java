@@ -21,15 +21,14 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import io.micronaut.context.annotation.Value;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Jukka
  */
-@Component
+@Singleton
 public class ContextAdditionPipe {
 
     public static enum OperationResult {
@@ -53,17 +52,20 @@ public class ContextAdditionPipe {
     @Value("${processing.chat.token.reserve-headroom:4000}")
     private int reserveHeadroomTokens;
 
-    @Autowired
-    private BoostTermDetector boostTermDetector;
+    private final BoostTermDetector boostTermDetector;
+    private final ChatHelper chatHelper;
+    private final UserFactsService userFactsService;
+    private final ChunkSearchService chunkSearchService;
 
-    @Autowired
-    private ChatHelper chatHelper;
-
-    @Autowired
-    private UserFactsService userFactsService;
-
-    @Autowired
-    private ChunkSearchService chunkSearchService;
+    public ContextAdditionPipe(BoostTermDetector boostTermDetector,
+                               ChatHelper chatHelper,
+                               UserFactsService userFactsService,
+                               ChunkSearchService chunkSearchService) {
+        this.boostTermDetector = boostTermDetector;
+        this.chatHelper = chatHelper;
+        this.userFactsService = userFactsService;
+        this.chunkSearchService = chunkSearchService;
+    }
 
     public List<MessageDTO> appendMemory(List<MessageDTO> springMessages, List<Integer> fingerprints, ChatEntity chatEntity) {
         List<ExtractedFactDTO> facts = userFactsService.getFacts(fingerprints);

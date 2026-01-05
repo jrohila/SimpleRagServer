@@ -8,14 +8,15 @@ import io.github.jrohila.simpleragserver.repository.ChatManagerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
 
 import java.util.List;
 
 @Slf4j
-@RestController
-@RequestMapping("/api/webgpu")
+@Controller("/api/webgpu")
 @RequiredArgsConstructor
 public class WebGpuController {
 
@@ -41,9 +42,9 @@ public class WebGpuController {
      * @param request Contains publicName and list of messages from browser
      * @return Optimized message list with RAG context added
      */
-    @PostMapping("/process-messages")
-    public ResponseEntity<List<MessageDTO>> processMessageListBeforeLLM(
-            @RequestBody ProcessMessagesRequest request
+    @Post("/process-messages")
+    public HttpResponse<List<MessageDTO>> processMessageListBeforeLLM(
+            @Body ProcessMessagesRequest request
     ) {
         log.info("Processing messages for WebGPU LLM. PublicName: {}, Message count: {}",
                 request.publicName(), request.messages().size());
@@ -52,7 +53,7 @@ public class WebGpuController {
             // Validate input
             if (request.messages() == null || request.messages().isEmpty()) {
                 log.warn("Empty message list provided");
-                return ResponseEntity.badRequest().build();
+                return HttpResponse.badRequest();
             }
 
             // Get the chat entity if publicName is provided
@@ -62,7 +63,7 @@ public class WebGpuController {
                 
                 if (!chatEntityOpt.isPresent()) {
                     log.warn("Chat not found with publicName: {}", request.publicName());
-                    return ResponseEntity.notFound().build();
+                    return HttpResponse.notFound();
                 }
                 chatEntity = chatEntityOpt.get();
             }
@@ -92,11 +93,11 @@ public class WebGpuController {
             // Convert back to DTOs
             log.info("Message processing complete. Output messages: {}", processedMessages.size());
 
-            return ResponseEntity.ok(processedMessages);
+            return HttpResponse.ok(processedMessages);
 
         } catch (Exception e) {
             log.error("Error processing messages for WebGPU LLM", e);
-            return ResponseEntity.internalServerError().build();
+            return HttpResponse.serverError();
         }
     }
 }

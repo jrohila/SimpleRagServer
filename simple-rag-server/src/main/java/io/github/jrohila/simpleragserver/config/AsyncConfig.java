@@ -1,24 +1,22 @@
 package io.github.jrohila.simpleragserver.config;
 
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
-@Configuration
-@EnableAsync
+@Factory
 public class AsyncConfig {
 
-    @Bean(name = "chunkingExecutor")
+    @Singleton
+    @Named("chunkingExecutor")
     public Executor chunkingExecutor() {
-        ThreadPoolTaskExecutor exec = new ThreadPoolTaskExecutor();
-        exec.setCorePoolSize(4);
-        exec.setMaxPoolSize(8);
-        exec.setQueueCapacity(100);
-        exec.setThreadNamePrefix("chunk-");
-        exec.initialize();
-        return exec;
+        return Executors.newFixedThreadPool(8, r -> {
+            Thread t = new Thread(r);
+            t.setName("chunk-" + t.getId());
+            return t;
+        });
     }
 }

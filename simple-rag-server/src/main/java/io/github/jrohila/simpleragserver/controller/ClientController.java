@@ -1,25 +1,28 @@
 package io.github.jrohila.simpleragserver.controller;
 
 import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
 
-@RestController
-@RequestMapping("/api/client")
+@Controller("/api/client")
 public class ClientController {
     
-    @Autowired
-    private EmbeddingClientFactory embeddingClientFactory;
+    private final EmbeddingClientFactory embeddingClientFactory;
 
-    @PostMapping("/embed")
-    public ResponseEntity<float[]> calculateEmbedding(@RequestBody String input) {        
+    public ClientController(EmbeddingClientFactory embeddingClientFactory) {
+        this.embeddingClientFactory = embeddingClientFactory;
+    }
+
+    @Post("/embed")
+    public HttpResponse<float[]> calculateEmbedding(@Body String input) {        
         float[] embedding = embeddingClientFactory.getDefaultClient().embed(input);
         // Convert double[] to float[]
         float[] floatEmbedding = new float[embedding.length];
         for (int i = 0; i < embedding.length; i++) {
             floatEmbedding[i] = (float) embedding[i];
         }
-        return ResponseEntity.ok(floatEmbedding);
+        return HttpResponse.ok(floatEmbedding);
     }
 }

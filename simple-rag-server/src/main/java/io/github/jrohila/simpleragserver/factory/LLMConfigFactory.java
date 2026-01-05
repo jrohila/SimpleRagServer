@@ -1,12 +1,12 @@
 package io.github.jrohila.simpleragserver.factory;
 
 import io.github.jrohila.simpleragserver.domain.LLMConfig;
-import org.springframework.stereotype.Component;
+import jakarta.inject.Singleton;
 
 /**
  * Factory for producing initialized {@link LLMConfig} instances for common use-cases.
  */
-@Component
+@Singleton
 public class LLMConfigFactory {
 
     public LLMConfig create(LLMConfig.UseCase useCase) {

@@ -5,7 +5,7 @@
 package io.github.jrohila.simpleragserver.pipeline;
 
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
-import org.springframework.stereotype.Component;
+import jakarta.inject.Singleton;
 
 import java.text.BreakIterator;
 import java.util.Locale;
@@ -15,7 +15,7 @@ import java.util.logging.Logger;
  * Applies simple quality checks to chunks before they are embedded and stored.
  * Currently: require at least 3 sentences in the chunk text.
  */
-@Component
+@Singleton
 public class ChunkQualityGate {
 
 	private static final Logger LOGGER = Logger.getLogger(ChunkQualityGate.class.getName());

@@ -6,11 +6,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.List;
 import java.util.Locale;
-import org.springframework.beans.factory.annotation.Value;
+import io.micronaut.context.annotation.Property;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 import opennlp.tools.langdetect.Language;
 import opennlp.tools.langdetect.LanguageDetectorME;
 import opennlp.tools.langdetect.LanguageDetectorModel;
@@ -21,21 +21,21 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import opennlp.tools.tokenize.SimpleTokenizer;
 
-@Service
+@Singleton
 public class NlpService {
 
     private static final Logger log = LoggerFactory.getLogger(NlpService.class);
 
-    @Value("${nlp.sent-model-path:/models/sentences/opennlp-en-ud-ewt-sentence-1.3-2.5.4.bin}")
+    @Property(name = "nlp.sent-model-path", defaultValue = "/models/sentences/opennlp-en-ud-ewt-sentence-1.3-2.5.4.bin")
     private String enSentModelPath;
 
-    @Value("${nlp.pos-model-path:/models/pos/opennlp-en-ud-ewt-pos-1.3-2.5.4.bin}")
+    @Property(name = "nlp.pos-model-path", defaultValue = "/models/pos/opennlp-en-ud-ewt-pos-1.3-2.5.4.bin")
     private String enPosModelPath;
 
-    @Value("${nlp.lang-model:/models/lang/langdetect-183.bin}")
+    @Property(name = "nlp.lang-model", defaultValue = "/models/lang/langdetect-183.bin")
     private String langModel;
 
-    @Value("${nlp.model.path.type:classpath}")
+    @Property(name = "nlp.model.path.type", defaultValue = "classpath")
     private String nlpModelPathType;
 
     private volatile SentenceDetectorME enSentenceDetector;

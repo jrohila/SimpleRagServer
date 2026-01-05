@@ -4,23 +4,24 @@ import io.github.jrohila.simpleragserver.service.ChatService;
 import io.github.jrohila.simpleragserver.dto.OpenAiChatRequestDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import io.micronaut.context.annotation.Value;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.PathVariable;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.QueryValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jrohila.simpleragserver.repository.ChatManagerService;
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import org.springframework.beans.factory.annotation.Autowired;
+import reactor.core.publisher.Flux;
 
-@RestController
+@Controller
 public class ChatController {
 
-    @Autowired
-    private ChatManagerService chatManagerService;
+    private final ChatManagerService chatManagerService;
 
     private final ChatService chatService;
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
@@ -28,20 +29,21 @@ public class ChatController {
     @Value("${llm.ollama.model}")
     private String defaultModel;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(ChatService chatService, ChatManagerService chatManagerService) {
         this.chatService = chatService;
+        this.chatManagerService = chatManagerService;
     }
 
     // OpenAI-compatible chat completions endpoint
-    @PostMapping(path = {"/{publicName}/v1/chat/completions", "/{publicName}/api/chat"})
-    public ResponseEntity<?> createCompletion(@PathVariable String publicName,
-            @RequestBody OpenAiChatRequestDTO request,
-            @RequestParam(value = "useRag", required = false) Boolean useRag) {
+    @Post("/{publicName}/v1/chat/completions")
+    public HttpResponse<?> createCompletion(@PathVariable String publicName,
+                                            @Body OpenAiChatRequestDTO request,
+                                            @QueryValue(value = "useRag", defaultValue = "true") boolean useRag) {
         try {
             // Fetch ChatEntity by publicName
             var chatEntityOpt = chatManagerService.getByPublicName(publicName);
-            if (!chatEntityOpt.isPresent()) {
-                return ResponseEntity.badRequest().body("Chat with publicName '" + publicName + "' not found");
+            if (chatEntityOpt.isEmpty()) {
+                return HttpResponse.badRequest("Chat with publicName '" + publicName + "' not found");
             }
             var chatEntity = chatEntityOpt.get();
 
@@ -51,7 +53,7 @@ public class ChatController {
             if (request.getModel() == null || request.getModel().isBlank()) {
                 request.setModel(defaultModel);
             }
-            boolean rag = (useRag == null) ? true : useRag;
+            boolean rag = useRag;
             log.info("POST /v1/chat/completions stream={} useRag={} model={} msgs={} maxTokens={} temp={} topP={} topK={} freqPenalty={}",
                     request.isStream(), rag, request.getModel(),
                     (request.getMessages() == null ? 0 : request.getMessages().size()),
@@ -59,83 +61,16 @@ public class ChatController {
                     request.getTopP(), request.getTopK(), request.getFrequencyPenalty());
 
             if (request.isStream()) {
-                // Return SSE streaming response with 5 minute timeout
-                SseEmitter emitter = new SseEmitter(300000L); // 5 minutes timeout (300000 ms)
-
-                // Add timeout handler
-                emitter.onTimeout(() -> {
-                    log.warn("SSE connection timed out for chat: {}", publicName);
-                    try {
-                        emitter.send(SseEmitter.event()
-                                .data("{\"error\":\"Request timed out. Please try a shorter query or increase timeout.\"}"));
-                        emitter.complete();
-                    } catch (IOException | IllegalStateException e) {
-                        log.error("Error sending timeout message", e);
-                    }
-                });
-
-                // Add error handler
-                emitter.onError((ex) -> {
-                    log.error("Error in SSE stream", ex);
-                    emitter.completeWithError(ex);
-                });
-
-                // Add completion handler
-                emitter.onCompletion(() -> {
-                    log.info("SSE stream completed for chat: {}", publicName);
-                });
-
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        chatService.chatStream(request, chatEntity)
-                                .doOnNext(chunk -> {
-                                    try {
-                                        String jsonData = toJson(chunk);
-                                        emitter.send(SseEmitter.event().data(jsonData));
-                                    } catch (IOException e) {
-                                        log.error("Error sending SSE message", e);
-                                        emitter.completeWithError(e);
-                                    } catch (IllegalStateException e) {
-                                        log.warn("Attempted to send to completed emitter", e);
-                                        // Silently ignore - connection already closed
-                                    }
-                                })
-                                .doOnComplete(() -> {
-                                    try {
-                                        emitter.send(SseEmitter.event().data("[DONE]"));
-                                        emitter.complete();
-                                    } catch (IOException | IllegalStateException e) {
-                                        log.debug("Error completing emitter", e);
-                                    }
-                                })
-                                .doOnError((error) -> {
-                                    log.error("Error in chat completion stream", error);
-                                    try {
-                                        emitter.send(SseEmitter.event()
-                                                .data("{\"error\":\"" + error.getMessage() + "\"}"));
-                                        emitter.completeWithError(error);
-                                    } catch (IOException | IllegalStateException e) {
-                                        log.error("Error sending error message", e);
-                                    }
-                                })
-                                .subscribe();
-                    } catch (Exception e) {
-                        log.error("Exception in async task", e);
-                        emitter.completeWithError(e);
-                    }
-                });
-                return ResponseEntity.ok()
-                        .contentType(MediaType.TEXT_EVENT_STREAM)
-                        .body(emitter);
+                // Return Reactor Flux as SSE stream
+                Flux<?> flux = chatService.chatStream(request, chatEntity);
+                return HttpResponse.ok(flux).contentType(MediaType.TEXT_EVENT_STREAM_TYPE);
             } else {
                 // Non-streaming response
-                return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(chatService.chat(request, chatEntity));
+                return HttpResponse.ok(chatService.chat(request, chatEntity)).contentType(MediaType.APPLICATION_JSON_TYPE);
             }
         } catch (Throwable t) {
             log.error("Error in createCompletion", t);
-            return ResponseEntity.status(500).body("Internal server error: " + t.getMessage());
+            return HttpResponse.serverError("Internal server error: " + t.getMessage());
         }
     }
 

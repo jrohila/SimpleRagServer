@@ -32,3 +32,4 @@ replay_pid*
 /simple-rag-nlp/target
 .vscode/settings.json
 /simple-rag-server/upload
+/SimpleRagData/target/

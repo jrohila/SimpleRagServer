@@ -9,16 +9,16 @@ import io.github.jrohila.simpleragserver.repository.CollectionService;
 import io.github.jrohila.simpleragserver.repository.DocumentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import jakarta.inject.Inject;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.annotation.*;
+import io.micronaut.http.multipart.CompletedFileUpload;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@RestController
-@RequestMapping("/api/onboarding")
+@Controller("/api/onboarding")
 public class OnboardingController {
 
     private static final Logger log = LoggerFactory.getLogger(OnboardingController.class);
@@ -27,33 +27,32 @@ public class OnboardingController {
     private final CollectionService collectionService;
     private final DocumentService documentService;
 
-    @Autowired
-    public OnboardingController(ChatManagerService chatManagerService,
+        @Inject
+        public OnboardingController(ChatManagerService chatManagerService,
             CollectionService collectionManagerService,
             DocumentService documentService) {
         this.chatManagerService = chatManagerService;
         this.collectionService = collectionManagerService;
         this.documentService = documentService;
     }
-
-    @PostMapping(value = "/createNewChat", consumes = "multipart/form-data")
-    public ResponseEntity<OnboardingResponse> createNewChat(
-            @RequestParam String publicName,
-            @RequestParam String internalName,
-            @RequestParam String internalDescription,
-            @RequestParam String defaultLanguage,
-            @RequestParam String defaultSystemPrompt,
-            @RequestParam String defaultSystemPromptAppend,
-            @RequestParam String defaultContextPrompt,
-            @RequestParam String defaultMemoryPrompt,
-            @RequestParam String defaultExtractorPrompt,
-            @RequestParam String defaultOutOfScopeContext,
-            @RequestParam String defaultOutOfScopeMessage,
-            @RequestParam String collectionName,
-            @RequestParam String collectionDescription,
-            @RequestParam(defaultValue = "true") boolean overrideSystemMessage,
-            @RequestParam(defaultValue = "true") boolean overrideAssistantMessage,
-            @RequestParam(value = "file", required = false) List<MultipartFile> files) {
+        @Post(uri = "/createNewChat", consumes = MediaType.MULTIPART_FORM_DATA)
+        public HttpResponse<OnboardingResponse> createNewChat(
+            @Part("publicName") String publicName,
+            @Part("internalName") String internalName,
+            @Part("internalDescription") String internalDescription,
+            @Part("defaultLanguage") String defaultLanguage,
+            @Part("defaultSystemPrompt") String defaultSystemPrompt,
+            @Part("defaultSystemPromptAppend") String defaultSystemPromptAppend,
+            @Part("defaultContextPrompt") String defaultContextPrompt,
+            @Part("defaultMemoryPrompt") String defaultMemoryPrompt,
+            @Part("defaultExtractorPrompt") String defaultExtractorPrompt,
+            @Part("defaultOutOfScopeContext") String defaultOutOfScopeContext,
+            @Part("defaultOutOfScopeMessage") String defaultOutOfScopeMessage,
+            @Part("collectionName") String collectionName,
+            @Part("collectionDescription") String collectionDescription,
+            @Part(value = "overrideSystemMessage") Boolean overrideSystemMessage,
+            @Part(value = "overrideAssistantMessage") Boolean overrideAssistantMessage,
+            @Part(value = "file") List<CompletedFileUpload> files) {
         
         log.info("Starting onboarding for chat: publicName={}, collectionName={}", publicName, collectionName);
         int fileCount = files != null ? files.size() : 0;
@@ -70,8 +69,8 @@ public class OnboardingController {
         chat.setDefaultContextPrompt(defaultContextPrompt);
         chat.setDefaultMemoryPrompt(defaultMemoryPrompt);
         chat.setDefaultExtractorPrompt(defaultExtractorPrompt);
-        chat.setOverrideSystemMessage(overrideSystemMessage);
-        chat.setOverrideAssistantMessage(overrideAssistantMessage);
+        chat.setOverrideSystemMessage(overrideSystemMessage == null ? true : overrideSystemMessage);
+        chat.setOverrideAssistantMessage(overrideAssistantMessage == null ? true : overrideAssistantMessage);
         chat.setDefaultOutOfScopeMessage(defaultOutOfScopeMessage);
 
         // Map RequestParams to CollectionEntity
@@ -92,14 +91,14 @@ public class OnboardingController {
         List<DocumentEntity> createdDocs = new ArrayList<>();
         if (files != null) {
             log.info("Processing {} files for collection id={}", files.size(), createdCollection.getId());
-            for (MultipartFile file : files) {
+            for (CompletedFileUpload file : files) {
                 try {
-                    log.debug("Uploading file: name={}, size={} bytes", file.getOriginalFilename(), file.getSize());
+                    log.debug("Uploading file: name={}, size={} bytes", file.getFilename(), file.getSize());
                     DocumentEntity doc = documentService.uploadDocument(createdCollection.getId(), file);
                     createdDocs.add(doc);
                     log.info("File uploaded successfully: id={}, originalFilename={}", doc.getId(), doc.getOriginalFilename());
                 } catch (Exception e) {
-                    log.error("Failed to upload file: name={}, error={}", file.getOriginalFilename(), e.getMessage(), e);
+                    log.error("Failed to upload file: name={}, error={}", file.getFilename(), e.getMessage(), e);
                 }
             }
         } else {
@@ -109,7 +108,7 @@ public class OnboardingController {
         log.info("Onboarding completed successfully: chatId={}, collectionId={}, documentsCount={}", 
                 createdChat.getId(), createdCollection.getId(), createdDocs.size());
         OnboardingResponse response = new OnboardingResponse(createdChat, createdCollection, createdDocs);
-        return ResponseEntity.ok(response);
+        return HttpResponse.ok(response);
     }
 
     public static class OnboardingResponse {

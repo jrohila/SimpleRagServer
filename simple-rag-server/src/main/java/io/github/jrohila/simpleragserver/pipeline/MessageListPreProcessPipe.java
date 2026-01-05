@@ -8,13 +8,13 @@ import io.github.jrohila.simpleragserver.domain.ChatEntity;
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.stereotype.Component;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Jukka
  */
-@Component
+@Singleton
 public class MessageListPreProcessPipe {
     
     public List<MessageDTO> process(List<MessageDTO> messages, ChatEntity chatEntity) {

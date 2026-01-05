@@ -8,9 +8,9 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
+import io.micronaut.context.annotation.Property;
+import io.micronaut.core.annotation.Nullable;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
@@ -25,24 +25,28 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.output.Response;
 
-@Service
+@Singleton
 public class ChatResponsePostProcessor implements ChatStreamConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(ChatResponsePostProcessor.class);
 
     public Map<String, Pair<List<MessageDTO>, List<Integer>>> contexts = new HashMap<>();
 
-    @Autowired(required = false)
-    private LlmClientFactory llmClientFactory;
+    private final LlmClientFactory llmClientFactory;
+    private final ObjectMapper objectMapper;
+    private final UserFactsService userFactsService;
 
-    @Autowired(required = false)
-    private ObjectMapper objectMapper;
-
-    @Autowired(required = false)
-    private UserFactsService userFactsService;
-
-    @Value("${processing.post.chat.fact.extractor.append:}")
+    @Property(name = "processing.post.chat.fact.extractor.append", defaultValue = "")
     private String factExtractorTemplate;
+
+    public ChatResponsePostProcessor(
+            @Nullable LlmClientFactory llmClientFactory,
+            @Nullable ObjectMapper objectMapper,
+            @Nullable UserFactsService userFactsService) {
+        this.llmClientFactory = llmClientFactory;
+        this.objectMapper = objectMapper;
+        this.userFactsService = userFactsService;
+    }
 
     public void addContext(String streamId, List<MessageDTO> messages, List<Integer> tokens) {
         contexts.put(streamId, Pair.of(messages, tokens));

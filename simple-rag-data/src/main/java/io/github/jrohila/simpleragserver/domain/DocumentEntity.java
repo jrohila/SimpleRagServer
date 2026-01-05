@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+// Jackson annotations removed for SimpleRagData module
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -8,7 +8,6 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class DocumentEntity {
 
     public enum ProcessingState {

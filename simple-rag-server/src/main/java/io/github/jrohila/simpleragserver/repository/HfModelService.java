@@ -14,8 +14,7 @@ import org.opensearch.client.opensearch.core.GetRequest;
 import org.opensearch.client.opensearch.core.GetResponse;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,19 +22,23 @@ import java.util.Optional;
 import org.opensearch.client.json.JsonData;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 
-@Service
+@Singleton
 public class HfModelService {
 
     private static final Logger log = LoggerFactory.getLogger(HfModelService.class);
 
-    @Autowired
-    private IndicesManager indicesManager;
+    private final IndicesManager indicesManager;
+    private final OpenSearchClient openSearchClient;
+    private final HuggingFaceClient hfClient;
 
-    @Autowired
-    private OpenSearchClient openSearchClient;
-
-    @Autowired
-    private HuggingFaceClient hfClient;
+    public HfModelService(
+            IndicesManager indicesManager,
+            OpenSearchClient openSearchClient,
+            HuggingFaceClient hfClient) {
+        this.indicesManager = indicesManager;
+        this.openSearchClient = openSearchClient;
+        this.hfClient = hfClient;
+    }
 
     public HfModelEntity create(HfModelEntity model) {
         if (model.getId() == null || model.getId().isBlank()) {

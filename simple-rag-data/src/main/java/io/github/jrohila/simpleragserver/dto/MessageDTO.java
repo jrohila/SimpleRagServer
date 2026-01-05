@@ -59,8 +59,6 @@ public class MessageDTO {
         this.additionalProperties.put(name, value);
     }
 
-    @Getter
-    @RequiredArgsConstructor
     public enum Role {
         SYSTEM("system"),
         USER("user"),
@@ -68,6 +66,14 @@ public class MessageDTO {
         TOOL("tool");
 
         private final String value;
+
+        Role(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
 
         @JsonValue
         public String toValue() { return value; }

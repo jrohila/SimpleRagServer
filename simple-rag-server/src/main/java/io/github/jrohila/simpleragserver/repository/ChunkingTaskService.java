@@ -7,10 +7,9 @@ package io.github.jrohila.simpleragserver.repository;
 import io.github.jrohila.simpleragserver.domain.ChunkingTaskEntity;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import io.micronaut.http.HttpStatus;
+import jakarta.inject.Singleton;
+import io.micronaut.http.exceptions.HttpStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,15 +20,14 @@ import java.util.UUID;
  *
  * @author Jukka
  */
-@Service
+@Singleton
 public class ChunkingTaskService {
     
-    @Autowired
-    private OpenSearchClient openSearchClient;
-    
+    private final OpenSearchClient openSearchClient;
     private final IndicesManager indicesManager;
     
-    public ChunkingTaskService(IndicesManager indicesManager) {
+    public ChunkingTaskService(OpenSearchClient openSearchClient, IndicesManager indicesManager) {
+        this.openSearchClient = openSearchClient;
         this.indicesManager = indicesManager;
     }
     
@@ -207,11 +205,11 @@ public class ChunkingTaskService {
      */
     public ChunkingTaskEntity updateStatus(String id, DocumentEntity.ProcessingState status) {
         if (id == null || id.isBlank() || status == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id and status are required");
+            throw new HttpStatusException(HttpStatus.BAD_REQUEST, "id and status are required");
         }
         
         ChunkingTaskEntity task = getById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chunking task not found"));
+                .orElseThrow(() -> new HttpStatusException(HttpStatus.NOT_FOUND, "Chunking task not found"));
         
         task.setStatus(status);
         return save(task);
@@ -225,7 +223,7 @@ public class ChunkingTaskService {
             String indexName = indicesManager.createIfNotExist(ChunkingTaskEntity.class);
             
             if (!existsById(id)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chunking task not found");
+                throw new HttpStatusException(HttpStatus.NOT_FOUND, "Chunking task not found");
             }
             
             openSearchClient.delete(d -> d.index(indexName).id(id));

@@ -1,29 +1,28 @@
 package io.github.jrohila.simpleragserver.client;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
+import io.micronaut.context.annotation.Property;
+import io.micronaut.context.BeanContext;
+import io.micronaut.inject.qualifiers.Qualifiers;
+import jakarta.inject.Singleton;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Factory for creating LLM client instances based on provider name.
- * Uses Spring's dependency injection to locate provider implementations.
+ * Uses Micronaut's dependency injection to locate provider implementations.
  */
-@Component
+@Singleton
 public class LlmClientFactory {
     
-    private final ApplicationContext applicationContext;
+    private final BeanContext beanContext;
     private final String defaultProvider;
     private final Map<String, LlmClient> clientCache = new ConcurrentHashMap<>();
     
-    @Autowired
     public LlmClientFactory(
-            ApplicationContext applicationContext,
-            @Value("${llm.defaultProvider:ollama}") String defaultProvider) {
-        this.applicationContext = applicationContext;
+            BeanContext beanContext,
+            @Property(name = "llm.defaultProvider", defaultValue = "ollama") String defaultProvider) {
+        this.beanContext = beanContext;
         this.defaultProvider = defaultProvider;
     }
     
@@ -52,7 +51,7 @@ public class LlmClientFactory {
     private LlmClient createClient(String provider) {
         String beanName = provider + "LlmClient";
         try {
-            return applicationContext.getBean(beanName, LlmClient.class);
+            return beanContext.getBean(LlmClient.class, Qualifiers.byName(beanName));
         } catch (Exception e) {
             throw new IllegalArgumentException(
                 "No LLM client implementation found for provider: " + provider + 

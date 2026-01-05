@@ -1,8 +1,8 @@
 package io.github.jrohila.simpleragserver.service;
 
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import io.micronaut.context.annotation.Property;
+import jakarta.inject.Singleton;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -10,12 +10,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
-@Service
+@Singleton
 public class FileStorageService {
 
     private final Path rootLocation;
 
-    public FileStorageService(@Value("${storage.filesystem.root:./upload}") String filesystemRoot) {
+    public FileStorageService(@Property(name = "storage.filesystem.root", defaultValue = "./upload") String filesystemRoot) {
         this.rootLocation = Paths.get(filesystemRoot).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.rootLocation);

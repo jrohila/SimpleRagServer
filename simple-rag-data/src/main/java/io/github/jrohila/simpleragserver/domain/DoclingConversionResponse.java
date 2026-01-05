@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.domain;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+// Jackson annotations removed for SimpleRagData module
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,41 +14,21 @@ import java.util.Map;
 @ToString
 public class DoclingConversionResponse {
     
-    @JsonProperty("document")
     private DocumentContent document;
-    
-    @JsonProperty("status")
     private String status;
-    
-    @JsonProperty("errors")
     private List<String> errors;
-    
-    @JsonProperty("processing_time")
     private Double processingTime;
-    
-    @JsonProperty("timings")
     private Map<String, Object> timings;
     
     @Getter
     @Setter
     @ToString
     public static class DocumentContent {
-        @JsonProperty("filename")
         private String filename;
-        
-        @JsonProperty("md_content")
         private String mdContent;
-        
-        @JsonProperty("json_content")
         private JsonNode jsonContent; // Structured document data
-        
-        @JsonProperty("html_content")
         private String htmlContent;
-        
-        @JsonProperty("text_content")
         private String textContent;
-        
-        @JsonProperty("doctags_content")
         private String doctagsContent;
         
         // Helper methods

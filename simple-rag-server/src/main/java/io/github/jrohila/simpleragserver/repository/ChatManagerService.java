@@ -13,8 +13,7 @@ import org.opensearch.client.opensearch.core.IndexRequest;
 import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.GetRequest;
 import org.opensearch.client.opensearch.core.GetResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,19 +21,23 @@ import java.util.Optional;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 
-@Service
+@Singleton
 public class ChatManagerService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatManagerService.class);
 
-    @Autowired
-    private IndicesManager indicesManager;
+    private final IndicesManager indicesManager;
+    private final OpenSearchClient openSearchClient;
+    private final LLMConfigFactory llmConfigFactory;
 
-    @Autowired
-    private OpenSearchClient openSearchClient;
-
-    @Autowired
-    private LLMConfigFactory llmConfigFactory;
+    public ChatManagerService(
+            IndicesManager indicesManager,
+            OpenSearchClient openSearchClient,
+            LLMConfigFactory llmConfigFactory) {
+        this.indicesManager = indicesManager;
+        this.openSearchClient = openSearchClient;
+        this.llmConfigFactory = llmConfigFactory;
+    }
 
     public ChatEntity create(ChatEntity chat) {
         if (chat.getId() == null || chat.getId().isBlank()) {

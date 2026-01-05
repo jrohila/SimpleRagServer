@@ -18,7 +18,7 @@ import dev.langchain4j.model.output.Response;
 import io.github.jrohila.simpleragserver.client.LlmClient;
 import io.github.jrohila.simpleragserver.client.LlmClientFactory;
 import io.github.jrohila.simpleragserver.client.LlmRequestOptions;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional; // added
 // Add detector import
 import io.github.jrohila.simpleragserver.pipeline.ContextAdditionPipe;
@@ -37,7 +36,7 @@ import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import org.apache.commons.lang3.tuple.Pair;
 
-@Service
+@Singleton
 public class ChatService {
 
     public static enum ChatProcessResult {
@@ -46,23 +45,24 @@ public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
-    @Autowired
-    private ContextAdditionPipe contextAdditionPipe;
-
-    @Autowired
-    private ChatHelper chatHelper;
-
+    private final ContextAdditionPipe contextAdditionPipe;
+    private final ChatHelper chatHelper;
     private final LlmClientFactory llmClientFactory;
+    private final ChatStreamConsumer streamConsumer; // optional hook for streaming capture
+    private final ChatResponsePostProcessor postProcessor;
 
-    @Autowired
-    private ChatStreamConsumer streamConsumer; // optional hook for streaming capture
-
-    @Autowired
-    private ChatResponsePostProcessor postProcessor;
-
-    @Autowired
-    public ChatService(LlmClientFactory llmClientFactory, ChunkSearchService chunkSearchService) {
+    public ChatService(
+            LlmClientFactory llmClientFactory,
+            ChunkSearchService chunkSearchService,
+            ContextAdditionPipe contextAdditionPipe,
+            ChatHelper chatHelper,
+            ChatStreamConsumer streamConsumer,
+            ChatResponsePostProcessor postProcessor) {
         this.llmClientFactory = llmClientFactory;
+        this.contextAdditionPipe = contextAdditionPipe;
+        this.chatHelper = chatHelper;
+        this.streamConsumer = streamConsumer;
+        this.postProcessor = postProcessor;
     }
 
     private Pair<ChatProcessResult, List<MessageDTO>> handleMessage(OpenAiChatRequestDTO request, ChatEntity chatEntity) {

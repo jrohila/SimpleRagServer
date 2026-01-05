@@ -5,37 +5,35 @@ import io.github.jrohila.simpleragserver.domain.DocumentEntity.ProcessingState;
 import io.github.jrohila.simpleragserver.service.EventPublisherService;
 import io.github.jrohila.simpleragserver.service.FileStorageService;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
+import io.micronaut.http.HttpStatus;
+import jakarta.inject.Singleton;
+import io.micronaut.http.multipart.CompletedFileUpload;
+import io.micronaut.http.exceptions.HttpStatusException;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.springframework.beans.factory.annotation.Autowired;
 
-@Service
+@Singleton
 public class DocumentService {
 
-    @Autowired
-    private OpenSearchClient openSearchClient;
-    
-    @Autowired
-    private EventPublisherService eventPublisherService;
-
-
+    private final OpenSearchClient openSearchClient;
+    private final EventPublisherService eventPublisherService;
     private final FileStorageService fileStorageService;
     private final ChunkService chunkService;
     private final IndicesManager indicesManager;
 
     public DocumentService(
+            OpenSearchClient openSearchClient,
+            EventPublisherService eventPublisherService,
             FileStorageService fileStorageService,
             ChunkService chunkService,
             IndicesManager indicesManager
     ) {
+        this.openSearchClient = openSearchClient;
+        this.eventPublisherService = eventPublisherService;
         this.fileStorageService = fileStorageService;
         this.chunkService = chunkService;
         this.indicesManager = indicesManager;
@@ -97,14 +95,14 @@ public class DocumentService {
         }
     }
 
-    public DocumentEntity uploadDocument(String collectionId, MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
+    public DocumentEntity uploadDocument(String collectionId, CompletedFileUpload file) throws IOException {
+        if (file == null || file.getSize() <= 0) {
+            throw new HttpStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
 
         String hash = DigestUtils.sha256Hex(file.getInputStream());
         if (findByHash(collectionId, hash).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Document with the same hash already exists");
+            throw new HttpStatusException(HttpStatus.CONFLICT, "Document with the same hash already exists");
         }
 
         String now = java.time.Instant.now().toString();
@@ -115,11 +113,11 @@ public class DocumentService {
         String docId = java.util.UUID.randomUUID().toString();
         doc.setId(docId);
         doc.setContentId(docId); // Use same ID for content storage
-        if (file.getOriginalFilename() != null) {
-            doc.setOriginalFilename(file.getOriginalFilename());
+        if (file.getFilename() != null) {
+            doc.setOriginalFilename(file.getFilename());
         }
         if (file.getContentType() != null) {
-            doc.setMimeType(file.getContentType());
+            doc.setMimeType(file.getContentType().toString());
         }
         // content length may be set by the content store, but we can prefill
         doc.setContentLen(file.getSize());
@@ -137,26 +135,26 @@ public class DocumentService {
         return doc;
     }
 
-    public DocumentEntity updateDocument(String collectionId, String id, MultipartFile file, String language) throws IOException {
+    public DocumentEntity updateDocument(String collectionId, String id, CompletedFileUpload file, String language) throws IOException {
         String now = java.time.Instant.now().toString();
-        DocumentEntity doc = getById(collectionId, id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+        DocumentEntity doc = getById(collectionId, id).orElseThrow(() -> new HttpStatusException(HttpStatus.NOT_FOUND, "Document not found"));
 
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
+        if (file == null || file.getSize() <= 0) {
+            throw new HttpStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
 
         String newHash = DigestUtils.sha256Hex(file.getInputStream());
         if (findByHashExcludingId(collectionId, newHash, id).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Another document with the same hash exists");
+            throw new HttpStatusException(HttpStatus.CONFLICT, "Another document with the same hash exists");
         }
 
         // Update fields that exist on DocumentEntity
         doc.setHash(newHash);
-        if (file.getOriginalFilename() != null) {
-            doc.setOriginalFilename(file.getOriginalFilename());
+        if (file.getFilename() != null) {
+            doc.setOriginalFilename(file.getFilename());
         }
         if (file.getContentType() != null) {
-            doc.setMimeType(file.getContentType());
+            doc.setMimeType(file.getContentType().toString());
         }
         doc.setContentLen(file.getSize());
 
@@ -178,7 +176,7 @@ public class DocumentService {
             String incideName = indicesManager.createIfNotExist(collectionId, DocumentEntity.class);
 
             if (!existsById(collectionId, id)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found");
+                throw new HttpStatusException(HttpStatus.NOT_FOUND, "Document not found");
             }
 
             chunkService.deleteByDocumentId(collectionId, id);
@@ -207,10 +205,10 @@ public class DocumentService {
 
     public DocumentEntity updateProcessingState(String collectionId, String documentId, ProcessingState state) {
         if (documentId == null || documentId.isBlank() || state == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "documentId and state are required");
+            throw new HttpStatusException(HttpStatus.BAD_REQUEST, "documentId and state are required");
         }
         DocumentEntity doc = getById(collectionId, documentId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+                .orElseThrow(() -> new HttpStatusException(HttpStatus.NOT_FOUND, "Document not found"));
         doc.setState(state);
         indexDocument(collectionId, doc);
         return doc;

@@ -12,18 +12,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Jukka
  */
-@Component
+@Singleton
 public class BoostTermDetector {
 
-    @Autowired
-    private NlpService nlpService;
+    private final NlpService nlpService;
+
+    public BoostTermDetector(NlpService nlpService) {
+        this.nlpService = nlpService;
+    }
 
     public List<SearchTerm> buildSearchTerms(String query, List<MessageDTO> messages, Double queryTermWeight, Double userMessageWeight, Double assistantMessageWeight) {
         Set<String> terms = new HashSet<>();

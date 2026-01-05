@@ -5,31 +5,29 @@ import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 // Removed ChunkRepository import
 import org.apache.commons.codec.digest.DigestUtils;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-// Removed Spring Data imports
-import org.springframework.stereotype.Service;
+import io.micronaut.context.annotation.Property;
+import jakarta.inject.Singleton;
 
 import java.util.Optional;
 
-@Service
+@Singleton
 public class ChunkService {
 
-    @Autowired
-    private IndicesManager indicesManager;
-
-    @Autowired
-    private OpenSearchClient openSearchClient;
-
+    private final IndicesManager indicesManager;
+    private final OpenSearchClient openSearchClient;
     private final int embeddingDim;
+    private final EmbeddingClientFactory embedService;
 
-    @Autowired
-    public ChunkService(@Value("${chunks.dimension-size}") int embeddingDim) {
+    public ChunkService(
+            IndicesManager indicesManager,
+            OpenSearchClient openSearchClient,
+            @Property(name = "chunks.dimension-size") int embeddingDim,
+            EmbeddingClientFactory embedService) {
+        this.indicesManager = indicesManager;
+        this.openSearchClient = openSearchClient;
         this.embeddingDim = embeddingDim;
+        this.embedService = embedService;
     }
-
-    @Autowired
-    private EmbeddingClientFactory embedService;
     
     public ChunkEntity create(String collectionId, ChunkEntity chunk) {
         String now = java.time.Instant.now().toString();

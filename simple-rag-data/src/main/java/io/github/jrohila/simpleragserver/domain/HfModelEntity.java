@@ -1,6 +1,6 @@
 package io.github.jrohila.simpleragserver.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+// Jackson annotations removed for SimpleRagData module
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,7 +15,6 @@ import java.util.List;
 @Setter
 @ToString
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class HfModelEntity {
 
     private String id;
@@ -44,7 +43,6 @@ public class HfModelEntity {
     @Setter
     @ToString
     @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class HfModelFile {
         private String filename;
         private String url;

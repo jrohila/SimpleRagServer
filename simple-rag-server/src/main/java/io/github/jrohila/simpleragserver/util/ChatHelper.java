@@ -9,13 +9,13 @@ import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.github.jrohila.simpleragserver.dto.MessageDTO;
 import java.util.List;
-import org.springframework.stereotype.Component;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Jukka
  */
-@Component
+@Singleton
 public class ChatHelper {
 
     // Default to CL100K_BASE (OpenAI GPT-family). For non-OpenAI models this is an approximation.

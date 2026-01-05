@@ -2,30 +2,31 @@ package io.github.jrohila.simpleragserver.client;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
+import io.micronaut.context.annotation.Property;
+import io.micronaut.context.BeanContext;
+import io.micronaut.inject.qualifiers.Qualifiers;
+import jakarta.inject.Singleton;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Factory for creating and managing EmbeddingClient instances.
- * Supports multiple providers through Spring's dependency injection.
+ * Supports multiple providers through Micronaut's dependency injection.
  */
-@Component
+@Singleton
 public class EmbeddingClientFactory {
     
     private static final Logger log = LoggerFactory.getLogger(EmbeddingClientFactory.class);
     
-    private final ApplicationContext applicationContext;
+    private final BeanContext beanContext;
     private final String defaultProvider;
     private final Map<String, EmbeddingClient> clientCache = new ConcurrentHashMap<>();
     
     public EmbeddingClientFactory(
-            ApplicationContext applicationContext,
-            @Value("${llm.defaultProvider:ollama}") String defaultProvider) {
-        this.applicationContext = applicationContext;
+            BeanContext beanContext,
+            @Property(name = "llm.defaultProvider", defaultValue = "ollama") String defaultProvider) {
+        this.beanContext = beanContext;
         this.defaultProvider = defaultProvider;
         log.info("Initialized EmbeddingClientFactory with default provider: {}", defaultProvider);
     }
@@ -41,7 +42,7 @@ public class EmbeddingClientFactory {
         return clientCache.computeIfAbsent(provider, p -> {
             String beanName = p.toLowerCase() + "EmbeddingClient";
             try {
-                EmbeddingClient client = applicationContext.getBean(beanName, EmbeddingClient.class);
+                EmbeddingClient client = beanContext.getBean(EmbeddingClient.class, Qualifiers.byName(beanName));
                 log.info("Created embedding client for provider: {}", p);
                 return client;
             } catch (Exception e) {

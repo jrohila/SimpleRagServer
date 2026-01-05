@@ -17,24 +17,24 @@ import java.util.logging.Logger;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import io.micronaut.context.annotation.Property;
+import jakarta.inject.Singleton;
 
 /**
  *
  * @author Jukka
  */
-@Service
+@Singleton
 public class IndicesManager {
 
     private static final Logger LOGGER = Logger.getLogger(IndicesManager.class.getName());
 
     private final OpenSearchClient client;
 
-    @Value("${chunks.dimension-size}")
+    @Property(name = "chunks.dimension-size")
     private int embeddingDim;
 
-    @Value("${chunks.similarity-function}")
+    @Property(name = "chunks.similarity-function")
     private String similarity; // cosinesimil | l2 | innerproduct
 
     private final Set<String> existingIndices = new HashSet<>();

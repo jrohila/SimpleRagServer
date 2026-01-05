@@ -5,31 +5,28 @@ import io.github.jrohila.simpleragserver.controller.util.SearchResultDtoMapper;
 import io.github.jrohila.simpleragserver.controller.util.Term;
 import io.github.jrohila.simpleragserver.controller.util.VectorSearchRequest;
 import io.github.jrohila.simpleragserver.domain.SearchResultDTO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import io.micronaut.http.annotation.*;
+import io.micronaut.http.MediaType;
 
 import java.util.List;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import io.github.jrohila.simpleragserver.repository.ChunkSearchService;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
-import org.springframework.http.MediaType;
 import java.util.ArrayList;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
 
-@RestController
-@RequestMapping("/api/search")
+@Controller("/api/search")
 public class SearchController {
 
     private final ChunkSearchService chunkSearchService;
 
-    @Autowired
     public SearchController(ChunkSearchService chunkSearchService) {
         this.chunkSearchService = chunkSearchService;
     }
 
     // Lexical-only search (no vector, no hybrid), same payload as hybrid
-    @PostMapping(path = "/lexical", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> lexicalSearch(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
+    @Post(uri = "/lexical", consumes = MediaType.APPLICATION_JSON)
+    public List<SearchResultDTO> lexicalSearch(@QueryValue String collectionId, @Body HybridSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -67,8 +64,8 @@ public class SearchController {
     }
 
     // Pure vector search (kNN) with optional language and mandatory term filters, plus client-side rerank by boost weights
-    @PostMapping(path = "/vector", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> vectorSearch(@RequestParam String collectionId, @RequestBody VectorSearchRequest req) {
+    @Post(uri = "/vector", consumes = MediaType.APPLICATION_JSON)
+    public List<SearchResultDTO> vectorSearch(@QueryValue String collectionId, @Body VectorSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
@@ -100,8 +97,8 @@ public class SearchController {
     }
 
     // Hybrid search using Spring Data OpenSearch (lexical + kNN with per-term boost and mandatory filters)
-    @PostMapping(path = "/hybrid", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public List<SearchResultDTO> hybridSearch(@RequestParam String collectionId, @RequestBody HybridSearchRequest req) {
+    @Post(uri = "/hybrid", consumes = MediaType.APPLICATION_JSON)
+    public List<SearchResultDTO> hybridSearch(@QueryValue String collectionId, @Body HybridSearchRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("Request must not be null");
         }

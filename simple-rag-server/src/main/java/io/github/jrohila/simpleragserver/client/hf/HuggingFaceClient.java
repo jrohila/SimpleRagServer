@@ -1,7 +1,7 @@
 package io.github.jrohila.simpleragserver.client.hf;
 
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Value;
+import io.micronaut.context.annotation.Property;
+import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-@Service
+@Singleton
 public class HuggingFaceClient {
 
     private static final Logger logger = LoggerFactory.getLogger(HuggingFaceClient.class);
@@ -38,7 +38,7 @@ public class HuggingFaceClient {
     private final ObjectMapper mapper;
     private final String token;
 
-    public HuggingFaceClient(@Value("${HF_TOKEN:}") String hfToken) {
+    public HuggingFaceClient(@Property(name = "HF_TOKEN", defaultValue = "") String hfToken) {
         this.client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();

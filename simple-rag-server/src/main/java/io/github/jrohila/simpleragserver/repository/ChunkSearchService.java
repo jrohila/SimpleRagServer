@@ -7,8 +7,7 @@ package io.github.jrohila.simpleragserver.repository;
 import io.github.jrohila.simpleragserver.client.EmbeddingClientFactory;
 import io.github.jrohila.simpleragserver.domain.ChunkEntity;
 import java.util.ArrayList;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 import io.github.jrohila.simpleragserver.service.util.SearchResult;
 import io.github.jrohila.simpleragserver.service.util.SearchTerm;
 import java.util.LinkedHashSet;
@@ -31,19 +30,23 @@ import org.slf4j.LoggerFactory;
  *
  * @author Jukka
  */
-@Service
+@Singleton
 public class ChunkSearchService {
 
-    @Autowired
-    private OpenSearchClient openSearchClient;
+    private final OpenSearchClient openSearchClient;
+    private final EmbeddingClientFactory embedClient;
+    private final IndicesManager indicesManager;
 
     private static final Logger log = LoggerFactory.getLogger(ChunkSearchService.class);
 
-    @Autowired
-    private EmbeddingClientFactory embedClient;
-
-    @Autowired
-    private IndicesManager indicesManager;
+    public ChunkSearchService(
+            OpenSearchClient openSearchClient,
+            EmbeddingClientFactory embedClient,
+            IndicesManager indicesManager) {
+        this.openSearchClient = openSearchClient;
+        this.embedClient = embedClient;
+        this.indicesManager = indicesManager;
+    }
 
     // Limit the number of boosted terms added to the query
     private static final int MAX_TERMS = 12;

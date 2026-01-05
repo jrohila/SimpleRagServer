@@ -4,7 +4,7 @@
  */
 package io.github.jrohila.simpleragserver.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+// Jackson annotations removed for SimpleRagData module
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -16,19 +16,14 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class ChunkingTaskEntity {
+public class CollectionEntity {
 
     private String id;
     
-    private String collectionId;
+    private String name;
     
-    private String documentId;
-    
-    private String taskId;
-    
-    private DocumentEntity.ProcessingState status;
-    
+    private String description;
+
     private String created;
 
     private String modified;

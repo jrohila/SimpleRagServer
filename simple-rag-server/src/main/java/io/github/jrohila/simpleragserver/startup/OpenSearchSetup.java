@@ -4,10 +4,10 @@ import java.util.logging.Level;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
+import io.micronaut.context.annotation.Property;
+import io.micronaut.context.event.ApplicationEventListener;
+import io.micronaut.context.event.StartupEvent;
+import jakarta.inject.Singleton;
 
 import java.util.List;
 import java.util.Map;
@@ -23,39 +23,42 @@ import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.repository.IndicesManager;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import org.springframework.beans.factory.annotation.Autowired;
 
-@Component
-public class OpenSearchSetup implements ApplicationRunner {
+@Singleton
+public class OpenSearchSetup implements ApplicationEventListener<StartupEvent> {
 
     private static final Logger LOGGER = Logger.getLogger(OpenSearchSetup.class.getName());
 
     private final OpenSearchClient client;
+    private final IndicesManager indicesManager;
 
     // OpenSearch connection (reused for pipeline HTTP call)
-    @Value("${opensearch.uris}")
+    @Property(name = "opensearch.uris")
     private String osUri;
-    @Value("${opensearch.username:}")
+    @Property(name = "opensearch.username", defaultValue = "")
     private String username;
-    @Value("${opensearch.password:}")
+    @Property(name = "opensearch.password", defaultValue = "")
     private String password;
 
-    @Autowired
-    private IndicesManager indicesManager;
-
-    public OpenSearchSetup(OpenSearchClient client) {
+    public OpenSearchSetup(OpenSearchClient client, IndicesManager indicesManager) {
         this.client = client;
+        this.indicesManager = indicesManager;
     }
 
     @Override
-    public void run(ApplicationArguments args) throws Exception {
-        waitForOpenSearch();
-        // Call individual creation methods here
-        indicesManager.createIfNotExist(null, DocumentEntity.class);
-        indicesManager.createIfNotExist(null, ChunkEntity.class);
-        indicesManager.createIfNotExist(null, ChatEntity.class);
+    public void onApplicationEvent(StartupEvent event) {
+        try {
+            waitForOpenSearch();
+            // Call individual creation methods here
+            indicesManager.createIfNotExist(null, DocumentEntity.class);
+            indicesManager.createIfNotExist(null, ChunkEntity.class);
+            indicesManager.createIfNotExist(null, ChatEntity.class);
 
-        createRffPipeline();
+            createRffPipeline();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to setup OpenSearch", e);
+            throw new RuntimeException("OpenSearch setup failed", e);
+        }
     }
 
     /**

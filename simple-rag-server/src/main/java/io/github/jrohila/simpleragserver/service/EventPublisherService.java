@@ -3,10 +3,10 @@ package io.github.jrohila.simpleragserver.service;
 import io.github.jrohila.simpleragserver.event.DocumentUploadEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
+import io.micronaut.context.event.ApplicationEventPublisher;
+import jakarta.inject.Singleton;
 
-@Service
+@Singleton
 public class EventPublisherService {
 
     private static final Logger logger = LoggerFactory.getLogger(EventPublisherService.class);

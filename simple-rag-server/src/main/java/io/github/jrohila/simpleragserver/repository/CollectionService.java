@@ -8,8 +8,7 @@ import org.opensearch.client.opensearch.core.GetResponse;
 import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import jakarta.inject.Singleton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,18 +17,21 @@ import java.util.Optional;
 import io.github.jrohila.simpleragserver.domain.DocumentEntity;
 import io.github.jrohila.simpleragserver.repository.DocumentService;
 
-@Service
+@Singleton
 public class CollectionService {
 
+    private final IndicesManager indicesManager;
+    private final OpenSearchClient openSearchClient;
+    private final DocumentService documentService;
 
-    @Autowired
-    private io.github.jrohila.simpleragserver.repository.IndicesManager indicesManager;
-
-    @Autowired
-    private OpenSearchClient openSearchClient;
-
-    @Autowired
-    private DocumentService documentService;
+    public CollectionService(
+            IndicesManager indicesManager,
+            OpenSearchClient openSearchClient,
+            DocumentService documentService) {
+        this.indicesManager = indicesManager;
+        this.openSearchClient = openSearchClient;
+        this.documentService = documentService;
+    }
 
     public CollectionEntity create(CollectionEntity collection) {
         if (collection.getId() == null || collection.getId().isBlank()) {
